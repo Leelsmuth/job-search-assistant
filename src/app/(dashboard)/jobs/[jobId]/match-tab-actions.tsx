@@ -1,11 +1,11 @@
 "use client";
 
-import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { rematchJobAction } from "@/server/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
+import { usePendingTransition } from "@/components/layout/action-pending-provider";
 
 export function MatchTabActions({
   jobId,
@@ -18,10 +18,10 @@ export function MatchTabActions({
 }) {
   const router = useRouter();
   const { toast } = useToast();
-  const [isPending, startTransition] = useTransition();
+  const { isPending, run } = usePendingTransition();
 
   function runAnalysis() {
-    startTransition(async () => {
+    run(async () => {
       try {
         await rematchJobAction(jobId);
         toast({
@@ -48,7 +48,7 @@ export function MatchTabActions({
       <Button
         size="sm"
         variant="outline"
-        disabled={isPending}
+        loading={isPending}
         onClick={runAnalysis}
       >
         {isPending

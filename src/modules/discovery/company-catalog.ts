@@ -3,14 +3,39 @@ import {
   type CompanyJobSource,
 } from "../../../data/company-sources.schema";
 import verifiedCatalog from "../../../data/company-sources.verified.json";
+import { makeRegistryId } from "./registry/board-identity";
 
 let cachedSeed: CompanyJobSource[] | null = null;
 
+/** When Ashby/Lever boards share a slug with a Greenhouse board, legacy seeds reused the bare slug as id. */
+export function ensureUniqueCatalogIds(
+  companies: CompanyJobSource[]
+): CompanyJobSource[] {
+  const byId = new Map<string, CompanyJobSource[]>();
+  for (const company of companies) {
+    const group = byId.get(company.id) ?? [];
+    group.push(company);
+    byId.set(company.id, group);
+  }
+
+  return companies.map((company) => {
+    const group = byId.get(company.id)!;
+    if (group.length === 1 || company.atsProvider === "greenhouse") {
+      return company;
+    }
+    return {
+      ...company,
+      id: makeRegistryId(company.atsProvider, company.boardSlug),
+    };
+  });
+}
+
 function loadCatalog(): CompanyJobSource[] {
   const seed = companySourcesSeedSchema.parse(verifiedCatalog);
-  return seed.companies.filter(
+  const verified = seed.companies.filter(
     (c) => c.enabled && c.verificationStatus === "verified"
   );
+  return ensureUniqueCatalogIds(verified);
 }
 
 export function getCompanySourceCatalog(): CompanyJobSource[] {

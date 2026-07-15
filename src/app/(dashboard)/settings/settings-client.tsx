@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   addSavedBoard,
@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { CompanyCatalogPanel } from "@/components/discovery/company-catalog-panel";
+import { useKeyedPending } from "@/components/layout/action-pending-provider";
 
 type BoardProvider = "greenhouse" | "lever" | "ashby";
 
@@ -51,7 +52,7 @@ export function SettingsClient({
 }) {
   const router = useRouter();
   const { toast } = useToast();
-  const [isPending, startTransition] = useTransition();
+  const { run, isKeyPending } = useKeyedPending();
   const [companyName, setCompanyName] = useState("");
   const [boardUrl, setBoardUrl] = useState("");
   const [provider, setProvider] = useState<BoardProvider>("greenhouse");
@@ -122,9 +123,9 @@ export function SettingsClient({
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled={isPending}
+                      loading={isKeyPending(`toggle-${board.id}`)}
                       onClick={() =>
-                        startTransition(async () => {
+                        run(`toggle-${board.id}`, async () => {
                           try {
                             await updateSavedBoard(board.id, { isActive: !board.isActive });
                             router.refresh();
@@ -138,14 +139,19 @@ export function SettingsClient({
                         })
                       }
                     >
-                      {board.isActive ? "Disable" : "Enable"}
+                      {isKeyPending(`toggle-${board.id}`)
+                        ? "Updating..."
+                        : board.isActive
+                          ? "Disable"
+                          : "Enable"}
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled={isPending || !board.isActive}
+                      loading={isKeyPending(`poll-${board.id}`)}
+                      disabled={!board.isActive}
                       onClick={() =>
-                        startTransition(async () => {
+                        run(`poll-${board.id}`, async () => {
                           try {
                             const stats = await pollSavedBoardNow(board.id);
                             router.refresh();
@@ -163,14 +169,14 @@ export function SettingsClient({
                         })
                       }
                     >
-                      Poll now
+                      {isKeyPending(`poll-${board.id}`) ? "Polling..." : "Poll now"}
                     </Button>
                     <Button
                       variant="destructive"
                       size="sm"
-                      disabled={isPending}
+                      loading={isKeyPending(`delete-${board.id}`)}
                       onClick={() =>
-                        startTransition(async () => {
+                        run(`delete-${board.id}`, async () => {
                           try {
                             await deleteSavedBoard(board.id);
                             router.refresh();
@@ -185,7 +191,7 @@ export function SettingsClient({
                         })
                       }
                     >
-                      Delete
+                      {isKeyPending(`delete-${board.id}`) ? "Deleting..." : "Delete"}
                     </Button>
                   </div>
                 </li>
@@ -224,9 +230,10 @@ export function SettingsClient({
             </select>
           </div>
           <Button
-            disabled={isPending || !companyName || !boardUrl}
+            loading={isKeyPending("add-board")}
+            disabled={!companyName || !boardUrl}
             onClick={() =>
-              startTransition(async () => {
+              run("add-board", async () => {
                 try {
                   await addSavedBoard({ companyName, boardUrl, provider });
                   setCompanyName("");
@@ -244,7 +251,7 @@ export function SettingsClient({
               })
             }
           >
-            Add Board
+            {isKeyPending("add-board") ? "Adding..." : "Add Board"}
           </Button>
         </CardContent>
       </Card>
@@ -256,9 +263,10 @@ export function SettingsClient({
         <CardContent>
           <Button
             variant="destructive"
-            onClick={() => startTransition(() => signOut())}
+            loading={isKeyPending("sign-out")}
+            onClick={() => run("sign-out", async () => signOut())}
           >
-            Sign Out
+            {isKeyPending("sign-out") ? "Signing out..." : "Sign Out"}
           </Button>
         </CardContent>
       </Card>

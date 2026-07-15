@@ -109,6 +109,7 @@ export function LoginForm({
             <Button
               type="submit"
               className="w-full"
+              loading={loading}
               disabled={loading || !appConfigured}
             >
               {loading ? "Loading..." : isSignUp ? "Sign Up" : "Sign In"}

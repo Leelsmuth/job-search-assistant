@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import {
   draftAnswer,
   saveApplicationAnswer,
@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
+import { useKeyedPending } from "@/components/layout/action-pending-provider";
 
 const COMMON_QUESTIONS = [
   "Why are you interested in this role?",
@@ -59,7 +60,7 @@ export function ApplicationQAPanel({
     initialState.unsupportedClaims
   );
   const [savedAnswers, setSavedAnswers] = useState(initialAnswers);
-  const [isPending, startTransition] = useTransition();
+  const { run, isKeyPending } = useKeyedPending();
   const [showSources, setShowSources] = useState(initialState.showSources);
 
   const activeQuestion = customQuestion.trim() || presetQuestion;
@@ -136,9 +137,10 @@ export function ApplicationQAPanel({
       </p>
       <div className="flex gap-2">
         <Button
-          disabled={isPending || !activeQuestion.trim()}
+          loading={isKeyPending("draft")}
+          disabled={!activeQuestion.trim()}
           onClick={() =>
-            startTransition(async () => {
+            run("draft", async () => {
               try {
                 const result = await draftAnswer(jobId, activeQuestion, applicationId);
                 setApplicationId(result.applicationId);
@@ -158,13 +160,14 @@ export function ApplicationQAPanel({
             })
           }
         >
-          {isPending ? "Drafting..." : "Draft Answer"}
+          {isKeyPending("draft") ? "Drafting..." : "Draft Answer"}
         </Button>
         <Button
           variant="outline"
-          disabled={isPending || !answer.trim() || !activeQuestion.trim()}
+          loading={isKeyPending("save")}
+          disabled={!answer.trim() || !activeQuestion.trim()}
           onClick={() =>
-            startTransition(async () => {
+            run("save", async () => {
               try {
                 const result = await saveApplicationAnswer(
                   jobId,
@@ -188,7 +191,7 @@ export function ApplicationQAPanel({
             })
           }
         >
-          Save Edits
+          {isKeyPending("save") ? "Saving..." : "Save Edits"}
         </Button>
       </div>
       <div>

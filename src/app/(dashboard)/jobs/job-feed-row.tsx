@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { classificationColor, formatSalary, formatMatchScore } from "@/lib/utils";
 import type { MatchClassification } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { JobDeleteButton } from "./job-delete-button";
 
 type FeedJob = {
@@ -38,10 +40,17 @@ export function JobFeedRow({
   lowExtraction: boolean;
   isNew: boolean;
 }) {
+  const [deleting, setDeleting] = useState(false);
   const match = job.matchAnalyses[0];
 
   return (
-    <Card className="transition-colors hover:bg-accent/50">
+    <Card
+      className={cn(
+        "transition-colors hover:bg-accent/50",
+        deleting && "pointer-events-none opacity-60"
+      )}
+      aria-busy={deleting}
+    >
       <CardContent className="flex items-center gap-2 p-4">
         <Link href={`/jobs/${job.id}`} className="flex min-w-0 flex-1 items-center gap-4">
           <div className="w-14 shrink-0 text-center">
@@ -66,6 +75,9 @@ export function JobFeedRow({
                   low extraction
                 </Badge>
               )}
+              {deleting ? (
+                <Badge className="bg-muted text-muted-foreground">Deleting...</Badge>
+              ) : null}
             </div>
             <p className="text-sm text-muted-foreground">
               {job.company?.name ?? "Unknown"} · {job.location ?? "—"} · {job.workplaceType ?? "—"}
@@ -83,7 +95,11 @@ export function JobFeedRow({
             </div>
           </div>
         </Link>
-        <JobDeleteButton jobId={job.id} jobTitle={job.title} />
+        <JobDeleteButton
+          jobId={job.id}
+          jobTitle={job.title}
+          onDeletingChange={setDeleting}
+        />
       </CardContent>
     </Card>
   );

@@ -104,7 +104,7 @@ export default function OnboardingPage() {
             </CardContent>
           </Card>
           <div className="flex gap-2">
-            <Button onClick={handleApprove} disabled={isPending}>
+            <Button onClick={handleApprove} loading={isPending} disabled={isPending}>
               {isPending ? "Saving..." : "Approve & Continue"}
             </Button>
             <Button variant="outline" onClick={() => setStep("upload")}>

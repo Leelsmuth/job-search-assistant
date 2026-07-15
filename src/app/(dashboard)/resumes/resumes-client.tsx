@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   uploadResume,
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { ResumeUploadField } from "@/components/resumes/resume-upload-field";
-import { Loader2 } from "lucide-react";
+import { usePendingTransition } from "@/components/layout/action-pending-provider";
 
 type ResumeDoc = {
   id: string;
@@ -32,12 +32,12 @@ export function ResumesClient({ initialDocuments }: { initialDocuments: ResumeDo
   const router = useRouter();
   const { toast } = useToast();
   const [documents, setDocuments] = useState(initialDocuments);
-  const [isPending, startTransition] = useTransition();
+  const { isPending, run } = usePendingTransition();
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [wipeExtracted, setWipeExtracted] = useState(false);
 
   function refreshDocuments() {
-    startTransition(async () => {
+    run(async () => {
       const updated = await listResumeDocuments();
       setDocuments(updated);
     });
@@ -60,7 +60,7 @@ export function ResumesClient({ initialDocuments }: { initialDocuments: ResumeDo
   }
 
   function handleDelete(documentId: string) {
-    startTransition(async () => {
+    run(async () => {
       try {
         await deleteResumeDocument(documentId, { wipeExtractedData: wipeExtracted });
         setDocuments((prev) => prev.filter((d) => d.id !== documentId));
@@ -136,17 +136,10 @@ export function ResumesClient({ initialDocuments }: { initialDocuments: ResumeDo
                       <Button
                         size="sm"
                         variant="destructive"
-                        disabled={isPending}
+                        loading={isPending}
                         onClick={() => handleDelete(doc.id)}
                       >
-                        {isPending ? (
-                          <>
-                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                            Deleting…
-                          </>
-                        ) : (
-                          "Confirm delete"
-                        )}
+                        {isPending ? "Deleting..." : "Confirm delete"}
                       </Button>
                       <Button
                         size="sm"

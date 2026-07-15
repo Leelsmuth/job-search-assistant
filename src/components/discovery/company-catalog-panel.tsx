@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addSavedBoardFromCatalog } from "@/server/actions";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
+import { useKeyedPending } from "@/components/layout/action-pending-provider";
 
 export type CatalogEntry = {
   id: string;
@@ -38,7 +39,7 @@ export function CompanyCatalogPanel({
 }) {
   const router = useRouter();
   const { toast } = useToast();
-  const [isPending, startTransition] = useTransition();
+  const { run, isKeyPending } = useKeyedPending();
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogProvider, setCatalogProvider] = useState("");
   const [catalogCountry, setCatalogCountry] = useState("");
@@ -144,7 +145,7 @@ export function CompanyCatalogPanel({
               const following = followingUrls.has(entry.boardUrl);
               return (
                 <li
-                  key={entry.id}
+                  key={entry.boardUrl}
                   className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3 text-sm"
                 >
                   <div className="min-w-0 flex-1">
@@ -176,9 +177,10 @@ export function CompanyCatalogPanel({
                   <Button
                     size="sm"
                     variant={following ? "outline" : "default"}
-                    disabled={isPending || following}
+                    loading={isKeyPending(`add-${entry.boardUrl}`)}
+                    disabled={following}
                     onClick={() =>
-                      startTransition(async () => {
+                      run(`add-${entry.boardUrl}`, async () => {
                         try {
                           const result = await addSavedBoardFromCatalog(entry.id);
                           router.refresh();
@@ -196,7 +198,11 @@ export function CompanyCatalogPanel({
                       })
                     }
                   >
-                    {following ? "Following" : "Add"}
+                    {isKeyPending(`add-${entry.boardUrl}`)
+                      ? "Adding..."
+                      : following
+                        ? "Following"
+                        : "Add"}
                   </Button>
                 </li>
               );

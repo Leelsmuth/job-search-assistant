@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   previewJobImportAction,
@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { mapImportError } from "@/lib/import-errors";
+import { usePendingTransition } from "@/components/layout/action-pending-provider";
 
 type ImportMeta = {
   provider: string;
@@ -26,7 +27,7 @@ type ImportMeta = {
 export default function ImportJobPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [isPending, startTransition] = useTransition();
+  const { isPending, run } = usePendingTransition();
   const [error, setError] = useState("");
   const [preview, setPreview] = useState<NormalizedJob | null>(null);
   const [meta, setMeta] = useState<ImportMeta | null>(null);
@@ -34,7 +35,7 @@ export default function ImportJobPage() {
   function handlePreview(input: string) {
     setError("");
     setPreview(null);
-    startTransition(async () => {
+    run(async () => {
       try {
         const result = await previewJobImportAction(input);
         setPreview(result.normalized);
@@ -55,7 +56,7 @@ export default function ImportJobPage() {
   function handleConfirm() {
     if (!preview || !meta) return;
     setError("");
-    startTransition(async () => {
+    run(async () => {
       try {
         const result = await confirmJobImportAction(preview, meta);
         toast({ title: "Job imported", description: "Match analysis complete." });
@@ -137,7 +138,7 @@ export default function ImportJobPage() {
               />
             </div>
             <div className="flex gap-2">
-              <Button onClick={handleConfirm} disabled={isPending}>
+              <Button onClick={handleConfirm} loading={isPending}>
                 {isPending ? "Saving..." : "Save & Match"}
               </Button>
               <Button variant="outline" onClick={() => { setPreview(null); setMeta(null); }}>
@@ -223,7 +224,8 @@ function ImportForm({
         )}
         <Button
           onClick={() => onSubmit(value)}
-          disabled={!value.trim() || isPending}
+          loading={isPending}
+          disabled={!value.trim()}
         >
           {isPending ? "Parsing..." : "Preview Import"}
         </Button>
@@ -276,7 +278,8 @@ function ManualJobForm({
               })
             )
           }
-          disabled={!company || !title || !description || isPending}
+          loading={isPending}
+          disabled={!company || !title || !description}
         >
           {isPending ? "Parsing..." : "Preview Import"}
         </Button>

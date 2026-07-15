@@ -1,10 +1,10 @@
 "use client";
 
-import { useTransition } from "react";
 import { toggleSaveJob } from "@/server/actions";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { JobDeleteButton } from "../job-delete-button";
+import { usePendingTransition } from "@/components/layout/action-pending-provider";
 
 export function JobActions({
   jobId,
@@ -16,15 +16,15 @@ export function JobActions({
   isSaved: boolean;
 }) {
   const { toast } = useToast();
-  const [isPending, startTransition] = useTransition();
+  const { isPending, run } = usePendingTransition();
 
   return (
     <div className="flex flex-wrap gap-2">
       <Button
         variant={isSaved ? "secondary" : "outline"}
-        disabled={isPending}
+        loading={isPending}
         onClick={() =>
-          startTransition(async () => {
+          run(async () => {
             try {
               await toggleSaveJob(jobId, !isSaved);
               toast({ title: isSaved ? "Job unsaved" : "Job saved" });
@@ -38,7 +38,7 @@ export function JobActions({
           })
         }
       >
-        {isSaved ? "Saved" : "Save Job"}
+        {isPending ? "Saving..." : isSaved ? "Saved" : "Save Job"}
       </Button>
       <JobDeleteButton
         jobId={jobId}

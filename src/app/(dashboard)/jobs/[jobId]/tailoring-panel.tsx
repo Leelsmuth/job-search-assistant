@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import {
   generateTailoring,
   updateTailoringDecision,
@@ -9,6 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  useKeyedPending,
+  usePendingTransition,
+} from "@/components/layout/action-pending-provider";
 
 type Suggestion = {
   id: string;
@@ -34,10 +38,11 @@ export function TailoringPanel({
 }) {
   const { toast } = useToast();
   const [suggestions, setSuggestions] = useState(initialSuggestions);
-  const [isPending, startTransition] = useTransition();
+  const { isPending: generating, run: runGenerate } = usePendingTransition();
+  const { run, isKeyPending } = useKeyedPending();
 
   function handleDecision(id: string, decision: "accepted" | "rejected") {
-    startTransition(async () => {
+    run(`${id}-${decision}`, async () => {
       try {
         await updateTailoringDecision(id, decision);
         setSuggestions((prev) =>
@@ -57,9 +62,9 @@ export function TailoringPanel({
   return (
     <div className="space-y-4">
       <Button
-        disabled={isPending}
+        loading={generating}
         onClick={() =>
-          startTransition(async () => {
+          runGenerate(async () => {
             try {
               const result = await generateTailoring(jobId);
               setSuggestions(result);
@@ -74,7 +79,7 @@ export function TailoringPanel({
           })
         }
       >
-        {isPending ? "Generating..." : "Generate Tailoring Suggestions"}
+        {generating ? "Generating..." : "Generate Tailoring Suggestions"}
       </Button>
       <p className="text-xs text-muted-foreground">
         Suggestions only — never auto-applied. Review each change for factual accuracy.
@@ -85,6 +90,8 @@ export function TailoringPanel({
       {suggestions.map((s) => {
         const lowConfidence = s.confidence != null && s.confidence < 0.5;
         const noEvidence = !s.evidenceId && !s.evidence;
+        const accepting = isKeyPending(`${s.id}-accepted`);
+        const rejecting = isKeyPending(`${s.id}-rejected`);
         return (
           <Card key={s.id}>
             <CardContent className="space-y-2 p-4 text-sm">
@@ -133,18 +140,20 @@ export function TailoringPanel({
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={isPending || s.decision === "accepted"}
+                  loading={accepting}
+                  disabled={s.decision === "accepted" || rejecting}
                   onClick={() => handleDecision(s.id, "accepted")}
                 >
-                  Accept
+                  {accepting ? "Saving..." : "Accept"}
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
-                  disabled={isPending || s.decision === "rejected"}
+                  loading={rejecting}
+                  disabled={s.decision === "rejected" || accepting}
                   onClick={() => handleDecision(s.id, "rejected")}
                 >
-                  Reject
+                  {rejecting ? "Saving..." : "Reject"}
                 </Button>
               </div>
             </CardContent>

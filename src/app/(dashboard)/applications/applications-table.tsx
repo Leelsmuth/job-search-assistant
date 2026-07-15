@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useTransition } from "react";
 import { updateApplicationStatus } from "@/server/actions";
 import type { ApplicationStatus } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { formatMatchScore } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
+import { useKeyedPending } from "@/components/layout/action-pending-provider";
+import { Spinner } from "@/components/ui/spinner";
 
 type App = {
   id: string;
@@ -39,7 +40,7 @@ const STATUSES: ApplicationStatus[] = [
 
 export function ApplicationsTable({ applications }: { applications: App[] }) {
   const { toast } = useToast();
-  const [isPending, startTransition] = useTransition();
+  const { run, isKeyPending } = useKeyedPending();
 
   if (applications.length === 0) {
     return (
@@ -70,8 +71,13 @@ export function ApplicationsTable({ applications }: { applications: App[] }) {
         <tbody>
           {applications.map((app) => {
             const match = app.job?.matchAnalyses[0];
+            const saving = isKeyPending(`status-${app.id}`);
             return (
-              <tr key={app.id} className="border-b border-border">
+              <tr
+                key={app.id}
+                className="border-b border-border"
+                aria-busy={saving}
+              >
                 <td className="p-3 font-medium">
                   <Link href={`/jobs/${app.jobId}`} className="hover:underline">
                     {app.job?.title}
@@ -88,34 +94,37 @@ export function ApplicationsTable({ applications }: { applications: App[] }) {
                   )}
                 </td>
                 <td className="p-3">
-                  <select
-                    className="rounded border border-input px-2 py-1 text-xs"
-                    value={app.status}
-                    disabled={isPending}
-                    onChange={(e) =>
-                      startTransition(async () => {
-                        try {
-                          await updateApplicationStatus(
-                            app.id,
-                            e.target.value as ApplicationStatus
-                          );
-                          toast({ title: "Status updated" });
-                        } catch (err) {
-                          toast({
-                            title: "Update failed",
-                            description: err instanceof Error ? err.message : "Unknown error",
-                            variant: "destructive",
-                          });
-                        }
-                      })
-                    }
-                  >
-                    {STATUSES.map((s) => (
-                      <option key={s} value={s}>
-                        {s.replace(/_/g, " ")}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-2">
+                    <select
+                      className="rounded border border-input px-2 py-1 text-xs"
+                      value={app.status}
+                      disabled={saving}
+                      onChange={(e) =>
+                        run(`status-${app.id}`, async () => {
+                          try {
+                            await updateApplicationStatus(
+                              app.id,
+                              e.target.value as ApplicationStatus
+                            );
+                            toast({ title: "Status updated" });
+                          } catch (err) {
+                            toast({
+                              title: "Update failed",
+                              description: err instanceof Error ? err.message : "Unknown error",
+                              variant: "destructive",
+                            });
+                          }
+                        })
+                      }
+                    >
+                      {STATUSES.map((s) => (
+                        <option key={s} value={s}>
+                          {s.replace(/_/g, " ")}
+                        </option>
+                      ))}
+                    </select>
+                    {saving ? <Spinner className="h-3 w-3" /> : null}
+                  </div>
                 </td>
                 <td className="p-3 text-muted-foreground">
                   {app.dateSaved

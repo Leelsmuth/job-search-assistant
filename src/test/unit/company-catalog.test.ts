@@ -78,3 +78,34 @@ describe("filterCatalog", () => {
     expect(filterCatalog(sample, { search: "strip" })).toHaveLength(1);
   });
 });
+
+describe("ensureUniqueCatalogIds", () => {
+  it("prefixes non-greenhouse ids when they collide with greenhouse", async () => {
+    const { ensureUniqueCatalogIds } = await import("@/modules/discovery/company-catalog");
+    const normalized = ensureUniqueCatalogIds([
+      {
+        id: "lovable",
+        companyName: "Lovable",
+        companySlug: "lovable",
+        atsProvider: "greenhouse",
+        boardSlug: "lovable",
+        boardUrl: "https://boards.greenhouse.io/lovable",
+        industries: [],
+        enabled: true,
+        verificationStatus: "verified",
+      },
+      {
+        id: "lovable",
+        companyName: "Lovable",
+        companySlug: "lovable",
+        atsProvider: "ashby",
+        boardSlug: "lovable",
+        boardUrl: "https://jobs.ashbyhq.com/lovable",
+        industries: ["ai"],
+        enabled: true,
+        verificationStatus: "verified",
+      },
+    ]);
+    expect(normalized.map((c) => c.id).sort()).toEqual(["ashby-lovable", "lovable"]);
+  });
+});

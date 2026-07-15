@@ -342,7 +342,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
         </Card>
       ))}
 
-      <Button onClick={handleSave} disabled={isPending}>
+      <Button onClick={handleSave} loading={isPending} disabled={isPending}>
         {isPending ? "Saving..." : saved ? "Saved!" : "Save Profile"}
       </Button>
     </div>
