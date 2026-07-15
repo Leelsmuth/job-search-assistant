@@ -1,0 +1,23 @@
+{
+  "id": "senior-frontend-possible-aws-gap",
+  "title": "Senior Frontend Engineer",
+  "company": "CloudNative Co",
+  "location": "Remote - Canada",
+  "workplaceType": "remote",
+  "salaryMin": 125000,
+  "salaryMax": 155000,
+  "salaryCurrency": "CAD",
+  "employmentType": "full_time",
+  "description": "Frontend-heavy role with some cloud integration work.",
+  "requiredQualifications": [
+    "5+ years React experience",
+    "TypeScript expert",
+    "Next.js production experience",
+    "AWS experience (S3, CloudFront)"
+  ],
+  "preferredQualifications": ["Design systems", "A/B testing"],
+  "technologies": ["React", "TypeScript", "Next.js", "AWS"],
+  "expectedClassification": "possible",
+  "expectedGaps": ["aws"],
+  "expectedPartialMatches": ["aws"]
+}

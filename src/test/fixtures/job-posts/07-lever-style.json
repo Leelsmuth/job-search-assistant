@@ -1,0 +1,17 @@
+{
+  "id": "lever-style-senior-fe",
+  "title": "Senior Front End Engineer",
+  "company": "Lever Example Inc",
+  "location": "Canada",
+  "workplaceType": "remote",
+  "source": "lever",
+  "employmentType": "full_time",
+  "description": "Senior frontend role on product engineering team.",
+  "requiredQualifications": [
+    "React and TypeScript",
+    "Testing with Playwright or Cypress",
+    "Experience with state management"
+  ],
+  "technologies": ["React", "TypeScript", "Playwright", "Redux"],
+  "expectedClassification": "excellent"
+}

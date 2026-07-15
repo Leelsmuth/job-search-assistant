@@ -1,0 +1,17 @@
+{
+  "id": "accessibility-specialist",
+  "title": "Senior Frontend Engineer - Accessibility",
+  "company": "InclusiveTech",
+  "location": "Remote - Canada",
+  "workplaceType": "remote",
+  "employmentType": "full_time",
+  "description": "Accessibility-focused frontend engineering role.",
+  "requiredQualifications": [
+    "WCAG 2.1 AA expertise",
+    "React and TypeScript",
+    "Screen reader testing experience",
+    "Playwright accessibility testing"
+  ],
+  "technologies": ["React", "TypeScript", "Playwright", "Accessibility"],
+  "expectedClassification": "excellent"
+}

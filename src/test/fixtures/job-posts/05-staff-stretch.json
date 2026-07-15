@@ -1,0 +1,18 @@
+{
+  "id": "staff-frontend-stretch",
+  "title": "Staff Frontend Engineer",
+  "company": "ScaleUp",
+  "location": "Remote - North America",
+  "workplaceType": "remote",
+  "employmentType": "full_time",
+  "description": "Staff-level frontend leadership role.",
+  "requiredQualifications": [
+    "10+ years frontend experience",
+    "Led frontend architecture for multiple product teams",
+    "Deep React and TypeScript expertise",
+    "Experience mentoring senior engineers"
+  ],
+  "technologies": ["React", "TypeScript", "Next.js"],
+  "expectedClassification": "stretch",
+  "expectedGaps": ["seniority"]
+}

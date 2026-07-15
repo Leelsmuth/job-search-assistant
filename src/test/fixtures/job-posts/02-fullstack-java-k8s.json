@@ -1,0 +1,22 @@
+{
+  "id": "fullstack-java-kubernetes",
+  "title": "Senior Software Engineer",
+  "company": "Enterprise Systems Inc",
+  "location": "Toronto, ON",
+  "workplaceType": "hybrid",
+  "salaryMin": 140000,
+  "salaryMax": 170000,
+  "salaryCurrency": "CAD",
+  "employmentType": "full_time",
+  "description": "Full stack role with heavy backend ownership.",
+  "requiredQualifications": [
+    "5+ years software engineering experience",
+    "Strong Java and Spring Boot experience",
+    "Kubernetes production experience",
+    "AWS infrastructure experience"
+  ],
+  "preferredQualifications": ["React experience"],
+  "technologies": ["Java", "Spring Boot", "Kubernetes", "AWS", "React"],
+  "expectedClassification": "poor",
+  "expectedGaps": ["java", "kubernetes", "aws"]
+}

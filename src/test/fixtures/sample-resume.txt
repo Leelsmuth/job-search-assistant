@@ -1,0 +1,30 @@
+FRONTEND ENGINEER
+
+Location: Canada | Remote
+Work Authorization: Canadian work authorization
+
+SUMMARY
+Frontend-focused software engineer with 7+ years of experience building production React and TypeScript applications. Strong background in migrations, monorepos, accessibility, E2E testing, and frontend performance.
+
+SKILLS
+React, TypeScript, JavaScript, Next.js, Node.js, GraphQL, Apollo Client, TanStack Query, Redux, Zustand, Tailwind CSS, MUI, shadcn/ui, Accessibility, Playwright, Vitest, React Testing Library, pnpm, Turborepo, Firebase
+
+EXPERIENCE
+
+Frontend Engineer | Dealroom | 2021 - Present | Remote
+- Migrated complex Dealroom workflows from Ember to React and TypeScript, including access control and real-time synchronization features.
+- Implemented Playwright E2E coverage for deal creation and route accessibility testing.
+- Rebuilt file picker components with improved UX and performance.
+- Contributed to Next.js monorepo foundations and authentication-related frontend integrations.
+- Led frontend performance improvements and A/B experimentation initiatives.
+
+Front End Developer | Previous Company | 2018 - 2020 | Canada
+- Built reusable design system components with React, TypeScript, and Tailwind CSS.
+- Integrated CMS-driven content into React applications.
+- Established Vitest and React Testing Library patterns for component testing.
+
+PROJECTS
+Next.js Monorepo Foundation - Set up pnpm/Turborepo monorepo with shared UI packages and App Router applications.
+
+EDUCATION
+Bachelor's Degree in Computer Science | University | 2017

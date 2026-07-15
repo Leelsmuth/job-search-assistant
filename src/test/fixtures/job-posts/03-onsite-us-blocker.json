@@ -1,0 +1,18 @@
+{
+  "id": "frontend-mid-react-onsite-us",
+  "title": "Frontend Engineer",
+  "company": "US Startup",
+  "location": "San Francisco, CA",
+  "workplaceType": "on_site",
+  "employmentType": "full_time",
+  "description": "On-site frontend role in San Francisco.",
+  "requiredQualifications": [
+    "3+ years React experience",
+    "TypeScript proficiency",
+    "Must be located in San Francisco"
+  ],
+  "technologies": ["React", "TypeScript"],
+  "expectedClassification": "poor",
+  "expectedGaps": [],
+  "expectedBlockers": ["location"]
+}

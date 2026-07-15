@@ -1,0 +1,102 @@
+{
+  "displayName": "Frontend Engineer",
+  "location": "Canada",
+  "workAuthorization": "Canadian work authorization",
+  "targetTitles": [
+    "Frontend Engineer",
+    "Senior Frontend Engineer",
+    "Software Engineer"
+  ],
+  "preferredSeniority": "senior",
+  "remotePreference": "remote",
+  "preferredLocations": ["Canada", "Remote"],
+  "minimumSalary": null,
+  "yearsExperience": 7,
+  "summary": "Frontend-focused software engineer with significant React and TypeScript experience across migrations, monorepos, accessibility, testing, and performance.",
+  "dealBreakers": [
+    "On-site only outside Canada",
+    "No frontend ownership in full-stack roles"
+  ],
+  "skills": [
+    { "name": "React", "category": "framework", "proficiency": "expert", "yearsExperience": 6 },
+    { "name": "TypeScript", "category": "language", "proficiency": "expert", "yearsExperience": 5 },
+    { "name": "JavaScript", "category": "language", "proficiency": "expert", "yearsExperience": 8 },
+    { "name": "Next.js", "category": "framework", "proficiency": "advanced", "yearsExperience": 3 },
+    { "name": "Node.js", "category": "platform", "proficiency": "intermediate", "yearsExperience": 4 },
+    { "name": "GraphQL", "category": "architecture", "proficiency": "advanced", "yearsExperience": 4 },
+    { "name": "Apollo Client", "category": "library", "proficiency": "advanced", "yearsExperience": 3 },
+    { "name": "TanStack Query", "category": "library", "proficiency": "advanced", "yearsExperience": 2 },
+    { "name": "Redux", "category": "library", "proficiency": "advanced", "yearsExperience": 4 },
+    { "name": "Zustand", "category": "library", "proficiency": "advanced", "yearsExperience": 2 },
+    { "name": "Tailwind CSS", "category": "framework", "proficiency": "advanced", "yearsExperience": 3 },
+    { "name": "MUI", "category": "framework", "proficiency": "intermediate", "yearsExperience": 2 },
+    { "name": "shadcn/ui", "category": "framework", "proficiency": "advanced", "yearsExperience": 2 },
+    { "name": "Accessibility", "category": "accessibility", "proficiency": "advanced", "yearsExperience": 4 },
+    { "name": "Playwright", "category": "testing", "proficiency": "advanced", "yearsExperience": 2 },
+    { "name": "Vitest", "category": "testing", "proficiency": "advanced", "yearsExperience": 2 },
+    { "name": "React Testing Library", "category": "testing", "proficiency": "advanced", "yearsExperience": 3 },
+    { "name": "pnpm", "category": "process", "proficiency": "advanced", "yearsExperience": 3 },
+    { "name": "Turborepo", "category": "process", "proficiency": "intermediate", "yearsExperience": 2 },
+    { "name": "Firebase", "category": "platform", "proficiency": "intermediate", "yearsExperience": 2 }
+  ],
+  "experiences": [
+    {
+      "company": "Dealroom",
+      "title": "Frontend Engineer",
+      "startDate": "2021-01",
+      "endDate": null,
+      "location": "Remote",
+      "bullets": [
+        "Migrated complex Dealroom workflows from Ember to React and TypeScript, including access control and real-time synchronization features.",
+        "Implemented Playwright E2E coverage for deal creation and route accessibility testing.",
+        "Rebuilt file picker components with improved UX and performance.",
+        "Contributed to Next.js monorepo foundations and authentication-related frontend integrations.",
+        "Led frontend performance improvements and A/B experimentation initiatives."
+      ]
+    },
+    {
+      "company": "Previous Company",
+      "title": "Front End Developer",
+      "startDate": "2018-03",
+      "endDate": "2020-12",
+      "location": "Canada",
+      "bullets": [
+        "Built reusable design system components with React, TypeScript, and Tailwind CSS.",
+        "Integrated CMS-driven content into React applications.",
+        "Established Vitest and React Testing Library patterns for component testing."
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "Next.js Monorepo Foundation",
+      "description": "Set up pnpm/Turborepo monorepo with shared UI packages and App Router applications.",
+      "skills": ["Next.js", "TypeScript", "pnpm", "Turborepo"]
+    }
+  ],
+  "education": [
+    {
+      "institution": "University",
+      "degree": "Bachelor's Degree",
+      "field": "Computer Science",
+      "endDate": "2017"
+    }
+  ],
+  "evidence": [
+    {
+      "sourceType": "resume_bullet",
+      "evidenceText": "Implemented Playwright E2E coverage for deal creation and route accessibility testing.",
+      "normalizedSkills": ["playwright", "accessibility", "e2e testing"]
+    },
+    {
+      "sourceType": "resume_bullet",
+      "evidenceText": "Migrated complex Dealroom workflows from Ember to React and TypeScript, including access control and real-time synchronization features.",
+      "normalizedSkills": ["react", "typescript", "migration", "real-time"]
+    },
+    {
+      "sourceType": "resume_bullet",
+      "evidenceText": "Contributed to Next.js monorepo foundations and authentication-related frontend integrations.",
+      "normalizedSkills": ["next.js", "monorepo", "authentication"]
+    }
+  ]
+}

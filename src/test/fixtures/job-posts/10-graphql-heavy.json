@@ -1,0 +1,16 @@
+{
+  "id": "graphql-heavy-frontend",
+  "title": "Frontend Engineer",
+  "company": "DataAPI Corp",
+  "location": "Remote - Canada",
+  "workplaceType": "remote",
+  "employmentType": "full_time",
+  "description": "Frontend role working closely with GraphQL APIs.",
+  "requiredQualifications": [
+    "React and TypeScript",
+    "Apollo Client or similar GraphQL client",
+    "TanStack Query experience"
+  ],
+  "technologies": ["React", "TypeScript", "GraphQL", "Apollo Client", "TanStack Query"],
+  "expectedClassification": "excellent"
+}

@@ -1,0 +1,17 @@
+{
+  "id": "greenhouse-style-frontend",
+  "title": "Frontend Developer",
+  "company": "Greenhouse Example Co",
+  "location": "Remote, Canada",
+  "workplaceType": "remote",
+  "source": "greenhouse",
+  "employmentType": "full_time",
+  "description": "Join our team building modern web applications.",
+  "requiredQualifications": [
+    "4+ years React experience",
+    "TypeScript",
+    "CSS frameworks (Tailwind preferred)"
+  ],
+  "technologies": ["React", "TypeScript", "Tailwind CSS"],
+  "expectedClassification": "strong"
+}

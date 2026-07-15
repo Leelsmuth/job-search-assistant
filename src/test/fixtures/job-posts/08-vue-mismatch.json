@@ -1,0 +1,17 @@
+{
+  "id": "vue-primary-mismatch",
+  "title": "Frontend Engineer",
+  "company": "VueShop",
+  "location": "Remote - Canada",
+  "workplaceType": "remote",
+  "employmentType": "full_time",
+  "description": "Vue.js focused frontend role.",
+  "requiredQualifications": [
+    "3+ years Vue.js experience",
+    "Vuex or Pinia",
+    "TypeScript"
+  ],
+  "technologies": ["Vue.js", "TypeScript", "Pinia"],
+  "expectedClassification": "stretch",
+  "expectedGaps": ["vue"]
+}

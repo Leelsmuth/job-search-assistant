@@ -1,0 +1,31 @@
+{
+  "id": "senior-frontend-react-remote-canada",
+  "title": "Senior Frontend Engineer",
+  "company": "TechCorp Canada",
+  "location": "Canada",
+  "workplaceType": "remote",
+  "salaryMin": 130000,
+  "salaryMax": 160000,
+  "salaryCurrency": "CAD",
+  "employmentType": "full_time",
+  "description": "We are looking for a Senior Frontend Engineer to build customer-facing React applications.",
+  "responsibilities": [
+    "Build and maintain React/TypeScript features in a Next.js application",
+    "Collaborate with design on accessible UI components",
+    "Improve frontend performance and testing coverage"
+  ],
+  "requiredQualifications": [
+    "5+ years frontend development experience",
+    "Strong React and TypeScript skills",
+    "Experience with Next.js in production",
+    "Playwright or similar E2E testing experience"
+  ],
+  "preferredQualifications": [
+    "Monorepo experience with pnpm",
+    "GraphQL experience",
+    "Accessibility expertise"
+  ],
+  "technologies": ["React", "TypeScript", "Next.js", "Playwright", "Tailwind CSS"],
+  "expectedClassification": "excellent",
+  "expectedGaps": []
+}
