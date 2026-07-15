@@ -20,6 +20,24 @@ export function MatchTabActions({
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
 
+  function runAnalysis() {
+    startTransition(async () => {
+      try {
+        await rematchJobAction(jobId);
+        toast({
+          title: hasAnalysis ? "Match analysis updated" : "Match analysis complete",
+        });
+        router.refresh();
+      } catch (e) {
+        toast({
+          title: "Analysis failed",
+          description: e instanceof Error ? e.message : "Unknown error",
+          variant: "destructive",
+        });
+      }
+    });
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       {isStale && (
@@ -27,30 +45,20 @@ export function MatchTabActions({
           Profile updated since last analysis
         </Badge>
       )}
-      {hasAnalysis && (
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={isPending}
-          onClick={() =>
-            startTransition(async () => {
-              try {
-                await rematchJobAction(jobId);
-                toast({ title: "Match analysis updated" });
-                router.refresh();
-              } catch (e) {
-                toast({
-                  title: "Re-run failed",
-                  description: e instanceof Error ? e.message : "Unknown error",
-                  variant: "destructive",
-                });
-              }
-            })
-          }
-        >
-          {isPending ? "Re-running..." : "Re-run analysis"}
-        </Button>
-      )}
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={isPending}
+        onClick={runAnalysis}
+      >
+        {isPending
+          ? hasAnalysis
+            ? "Re-running..."
+            : "Running..."
+          : hasAnalysis
+            ? "Re-run analysis"
+            : "Run analysis"}
+      </Button>
     </div>
   );
 }

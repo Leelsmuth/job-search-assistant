@@ -55,6 +55,7 @@ In Supabase **SQL Editor**, run these files in order:
 1. `drizzle/migrations/0002_rls_policies.sql` — row-level security (idempotent)
 2. `drizzle/migrations/0001_indexes.sql` — performance indexes
 3. `drizzle/migrations/0003_storage_resumes_bucket.sql` — private **`resumes`** storage bucket (required for resume upload)
+4. `drizzle/migrations/0004_phase4_qa_tailoring.sql` — Q&A unsupported-claims column + tailoring bullet traceability
 
 Alternatively, `supabase/policies/rls.sql` contains the same table policies (use on first setup only).
 
@@ -92,6 +93,29 @@ At **Resumes** (`/resumes`) you can delete uploaded files. Optionally wipe extra
 
 ---
 
+## Deploy to Vercel
+
+The app requires Supabase and Postgres at runtime. Local `.env.local` is **not** uploaded to Vercel — you must set variables in the Vercel dashboard.
+
+1. Open **Vercel → your project → Settings → Environment Variables**
+2. Add these for **Production**, **Preview**, and **Development**:
+
+| Variable | Required | Notes |
+|----------|----------|-------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase Project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase `anon` public key |
+| `DATABASE_URL` | Yes | Use Supabase **Session pooler** URI (port 6543) for serverless |
+| `OPENAI_API_KEY` | Optional | Heuristics work without it |
+| `CRON_SECRET` | Optional | Protect `/api/cron/discover` in production |
+
+3. **Redeploy** after saving env vars (Deployments → ⋯ → Redeploy)
+
+4. In Supabase **SQL Editor**, run migrations from [`drizzle/migrations/`](drizzle/migrations/) if not already applied.
+
+If env vars are missing, `/jobs` redirects to `/login` with a configuration notice instead of a 500 error.
+
+---
+
 ## Daily workflow
 
 1. **Profile** — confirm skills, experience, preferences at `/profile`
@@ -111,6 +135,24 @@ At **Resumes** (`/resumes`) you can delete uploaded files. Optionally wipe extra
 | `pnpm setup:check` | Validate env + DB connection |
 | `pnpm db:push` | Push Drizzle schema to database |
 | `pnpm db:seed` | Seed profile (requires `SEED_USER_ID`) |
+| `pnpm fixtures:pdf` | Regenerate text-based PDF test fixture |
+
+### RLS integration test (optional)
+
+After applying `0002_rls_policies.sql`, you can run the database isolation test against your Supabase instance:
+
+```bash
+RUN_RLS_INTEGRATION=true pnpm test src/test/integration/rls.test.ts
+```
+
+Optional env vars:
+
+| Variable | Purpose |
+|----------|---------|
+| `RLS_TEST_USER_A` | UUID for user A (defaults to random UUID per run) |
+| `RLS_TEST_USER_B` | UUID for user B (defaults to random UUID per run) |
+
+E2E tests require `E2E_TEST_EMAIL` and `E2E_TEST_PASSWORD` in the environment.
 
 ## Stack
 

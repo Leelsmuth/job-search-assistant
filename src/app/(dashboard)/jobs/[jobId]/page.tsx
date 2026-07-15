@@ -14,13 +14,47 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { classificationColor, formatSalary, humanizeMatchStatus } from "@/lib/utils";
 import type { MatchClassification } from "@/lib/utils";
 import { resolveDisplayTitle } from "@/modules/ingestion/html-text";
+import { computeExtractionQuality } from "@/modules/ingestion/extract-requirements";
 import { isAnalysisStale } from "@/modules/matching/stale";
 import { isSparseExtraction } from "@/modules/matching/engine";
+import { groupRequirementMatches } from "@/modules/matching/group-matches";
 import { JobDescription } from "@/components/jobs/job-description";
 import { JobActions } from "./job-actions";
 import { TailoringPanel } from "./tailoring-panel";
 import { ApplicationQAPanel } from "./application-qa-panel";
 import { MatchTabActions } from "./match-tab-actions";
+
+function MatchGroupSection({
+  title,
+  items,
+}: {
+  title: string;
+  items: Array<{
+    id: string;
+    explanation: string | null;
+    requirement?: { text?: string | null } | null;
+  }>;
+}) {
+  if (items.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {items.map((item) => (
+          <div key={item.id} className="border-b border-border pb-3 last:border-0 last:pb-0">
+            <p className="text-sm font-medium">{item.requirement?.text ?? "Requirement"}</p>
+            {item.explanation && (
+              <p className="mt-1 text-xs text-muted-foreground">{item.explanation}</p>
+            )}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default async function JobDetailPage({
   params,
@@ -48,16 +82,17 @@ export default async function JobDetailPage({
   const isStale = match
     ? isAnalysisStale(match.createdAt, profile.updatedAt)
     : false;
-  const sparseExtraction = isSparseExtraction(
-    job.requirements.map((r) => ({
-      id: r.id,
-      requirementType: r.requirementType,
-      text: r.text,
-      normalizedSkill: r.normalizedSkill,
-      importance: r.importance ?? "required",
-      isHardRequirement: false,
-    }))
-  );
+  const requirementInputs = job.requirements.map((r) => ({
+    id: r.id,
+    requirementType: r.requirementType,
+    text: r.text,
+    normalizedSkill: r.normalizedSkill,
+    importance: r.importance ?? "required",
+    isHardRequirement: false,
+  }));
+  const sparseExtraction = isSparseExtraction(requirementInputs);
+  const extractionQuality = computeExtractionQuality(job.requirements);
+  const groupedMatches = groupRequirementMatches(match?.requirementMatches ?? []);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -130,6 +165,15 @@ export default async function JobDetailPage({
           <MatchTabActions jobId={job.id} isStale={isStale} hasAnalysis={Boolean(match)} />
           {match ? (
             <>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className="border border-border bg-transparent">
+                  Extraction confidence: {extractionQuality.confidence}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  {extractionQuality.requirementCount} requirements ·{" "}
+                  {extractionQuality.skillCount} skills detected
+                </span>
+              </div>
               {sparseExtraction && (
                 <Card className="border-amber-200 bg-amber-50">
                   <CardContent className="p-4 text-sm text-amber-900">
@@ -155,6 +199,10 @@ export default async function JobDetailPage({
                   </Card>
                 ))}
               </div>
+              <MatchGroupSection title="Strong matches" items={groupedMatches.strong} />
+              <MatchGroupSection title="Partial matches" items={groupedMatches.partial} />
+              <MatchGroupSection title="Gaps" items={groupedMatches.gaps} />
+              <MatchGroupSection title="Blockers" items={groupedMatches.blockers} />
               {hardFilter?.warnings?.length ? (
                 <Card className="border-amber-200 bg-amber-50">
                   <CardContent className="p-4 text-sm text-amber-900">

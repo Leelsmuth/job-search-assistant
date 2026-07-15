@@ -1,13 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { isProtectedPath, isSupabaseConfigured } from "@/lib/supabase/config";
 
 export async function middleware(request: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
+  if (!isSupabaseConfigured()) {
     if (request.nextUrl.pathname.startsWith("/login")) {
       return NextResponse.next();
     }
+
+    if (isProtectedPath(request.nextUrl.pathname)) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("error", "missing_env");
+      return NextResponse.redirect(url);
+    }
+
     return NextResponse.next();
   }
 

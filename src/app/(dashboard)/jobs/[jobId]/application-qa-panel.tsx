@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 
 const COMMON_QUESTIONS = [
@@ -24,7 +25,18 @@ type SavedAnswer = {
   question: string;
   draftAnswer: string | null;
   evidenceIds?: string[] | null;
+  evidenceTexts?: string[];
+  unsupportedClaims?: string[];
 };
+
+function hydrateAnswerState(answer: SavedAnswer | undefined) {
+  return {
+    answer: answer?.draftAnswer ?? "",
+    sourceTexts: answer?.evidenceTexts ?? [],
+    unsupportedClaims: answer?.unsupportedClaims ?? [],
+    showSources: (answer?.evidenceTexts?.length ?? 0) > 0,
+  };
+}
 
 export function ApplicationQAPanel({
   jobId,
@@ -37,26 +49,47 @@ export function ApplicationQAPanel({
 }) {
   const { toast } = useToast();
   const [applicationId, setApplicationId] = useState(initialApplicationId);
-  const [question, setQuestion] = useState(COMMON_QUESTIONS[0]);
-  const [answer, setAnswer] = useState(
-    initialAnswers.find((a) => a.question === COMMON_QUESTIONS[0])?.draftAnswer ?? ""
+  const [presetQuestion, setPresetQuestion] = useState(COMMON_QUESTIONS[0]);
+  const [customQuestion, setCustomQuestion] = useState("");
+  const initialSaved = initialAnswers.find((a) => a.question === COMMON_QUESTIONS[0]);
+  const initialState = hydrateAnswerState(initialSaved);
+  const [answer, setAnswer] = useState(initialState.answer);
+  const [sourceTexts, setSourceTexts] = useState<string[]>(initialState.sourceTexts);
+  const [unsupportedClaims, setUnsupportedClaims] = useState<string[]>(
+    initialState.unsupportedClaims
   );
-  const [sourceTexts, setSourceTexts] = useState<string[]>([]);
-  const [unsupportedClaims, setUnsupportedClaims] = useState<string[]>([]);
   const [savedAnswers, setSavedAnswers] = useState(initialAnswers);
   const [isPending, startTransition] = useTransition();
-  const [showSources, setShowSources] = useState(false);
+  const [showSources, setShowSources] = useState(initialState.showSources);
+
+  const activeQuestion = customQuestion.trim() || presetQuestion;
 
   function selectQuestion(q: string) {
-    setQuestion(q);
+    if (COMMON_QUESTIONS.includes(q)) {
+      setCustomQuestion("");
+      setPresetQuestion(q);
+    } else {
+      setCustomQuestion(q);
+      setPresetQuestion(COMMON_QUESTIONS[0]);
+    }
     const existing = savedAnswers.find((a) => a.question === q);
-    setAnswer(existing?.draftAnswer ?? "");
-    setSourceTexts([]);
+    const next = hydrateAnswerState(existing);
+    setAnswer(next.answer);
+    setSourceTexts(next.sourceTexts);
+    setUnsupportedClaims(next.unsupportedClaims);
+    setShowSources(next.showSources);
   }
 
   async function refreshAnswers(appId: string) {
     const updated = await getApplicationAnswers(appId);
     setSavedAnswers(updated);
+    const current = updated.find((a) => a.question === activeQuestion);
+    if (current) {
+      const next = hydrateAnswerState(current);
+      setSourceTexts(next.sourceTexts);
+      setUnsupportedClaims(next.unsupportedClaims);
+      setShowSources(next.showSources);
+    }
   }
 
   return (
@@ -65,7 +98,7 @@ export function ApplicationQAPanel({
         <Label>Question</Label>
         <select
           className="mt-1 w-full rounded-md border border-input px-3 py-2 text-sm"
-          value={question}
+          value={presetQuestion}
           onChange={(e) => selectQuestion(e.target.value)}
         >
           {COMMON_QUESTIONS.map((q) => (
@@ -75,6 +108,27 @@ export function ApplicationQAPanel({
           ))}
         </select>
       </div>
+      <div>
+        <Label htmlFor="custom-question">Or paste your own question</Label>
+        <Input
+          id="custom-question"
+          className="mt-1"
+          placeholder="Paste an application question from the job posting..."
+          value={customQuestion}
+          onChange={(e) => {
+            const value = e.target.value;
+            setCustomQuestion(value);
+            if (value.trim()) {
+              const existing = savedAnswers.find((a) => a.question === value.trim());
+              const next = hydrateAnswerState(existing);
+              setAnswer(next.answer);
+              setSourceTexts(next.sourceTexts);
+              setUnsupportedClaims(next.unsupportedClaims);
+              setShowSources(next.showSources);
+            }
+          }}
+        />
+      </div>
       <p className="text-xs text-muted-foreground">
         Drafts use your profile evidence. With a valid OPENAI_API_KEY you get AI-written answers;
         otherwise a template draft is generated for you to edit. An application record is created
@@ -82,11 +136,11 @@ export function ApplicationQAPanel({
       </p>
       <div className="flex gap-2">
         <Button
-          disabled={isPending}
+          disabled={isPending || !activeQuestion.trim()}
           onClick={() =>
             startTransition(async () => {
               try {
-                const result = await draftAnswer(jobId, question, applicationId);
+                const result = await draftAnswer(jobId, activeQuestion, applicationId);
                 setApplicationId(result.applicationId);
                 setAnswer(result.answer);
                 setSourceTexts(result.evidenceTexts ?? []);
@@ -108,18 +162,21 @@ export function ApplicationQAPanel({
         </Button>
         <Button
           variant="outline"
-          disabled={isPending || !answer.trim()}
+          disabled={isPending || !answer.trim() || !activeQuestion.trim()}
           onClick={() =>
             startTransition(async () => {
               try {
-                const appId = await saveApplicationAnswer(
+                const result = await saveApplicationAnswer(
                   jobId,
-                  question,
+                  activeQuestion,
                   answer,
                   applicationId
                 );
-                setApplicationId(appId);
-                await refreshAnswers(appId);
+                setApplicationId(result.applicationId);
+                setUnsupportedClaims(result.unsupportedClaims ?? []);
+                setSourceTexts(result.evidenceTexts ?? []);
+                setShowSources((result.evidenceTexts?.length ?? 0) > 0);
+                await refreshAnswers(result.applicationId);
                 toast({ title: "Answer saved" });
               } catch (e) {
                 toast({

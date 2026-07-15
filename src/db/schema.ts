@@ -377,6 +377,7 @@ export const applicationAnswers = pgTable("application_answers", {
   draftAnswer: text("draft_answer"),
   finalAnswer: text("final_answer"),
   evidenceIds: jsonb("evidence_ids").$type<string[]>().default([]),
+  unsupportedClaims: jsonb("unsupported_claims").$type<string[]>().default([]),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -393,6 +394,7 @@ export const tailoringSuggestions = pgTable("tailoring_suggestions", {
   originalText: text("original_text"),
   suggestedText: text("suggested_text").notNull(),
   evidenceId: uuid("evidence_id").references(() => profileEvidence.id),
+  bulletId: uuid("bullet_id"),
   confidence: real("confidence"),
   decision: tailoringDecisionEnum("decision").default("pending").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

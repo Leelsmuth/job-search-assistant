@@ -39,7 +39,10 @@ export default function OnboardingPage() {
     startTransition(async () => {
       try {
         await applyResumeSuggestions(suggestions, extractedText);
-        toast({ title: "Profile saved" });
+        toast({
+          title: "Profile saved",
+          description: "Match scores may be outdated — review your job feed at /jobs",
+        });
         router.push("/profile");
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Save failed";

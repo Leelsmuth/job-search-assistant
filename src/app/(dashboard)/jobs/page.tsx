@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { classificationColor, formatSalary, formatMatchScore } from "@/lib/utils";
 import type { MatchClassification } from "@/lib/utils";
 import { JobsFeedFilters } from "./jobs-feed-filters";
+import { isAnalysisStale } from "@/modules/matching/stale";
+import { computeExtractionQuality } from "@/modules/ingestion/extract-requirements";
 
 export default async function JobsPage({
   searchParams,
@@ -19,18 +21,20 @@ export default async function JobsPage({
   }>;
 }) {
   const params = await searchParams;
+  const sort = (params.sort as "match" | "recent" | "salary") ?? "match";
 
-  const allJobs = await getJobsFeed({
-    sort: (params.sort as "match" | "recent" | "salary") ?? "match",
-  });
-
-  const jobs = await getJobsFeed({
+  const allFeed = await getJobsFeed({ sort });
+  const filteredFeed = await getJobsFeed({
     minScore: params.minScore ? Number(params.minScore) : undefined,
     remoteOnly: params.remote === "true",
     canadaOnly: params.canada === "true",
     classification: params.classification,
-    sort: (params.sort as "match" | "recent" | "salary") ?? "match",
+    sort,
   });
+
+  const allJobs = allFeed.jobs;
+  const jobs = filteredFeed.jobs;
+  const profileUpdatedAt = filteredFeed.profileUpdatedAt;
 
   return (
     <div className="space-y-6">
@@ -73,6 +77,12 @@ export default async function JobsPage({
           {jobs.map((job) => {
             const match = job.matchAnalyses[0];
             const classification = match?.classification as MatchClassification | undefined;
+            const extractionQuality = computeExtractionQuality(job.requirements ?? []);
+            const isStale = match
+              ? isAnalysisStale(match.createdAt, profileUpdatedAt)
+              : false;
+            const lowExtraction = extractionQuality.confidence === "low";
+
             return (
               <Link key={job.id} href={`/jobs/${job.id}`}>
                 <Card className="transition-colors hover:bg-accent/50">
@@ -84,7 +94,7 @@ export default async function JobsPage({
                       <div className="text-xs text-muted-foreground">match</div>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <h3 className="truncate font-semibold">{job.title}</h3>
                         {classification && (
                           <Badge className={classificationColor(classification)}>
@@ -94,6 +104,14 @@ export default async function JobsPage({
                         {job.isSaved && (
                           <Badge className="border border-blue-300 bg-transparent text-blue-700">
                             saved
+                          </Badge>
+                        )}
+                        {isStale && (
+                          <Badge className="bg-amber-100 text-amber-900">stale</Badge>
+                        )}
+                        {lowExtraction && (
+                          <Badge className="border border-amber-300 bg-transparent text-amber-800">
+                            low extraction
                           </Badge>
                         )}
                       </div>
@@ -108,9 +126,14 @@ export default async function JobsPage({
                       )}
                     </div>
                     <div className="hidden text-right text-sm text-muted-foreground md:block">
-                      <div>{formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency ?? "CAD") ?? "—"}</div>
+                      <div>
+                        {formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency ?? "CAD") ??
+                          "—"}
+                      </div>
                       <div className="text-xs">
-                        {(match?.topMatchingSkills as string[] | undefined)?.slice(0, 2).join(", ")}
+                        {(match?.topMatchingSkills as string[] | undefined)
+                          ?.slice(0, 2)
+                          .join(", ")}
                       </div>
                     </div>
                   </CardContent>

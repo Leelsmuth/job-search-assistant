@@ -184,7 +184,10 @@ export function ProfileForm({ profile }: { profile: Profile }) {
           dealBreakers: form.dealBreakers.split(",").map((s) => s.trim()).filter(Boolean),
         });
         setSaved(true);
-        toast({ title: "Profile saved" });
+        toast({
+          title: "Profile saved",
+          description: "Match scores may be outdated — review your job feed at /jobs",
+        });
         setTimeout(() => setSaved(false), 2000);
       } catch (err) {
         toast({

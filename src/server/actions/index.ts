@@ -44,6 +44,7 @@ import type { NormalizedJob } from "@/modules/ingestion";
 import { extractResumeText, MAX_RESUME_BYTES, MIN_RESUME_TEXT_LENGTH } from "@/modules/resumes/extract";
 import { extractProfileFromResume, computeInputHash } from "@/modules/ai/client";
 import { generateTailoringSuggestions, draftApplicationAnswer } from "@/modules/ai/client";
+import { detectUnsupportedClaims } from "@/modules/ai/schemas";
 import { normalizeSkillCategory, extractEvidenceSkills } from "@/modules/candidate/skills";
 import { runMatchAnalysis, type CandidateProfile } from "@/modules/matching/engine";
 import type { ApplicationStatus } from "@/lib/utils";
@@ -113,7 +114,7 @@ export async function updateProfile(data: {
       .where(and(eq(candidateProfiles.id, profile.id), eq(candidateProfiles.userId, user.id)));
 
     revalidatePath("/profile");
-    return { success: true };
+    return { success: true, profileUpdated: true };
   });
 }
 
@@ -347,7 +348,7 @@ export async function applyResumeSuggestions(
 
   revalidatePath("/profile");
   revalidatePath("/onboarding");
-  return { success: true };
+  return { success: true, profileUpdated: true };
   });
 }
 
@@ -617,51 +618,70 @@ export async function getJobsFeed(filters?: {
 }) {
   const user = await requireUser();
   return withUserDb(user.id, async (db) => {
+    const profile = await getOrCreateProfileDb(db, user.id);
+
     const allJobs = await db.query.jobs.findMany({
-    where: eq(jobs.userId, user.id),
-    orderBy: [desc(jobs.dateDiscovered)],
-    with: {
-      company: true,
-      matchAnalyses: {
-        orderBy: [desc(matchAnalyses.createdAt)],
-        limit: 1,
+      where: eq(jobs.userId, user.id),
+      orderBy: [desc(jobs.dateDiscovered)],
+      with: {
+        company: true,
+        requirements: {
+          columns: {
+            id: true,
+            requirementType: true,
+            normalizedSkill: true,
+            text: true,
+          },
+        },
+        matchAnalyses: {
+          orderBy: [desc(matchAnalyses.createdAt)],
+          limit: 1,
+        },
       },
-    },
-  });
-
-  let filtered = allJobs;
-
-  if (filters?.minScore) {
-    filtered = filtered.filter(
-      (j) => (j.matchAnalyses[0]?.overallScore ?? 0) >= filters.minScore!
-    );
-  }
-  if (filters?.remoteOnly) {
-    filtered = filtered.filter((j) => j.workplaceType === "remote");
-  }
-  if (filters?.canadaOnly) {
-    filtered = filtered.filter((j) => {
-      const loc = (j.location ?? "").toLowerCase();
-      return loc.includes("canada") || loc.includes("toronto") || loc.includes("vancouver") || loc.includes("montreal") || loc.includes("remote - canada");
     });
-  }
-  if (filters?.classification) {
-    filtered = filtered.filter(
-      (j) => j.matchAnalyses[0]?.classification === filters.classification
-    );
-  }
 
-  if (filters?.sort === "match") {
-    filtered.sort(
-      (a, b) =>
-        (b.matchAnalyses[0]?.overallScore ?? 0) -
-        (a.matchAnalyses[0]?.overallScore ?? 0)
-    );
-  } else if (filters?.sort === "salary") {
-    filtered.sort((a, b) => (b.salaryMax ?? 0) - (a.salaryMax ?? 0));
-  }
+    let filtered = allJobs;
 
-  return filtered;
+    if (filters?.minScore) {
+      filtered = filtered.filter(
+        (j) => (j.matchAnalyses[0]?.overallScore ?? 0) >= filters.minScore!
+      );
+    }
+    if (filters?.remoteOnly) {
+      filtered = filtered.filter((j) => j.workplaceType === "remote");
+    }
+    if (filters?.canadaOnly) {
+      filtered = filtered.filter((j) => {
+        const loc = (j.location ?? "").toLowerCase();
+        return (
+          loc.includes("canada") ||
+          loc.includes("toronto") ||
+          loc.includes("vancouver") ||
+          loc.includes("montreal") ||
+          loc.includes("remote - canada")
+        );
+      });
+    }
+    if (filters?.classification) {
+      filtered = filtered.filter(
+        (j) => j.matchAnalyses[0]?.classification === filters.classification
+      );
+    }
+
+    if (filters?.sort === "match") {
+      filtered.sort(
+        (a, b) =>
+          (b.matchAnalyses[0]?.overallScore ?? 0) -
+          (a.matchAnalyses[0]?.overallScore ?? 0)
+      );
+    } else if (filters?.sort === "salary") {
+      filtered.sort((a, b) => (b.salaryMax ?? 0) - (a.salaryMax ?? 0));
+    }
+
+    return {
+      jobs: filtered,
+      profileUpdatedAt: profile.updatedAt,
+    };
   });
 }
 
@@ -837,6 +857,7 @@ export async function generateTailoring(jobId: string) {
         originalText: s.originalText,
         suggestedText: s.suggestedText,
         evidenceId: s.evidenceId,
+        bulletId: s.bulletId,
         confidence: s.confidence,
       });
     }
@@ -891,10 +912,33 @@ export async function getApplicationAnswers(applicationId: string | null) {
 
     await requireOwnedJob(db, user.id, app.jobId);
 
-    return db.query.applicationAnswers.findMany({
+    const profile = await getOrCreateProfileDb(db, user.id);
+    const rows = await db.query.applicationAnswers.findMany({
       where: eq(applicationAnswers.applicationId, applicationId),
       orderBy: [desc(applicationAnswers.updatedAt)],
     });
+
+    const allEvidenceIds = [
+      ...new Set(rows.flatMap((r) => r.evidenceIds ?? [])),
+    ];
+    const evidenceRows =
+      allEvidenceIds.length > 0
+        ? await db.query.profileEvidence.findMany({
+            where: and(
+              eq(profileEvidence.profileId, profile.id),
+              inArray(profileEvidence.id, allEvidenceIds)
+            ),
+          })
+        : [];
+    const evidenceById = new Map(evidenceRows.map((e) => [e.id, e.evidenceText]));
+
+    return rows.map((row) => ({
+      ...row,
+      evidenceTexts: (row.evidenceIds ?? [])
+        .map((id) => evidenceById.get(id))
+        .filter(Boolean) as string[],
+      unsupportedClaims: row.unsupportedClaims ?? [],
+    }));
   });
 }
 
@@ -905,7 +949,8 @@ async function saveApplicationAnswerDb(
   question: string,
   answer: string,
   applicationId?: string,
-  evidenceIds?: string[]
+  evidenceIds?: string[],
+  unsupportedClaims?: string[]
 ) {
   const resolvedApp = await resolveApplicationForJob(db, userId, jobId, applicationId);
 
@@ -916,12 +961,16 @@ async function saveApplicationAnswerDb(
     ),
   });
 
+  const resolvedEvidenceIds = evidenceIds ?? existing?.evidenceIds ?? [];
+  const resolvedClaims = unsupportedClaims ?? existing?.unsupportedClaims ?? [];
+
   if (existing) {
     await db
       .update(applicationAnswers)
       .set({
         draftAnswer: answer,
-        evidenceIds: evidenceIds ?? existing.evidenceIds ?? [],
+        evidenceIds: resolvedEvidenceIds,
+        unsupportedClaims: resolvedClaims,
         updatedAt: new Date(),
       })
       .where(eq(applicationAnswers.id, existing.id));
@@ -930,7 +979,8 @@ async function saveApplicationAnswerDb(
       applicationId: resolvedApp.id,
       question,
       draftAnswer: answer,
-      evidenceIds: evidenceIds ?? [],
+      evidenceIds: resolvedEvidenceIds,
+      unsupportedClaims: resolvedClaims,
     });
   }
 
@@ -946,9 +996,59 @@ export async function saveApplicationAnswer(
   evidenceIds?: string[]
 ) {
   const user = await requireUser();
-  return withUserDb(user.id, (db) =>
-    saveApplicationAnswerDb(db, user.id, jobId, question, answer, applicationId, evidenceIds)
-  );
+  return withUserDb(user.id, async (db) => {
+    const profile = await getOrCreateProfileDb(db, user.id);
+    const job = await requireOwnedJob(db, user.id, jobId);
+
+    const resolvedApp = await resolveApplicationForJob(
+      db,
+      user.id,
+      jobId,
+      applicationId
+    );
+
+    const existing = await db.query.applicationAnswers.findFirst({
+      where: and(
+        eq(applicationAnswers.applicationId, resolvedApp.id),
+        eq(applicationAnswers.question, question)
+      ),
+    });
+
+    const keptEvidenceIds = evidenceIds ?? existing?.evidenceIds ?? [];
+    const evidenceRows =
+      keptEvidenceIds.length > 0
+        ? await db.query.profileEvidence.findMany({
+            where: and(
+              eq(profileEvidence.profileId, profile.id),
+              inArray(profileEvidence.id, keptEvidenceIds)
+            ),
+          })
+        : [];
+
+    const citedTexts = evidenceRows.map((e) => e.evidenceText);
+    const unsupportedClaims = detectUnsupportedClaims(
+      answer,
+      citedTexts,
+      job.description ?? ""
+    );
+
+    const appId = await saveApplicationAnswerDb(
+      db,
+      user.id,
+      jobId,
+      question,
+      answer,
+      applicationId,
+      keptEvidenceIds,
+      unsupportedClaims
+    );
+
+    return {
+      applicationId: appId,
+      unsupportedClaims,
+      evidenceTexts: citedTexts,
+    };
+  });
 }
 
 export async function draftAnswer(
@@ -979,7 +1079,8 @@ export async function draftAnswer(
       question,
       answer,
       applicationId,
-      evidenceIds
+      evidenceIds,
+      unsupportedClaims
     );
 
     return {
