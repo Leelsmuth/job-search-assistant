@@ -562,6 +562,19 @@ export async function toggleSaveJob(jobId: string, saved: boolean) {
   });
 }
 
+export async function deleteJob(jobId: string) {
+  const user = await requireUser();
+  return withUserDb(user.id, async (db) => {
+    await requireOwnedJob(db, user.id, jobId);
+
+    await db.delete(jobs).where(and(eq(jobs.id, jobId), eq(jobs.userId, user.id)));
+
+    revalidatePath("/jobs");
+    revalidatePath("/applications");
+    revalidatePath("/dashboard");
+  });
+}
+
 export async function getApplications() {
   const user = await requireUser();
   return withUserDb(user.id, async (db) => {

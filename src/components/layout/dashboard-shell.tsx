@@ -1,6 +1,5 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import { DashboardNav } from "@/components/layout/dashboard-nav";
 import { ToasterProvider } from "@/components/ui/use-toast";
 
@@ -11,13 +10,11 @@ export function DashboardShell({
   children: React.ReactNode;
   email?: string | null;
 }) {
-  const pathname = usePathname();
-
   return (
     <ToasterProvider>
       <div className="flex min-h-screen">
         <aside className="flex w-56 flex-col border-r border-border bg-card">
-          <DashboardNav currentPath={pathname} />
+          <DashboardNav />
           {email && (
             <div className="mt-auto border-t border-border p-4">
               <p className="truncate text-xs text-muted-foreground">{email}</p>

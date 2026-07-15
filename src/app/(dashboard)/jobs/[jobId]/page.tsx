@@ -130,7 +130,7 @@ export default async function JobDetailPage({
         </div>
       </div>
 
-      <JobActions jobId={job.id} isSaved={job.isSaved} />
+      <JobActions jobId={job.id} jobTitle={job.title} isSaved={job.isSaved} />
 
       <Tabs defaultValue="match">
         <TabsList>
