@@ -32,6 +32,11 @@ function formatBoardName(slug: string): string {
     .join(" ");
 }
 
+function truncateLocation(loc?: string): string | undefined {
+  if (!loc) return undefined;
+  return loc.length > 200 ? loc.slice(0, 200) : loc;
+}
+
 function normalizeGreenhouseJob(
   job: GreenhouseJob,
   companyName: string
@@ -42,7 +47,7 @@ function normalizeGreenhouseJob(
   return normalizedJobSchema.parse({
     company: companyName,
     title: sanitizeJobTitle(job.title),
-    location: job.location?.name,
+    location: truncateLocation(job.location?.name),
     workplaceType: /remote/i.test(job.location?.name ?? "") ? "remote" : "unknown",
     description,
     responsibilities: reqs.responsibilities,
@@ -66,7 +71,7 @@ function normalizeLeverPosting(
   return normalizedJobSchema.parse({
     company: sanitizeJobTitle(posting.categories.team, companyName),
     title: sanitizeJobTitle(titleLine),
-    location: posting.categories.location,
+    location: truncateLocation(posting.categories.location),
     workplaceType: /remote/i.test(posting.categories.location ?? "") ? "remote" : "unknown",
     description: plainText,
     responsibilities: reqs.responsibilities,

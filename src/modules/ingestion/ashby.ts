@@ -6,6 +6,7 @@ import {
 } from "./types";
 import { extractRequirementsFromText } from "./extract-requirements";
 import { htmlToPlainText, sanitizeJobTitle } from "./html-text";
+import { extractAshbyBoardSlug, parseBoardUrl } from "./board-url";
 
 export type AshbyJob = {
   id: string;
@@ -51,7 +52,7 @@ export function normalizeAshbyJob(
   return normalizedJobSchema.parse({
     company: companyName,
     title: sanitizeJobTitle(job.title),
-    location: job.location,
+    location: job.location && job.location.length > 200 ? job.location.slice(0, 200) : job.location,
     workplaceType: mapWorkplaceType(job),
     description: description || job.title,
     responsibilities: reqs.responsibilities,
@@ -78,13 +79,9 @@ async function fetchAshbyBoard(board: string): Promise<AshbyBoardResponse> {
 }
 
 function extractBoardName(url: string): string | null {
-  const apiMatch = url.match(/api\.ashbyhq\.com\/posting-api\/job-board\/([^/?#]+)/i);
-  if (apiMatch) return apiMatch[1];
-
-  const jobsMatch = url.match(/jobs\.ashbyhq\.com\/([^/?#]+)/i);
-  if (jobsMatch) return jobsMatch[1];
-
-  return null;
+  const parsed = parseBoardUrl(url);
+  if (parsed?.provider === "ashby") return parsed.boardSlug;
+  return extractAshbyBoardSlug(url);
 }
 
 export const ashbyAdapter: JobSourceAdapter = {

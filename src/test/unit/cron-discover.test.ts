@@ -29,7 +29,7 @@ describe("cron discover helpers", () => {
     expect(
       aggregateDiscoverStats(
         [{ status: "success" }, { status: "error" }],
-        { newJobs: 5, skipped: 10, matched: 5 }
+        { newJobs: 5, skipped: 10, matched: 5, filtered: 20 }
       )
     ).toEqual({
       polled: 2,
@@ -38,6 +38,7 @@ describe("cron discover helpers", () => {
       newJobs: 5,
       skipped: 10,
       matched: 5,
+      filtered: 20,
     });
   });
 });

@@ -155,7 +155,27 @@ curl -X POST "https://your-app.vercel.app/api/cron/discover" \
   -H "Authorization: Bearer $CRON_SECRET"
 ```
 
-Cron response includes `{ newJobs, skipped, matched }` for monitoring.
+Cron response includes `{ newJobs, skipped, matched, filtered }` for monitoring.
+
+## Company catalog (Discovery V2)
+
+Settings includes a **Browse Company Catalog** with ~100 verified Greenhouse, Lever, and Ashby boards (Canada/remote-friendly tech employers). One-click **Add** saves the board to your account for daily polling.
+
+### Maintaining the seed file
+
+| Command | Description |
+|---------|-------------|
+| `pnpm build:seed` | Regenerate `data/company-sources.seed.json` from `scripts/seed-candidates.ts` |
+| `pnpm verify:boards` | Dry-run verify all enabled boards (hits live ATS APIs) |
+| `pnpm verify:boards --write` | Update `verifiedAt`, `lastJobCount`, disable failures |
+| `pnpm verify:boards --write --id=stripe` | Re-verify a single entry |
+| `pnpm prune:seed` | Keep only verified enabled entries |
+
+To add a company manually, edit `data/company-sources.seed.json` (or add to `scripts/seed-candidates.ts` and run `build:seed`), then run `pnpm verify:boards --write`.
+
+### Pre-import filters
+
+During board polling, jobs are filtered **before** database insert using deterministic rules (title, location, remote/Canada). Filtered jobs increment the cron `filtered` count and skip match analysis to control cost.
 
 ## Scripts
 
@@ -169,6 +189,9 @@ Cron response includes `{ newJobs, skipped, matched }` for monitoring.
 | `pnpm db:push` | Push Drizzle schema to database |
 | `pnpm db:seed` | Seed profile (requires `SEED_USER_ID`) |
 | `pnpm fixtures:pdf` | Regenerate text-based PDF test fixture |
+| `pnpm build:seed` | Build company catalog JSON from seed candidates |
+| `pnpm verify:boards` | Verify ATS board URLs in catalog seed file |
+| `pnpm prune:seed` | Remove unverified entries from catalog seed |
 
 ### RLS integration test (optional)
 

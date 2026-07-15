@@ -14,6 +14,7 @@ export type CronDiscoverResult = CronPollResult & {
   newJobs: number;
   skipped: number;
   matched: number;
+  filtered: number;
 };
 
 export function summarizeCronPollResults(

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   addSavedBoard,
+  addSavedBoardFromCatalog,
   deleteSavedBoard,
   detectBoardProviderAction,
   pollSavedBoardNow,
@@ -14,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 
 type BoardProvider = "greenhouse" | "lever" | "ashby";
@@ -25,6 +27,17 @@ type Board = {
   provider: string;
   isActive: boolean;
   lastPolledAt: Date | null;
+};
+
+type CatalogEntry = {
+  id: string;
+  companyName: string;
+  atsProvider: BoardProvider;
+  boardUrl: string;
+  country: string;
+  tags: string[];
+  verifiedAt?: string;
+  lastJobCount?: number;
 };
 
 function formatLastPolled(lastPolledAt: Date | null) {
@@ -39,7 +52,13 @@ function formatLastPolled(lastPolledAt: Date | null) {
   return `${days}d ago`;
 }
 
-export function SettingsClient({ initialBoards }: { initialBoards: Board[] }) {
+export function SettingsClient({
+  initialBoards,
+  initialCatalog,
+}: {
+  initialBoards: Board[];
+  initialCatalog: CatalogEntry[];
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -47,6 +66,29 @@ export function SettingsClient({ initialBoards }: { initialBoards: Board[] }) {
   const [boardUrl, setBoardUrl] = useState("");
   const [provider, setProvider] = useState<BoardProvider>("greenhouse");
   const [detectHint, setDetectHint] = useState<string | null>(null);
+
+  const [catalogSearch, setCatalogSearch] = useState("");
+  const [catalogProvider, setCatalogProvider] = useState("");
+  const [catalogCountry, setCatalogCountry] = useState("");
+  const [catalogTag, setCatalogTag] = useState("");
+
+  const followingUrls = useMemo(
+    () => new Set(initialBoards.map((b) => b.boardUrl)),
+    [initialBoards]
+  );
+
+  const filteredCatalog = useMemo(() => {
+    return initialCatalog.filter((entry) => {
+      if (catalogProvider && entry.atsProvider !== catalogProvider) return false;
+      if (catalogCountry && entry.country !== catalogCountry) return false;
+      if (catalogTag && !entry.tags.includes(catalogTag)) return false;
+      if (catalogSearch) {
+        const q = catalogSearch.toLowerCase();
+        if (!entry.companyName.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+  }, [initialCatalog, catalogProvider, catalogCountry, catalogTag, catalogSearch]);
 
   useEffect(() => {
     const trimmed = boardUrl.trim();
@@ -72,17 +114,132 @@ export function SettingsClient({ initialBoards }: { initialBoards: Board[] }) {
   }, [boardUrl]);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       <h1 className="text-2xl font-bold">Settings</h1>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Saved Job Boards (Discovery V1)</CardTitle>
+          <CardTitle className="text-base">Browse Company Catalog</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Add Greenhouse, Lever, or Ashby board URLs. The daily cron polls active boards
-            and imports new roles into your feed — this is structured ATS polling, not open-web search.
+            {initialCatalog.length} verified Canada/remote-friendly tech employers.
+            One-click add to your saved boards.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label className="text-xs">Search</Label>
+              <Input
+                value={catalogSearch}
+                onChange={(e) => setCatalogSearch(e.target.value)}
+                placeholder="Company name"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Provider</Label>
+              <select
+                className="w-full rounded-md border border-input px-3 py-2 text-sm"
+                value={catalogProvider}
+                onChange={(e) => setCatalogProvider(e.target.value)}
+              >
+                <option value="">All</option>
+                <option value="greenhouse">Greenhouse</option>
+                <option value="lever">Lever</option>
+                <option value="ashby">Ashby</option>
+              </select>
+            </div>
+            <div>
+              <Label className="text-xs">Country</Label>
+              <select
+                className="w-full rounded-md border border-input px-3 py-2 text-sm"
+                value={catalogCountry}
+                onChange={(e) => setCatalogCountry(e.target.value)}
+              >
+                <option value="">All</option>
+                <option value="CA">Canada</option>
+                <option value="US">US</option>
+                <option value="GLOBAL">Global</option>
+              </select>
+            </div>
+            <div>
+              <Label className="text-xs">Tag</Label>
+              <select
+                className="w-full rounded-md border border-input px-3 py-2 text-sm"
+                value={catalogTag}
+                onChange={(e) => setCatalogTag(e.target.value)}
+              >
+                <option value="">All</option>
+                <option value="remote-canada">Remote Canada</option>
+                <option value="frontend-heavy">Frontend-heavy</option>
+                <option value="fintech">Fintech</option>
+                <option value="ai">AI</option>
+              </select>
+            </div>
+          </div>
+          <ul className="max-h-80 space-y-2 overflow-y-auto">
+            {filteredCatalog.length === 0 ? (
+              <li className="text-sm text-muted-foreground">No companies match filters.</li>
+            ) : (
+              filteredCatalog.map((entry) => {
+                const following = followingUrls.has(entry.boardUrl);
+                return (
+                  <li
+                    key={entry.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3 text-sm"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium">{entry.companyName}</p>
+                        <Badge className="text-xs uppercase">{entry.atsProvider}</Badge>
+                        <Badge className="text-xs">{entry.country}</Badge>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {entry.lastJobCount ?? "?"} jobs
+                        {entry.verifiedAt
+                          ? ` · verified ${new Date(entry.verifiedAt).toLocaleDateString()}`
+                          : ""}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={following ? "outline" : "default"}
+                      disabled={isPending || following}
+                      onClick={() =>
+                        startTransition(async () => {
+                          try {
+                            const result = await addSavedBoardFromCatalog(entry.id);
+                            router.refresh();
+                            toast({
+                              title: result.alreadyFollowing ? "Already following" : "Board added",
+                              description: entry.companyName,
+                            });
+                          } catch (e) {
+                            toast({
+                              title: "Failed to add board",
+                              description: e instanceof Error ? e.message : "Unknown error",
+                              variant: "destructive",
+                            });
+                          }
+                        })
+                      }
+                    >
+                      {following ? "Following" : "Add"}
+                    </Button>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Saved Job Boards</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Boards you follow are polled daily (or use Poll now). Structured ATS polling only.
           </p>
           {initialBoards.length > 0 ? (
             <ul className="space-y-2">
@@ -136,7 +293,7 @@ export function SettingsClient({ initialBoards }: { initialBoards: Board[] }) {
                             router.refresh();
                             toast({
                               title: "Poll complete",
-                              description: `${stats.newJobs} new, ${stats.skipped} skipped`,
+                              description: `${stats.newJobs} new, ${stats.skipped} skipped, ${stats.filtered} filtered`,
                             });
                           } catch (e) {
                             toast({
@@ -178,9 +335,7 @@ export function SettingsClient({ initialBoards }: { initialBoards: Board[] }) {
             </ul>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No saved boards yet. Example:{" "}
-              <code className="text-xs">https://boards.greenhouse.io/stripe</code> or{" "}
-              <code className="text-xs">https://jobs.lever.co/notion</code>
+              No saved boards yet. Add from the catalog above or paste a board URL below.
             </p>
           )}
           <div>

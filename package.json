@@ -16,7 +16,10 @@
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts",
     "setup:check": "tsx scripts/check-setup.ts",
-    "fixtures:pdf": "node scripts/generate-pdf-fixture.mjs"
+    "fixtures:pdf": "node scripts/generate-pdf-fixture.mjs",
+    "build:seed": "tsx scripts/build-seed.ts",
+    "prune:seed": "tsx scripts/prune-seed.ts",
+    "verify:boards": "tsx scripts/verify-boards.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.6",

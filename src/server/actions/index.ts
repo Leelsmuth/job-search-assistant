@@ -30,7 +30,7 @@ import {
   savedBoards,
 } from "@/db/schema";
 import { getUser } from "@/lib/supabase/server";
-import { previewJobImport, persistDiscoveredJob } from "@/modules/ingestion";
+import { previewJobImport, persistDiscoveredJob, normalizeBoardUrl } from "@/modules/ingestion";
 import { runAndSaveMatchAnalysisDb } from "@/modules/matching/save-match-analysis";
 import type { NormalizedJob } from "@/modules/ingestion";
 import { extractResumeText, MAX_RESUME_BYTES, MIN_RESUME_TEXT_LENGTH } from "@/modules/resumes/extract";
@@ -960,17 +960,14 @@ export async function addSavedBoard(data: {
   provider: "greenhouse" | "lever" | "ashby";
 }) {
   const user = await requireUser();
-  const boardUrl = data.boardUrl.trim();
-  if (!/^https?:\/\//i.test(boardUrl)) {
-    throw new Error("Board URL must start with http:// or https://");
-  }
+  const parsed = normalizeBoardUrl(data.boardUrl.trim(), data.provider);
 
   return withUserDb(user.id, async (db) => {
     await db.insert(savedBoards).values({
       userId: user.id,
       companyName: data.companyName.trim(),
-      boardUrl,
-      provider: data.provider,
+      boardUrl: parsed.boardUrl,
+      provider: parsed.provider,
     });
 
     revalidatePath("/settings");
@@ -1051,6 +1048,48 @@ export async function pollSavedBoardNow(boardId: string) {
     revalidatePath("/settings");
     revalidatePath("/jobs");
     return stats;
+  });
+}
+
+export async function getCompanySourceCatalog(filters?: {
+  provider?: string;
+  country?: string;
+  tag?: string;
+  search?: string;
+}) {
+  await requireUser();
+  const { getCompanySourceCatalog, filterCatalog } = await import(
+    "@/modules/discovery/company-catalog"
+  );
+  return filterCatalog(getCompanySourceCatalog(), filters);
+}
+
+export async function addSavedBoardFromCatalog(catalogId: string) {
+  const user = await requireUser();
+  const { getCatalogEntryById } = await import("@/modules/discovery/company-catalog");
+  const entry = getCatalogEntryById(catalogId);
+  if (!entry) throw new Error("Company not found in catalog");
+
+  return withUserDb(user.id, async (db) => {
+    const existing = await db.query.savedBoards.findFirst({
+      where: and(eq(savedBoards.userId, user.id), eq(savedBoards.boardUrl, entry.boardUrl)),
+    });
+    if (existing) {
+      return { boardId: existing.id, alreadyFollowing: true };
+    }
+
+    const [board] = await db
+      .insert(savedBoards)
+      .values({
+        userId: user.id,
+        companyName: entry.companyName,
+        boardUrl: entry.boardUrl,
+        provider: entry.atsProvider,
+      })
+      .returning();
+
+    revalidatePath("/settings");
+    return { boardId: board.id, alreadyFollowing: false };
   });
 }
 

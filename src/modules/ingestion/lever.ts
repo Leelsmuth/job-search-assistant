@@ -6,6 +6,7 @@ import {
 } from "./types";
 import { extractRequirementsFromText } from "./extract-requirements";
 import { htmlToPlainText, sanitizeJobTitle } from "./html-text";
+import { extractLeverCompanySlug, normalizeBoardUrl } from "./board-url";
 
 type LeverPosting = {
   id: string;
@@ -50,9 +51,13 @@ export const leverAdapter: JobSourceAdapter = {
       }
     }
 
-    const boardMatch = url.match(/jobs\.lever\.co\/([^/]+)\/?$/i);
-    if (boardMatch) {
-      const company = boardMatch[1];
+    let company: string | null = null;
+    try {
+      company = normalizeBoardUrl(url, "lever").boardSlug;
+    } catch {
+      company = extractLeverCompanySlug(url);
+    }
+    if (company && !url.match(/jobs\.lever\.co\/[^/]+\/[a-f0-9-]+/i)) {
       const apiUrl = `https://api.lever.co/v0/postings/${company}`;
       const response = await fetch(apiUrl);
       if (response.ok) {

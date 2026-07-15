@@ -6,6 +6,7 @@ import {
 } from "./types";
 import { extractRequirementsFromText } from "./extract-requirements";
 import { htmlToPlainText, sanitizeJobTitle } from "./html-text";
+import { extractGreenhouseBoardSlug, normalizeBoardUrl } from "./board-url";
 
 type GreenhouseJob = {
   id: number;
@@ -40,8 +41,7 @@ export const greenhouseAdapter: JobSourceAdapter = {
 
     const jobMatch = url.match(/greenhouse\.io\/[^/]+\/jobs\/(\d+)/i);
     if (jobMatch) {
-      const boardMatch = url.match(/greenhouse\.io\/([^/]+)\/jobs/i);
-      const board = boardMatch?.[1];
+      const board = extractGreenhouseBoardSlug(url);
       if (board) {
         const apiUrl = `https://boards-api.greenhouse.io/v1/boards/${board}/jobs/${jobMatch[1]}`;
         const [jobResponse, boardResponse] = await Promise.all([
@@ -64,10 +64,13 @@ export const greenhouseAdapter: JobSourceAdapter = {
       }
     }
 
-    const boardMatch = url.match(/boards-api\.greenhouse\.io\/v1\/boards\/([^/]+)/i) ||
-      url.match(/greenhouse\.io\/([^/]+)\/?$/i);
-    if (boardMatch) {
-      const board = boardMatch[1];
+    let board: string | null = null;
+    try {
+      board = normalizeBoardUrl(url, "greenhouse").boardSlug;
+    } catch {
+      board = extractGreenhouseBoardSlug(url);
+    }
+    if (board) {
       const apiUrl = `https://boards-api.greenhouse.io/v1/boards/${board}/jobs?content=true`;
       const response = await fetch(apiUrl);
       if (response.ok) {
@@ -79,7 +82,7 @@ export const greenhouseAdapter: JobSourceAdapter = {
           provider: "greenhouse",
           sourceUrl: url,
           rawText: combined,
-          rawPayload: data,
+          rawPayload: { ...data, board, companyName: formatBoardName(board) },
         };
       }
     }

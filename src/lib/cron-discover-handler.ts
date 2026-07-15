@@ -37,7 +37,7 @@ export async function runCronDiscoverPoll() {
 
   const byUser = groupBoardsByUser(boards);
   const allResults: Array<{ status: "success" | "error" }> = [];
-  const totals = { newJobs: 0, skipped: 0, matched: 0 };
+  const totals = { newJobs: 0, skipped: 0, matched: 0, filtered: 0 };
   const caps = { remainingNewJobs: CRON_MAX_NEW_JOBS_PER_RUN };
 
   for (const [userId, userBoards] of byUser) {
@@ -51,6 +51,7 @@ export async function runCronDiscoverPoll() {
     totals.newJobs += stats.newJobs;
     totals.skipped += stats.skipped;
     totals.matched += stats.matched;
+    totals.filtered += stats.filtered;
   }
 
   return aggregateDiscoverStats(allResults, totals);

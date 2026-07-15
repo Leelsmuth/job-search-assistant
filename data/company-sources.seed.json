@@ -1,0 +1,1546 @@
+{
+  "version": 1,
+  "updatedAt": "2026-07-15T05:32:50.163Z",
+  "companies": [
+    {
+      "id": "hootsuite",
+      "companyName": "Hootsuite",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/hootsuite",
+      "boardSlug": "hootsuite",
+      "country": "CA",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "saas"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:01.430Z",
+      "lastJobCount": 16
+    },
+    {
+      "id": "jobber",
+      "companyName": "Jobber",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/jobber",
+      "boardSlug": "jobber",
+      "country": "CA",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "saas"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:01.864Z",
+      "lastJobCount": 43
+    },
+    {
+      "id": "1password",
+      "companyName": "1Password",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/1password",
+      "boardSlug": "1password",
+      "country": "CA",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "security"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:02.268Z",
+      "lastJobCount": 60
+    },
+    {
+      "id": "koho",
+      "companyName": "KOHO",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/koho",
+      "boardSlug": "koho",
+      "country": "CA",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "fintech"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:02.650Z",
+      "lastJobCount": 10
+    },
+    {
+      "id": "dapper",
+      "companyName": "Dapper Labs",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/dapper",
+      "boardSlug": "dapper",
+      "country": "CA",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "web3"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:03.113Z",
+      "lastJobCount": 20
+    },
+    {
+      "id": "hopper",
+      "companyName": "Hopper",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/hopper",
+      "boardSlug": "hopper",
+      "country": "CA",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "travel-tech"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:03.587Z",
+      "lastJobCount": 108
+    },
+    {
+      "id": "clearco",
+      "companyName": "Clearco",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/clearco",
+      "boardSlug": "clearco",
+      "country": "CA",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "fintech"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:04.043Z",
+      "lastJobCount": 7
+    },
+    {
+      "id": "stripe",
+      "companyName": "Stripe",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/stripe",
+      "boardSlug": "stripe",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "fintech"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:04.640Z",
+      "lastJobCount": 521
+    },
+    {
+      "id": "discord",
+      "companyName": "Discord",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/discord",
+      "boardSlug": "discord",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "consumer"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:05.044Z",
+      "lastJobCount": 54
+    },
+    {
+      "id": "airtable",
+      "companyName": "Airtable",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/airtable",
+      "boardSlug": "airtable",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "saas"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:05.461Z",
+      "lastJobCount": 39
+    },
+    {
+      "id": "duolingo",
+      "companyName": "Duolingo",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/duolingo",
+      "boardSlug": "duolingo",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "edtech"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:05.883Z",
+      "lastJobCount": 65
+    },
+    {
+      "id": "coinbase",
+      "companyName": "Coinbase",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/coinbase",
+      "boardSlug": "coinbase",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "fintech",
+        "crypto"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:06.335Z",
+      "lastJobCount": 139
+    },
+    {
+      "id": "databricks",
+      "companyName": "Databricks",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/databricks",
+      "boardSlug": "databricks",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "data"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:07.144Z",
+      "lastJobCount": 785
+    },
+    {
+      "id": "brex",
+      "companyName": "Brex",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/brex",
+      "boardSlug": "brex",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "fintech"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:07.655Z",
+      "lastJobCount": 259
+    },
+    {
+      "id": "scaleai",
+      "companyName": "Scale AI",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/scaleai",
+      "boardSlug": "scaleai",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "ai"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:08.141Z",
+      "lastJobCount": 186
+    },
+    {
+      "id": "chime",
+      "companyName": "Chime",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/chime",
+      "boardSlug": "chime",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "fintech"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:08.583Z",
+      "lastJobCount": 70
+    },
+    {
+      "id": "pinterest",
+      "companyName": "Pinterest",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/pinterest",
+      "boardSlug": "pinterest",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "consumer"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:09.095Z",
+      "lastJobCount": 192
+    },
+    {
+      "id": "asana",
+      "companyName": "Asana",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/asana",
+      "boardSlug": "asana",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "saas"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:09.603Z",
+      "lastJobCount": 147
+    },
+    {
+      "id": "dropbox",
+      "companyName": "Dropbox",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/dropbox",
+      "boardSlug": "dropbox",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "saas"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:10.021Z",
+      "lastJobCount": 39
+    },
+    {
+      "id": "mongodb",
+      "companyName": "MongoDB",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/mongodb",
+      "boardSlug": "mongodb",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "data"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:10.605Z",
+      "lastJobCount": 387
+    },
+    {
+      "id": "twilio",
+      "companyName": "Twilio",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/twilio",
+      "boardSlug": "twilio",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "saas"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:11.084Z",
+      "lastJobCount": 157
+    },
+    {
+      "id": "webflow",
+      "companyName": "Webflow",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/webflow",
+      "boardSlug": "webflow",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "frontend-heavy"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:11.468Z",
+      "lastJobCount": 25
+    },
+    {
+      "id": "instacart",
+      "companyName": "Instacart",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/instacart",
+      "boardSlug": "instacart",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "consumer"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:11.922Z",
+      "lastJobCount": 129
+    },
+    {
+      "id": "contentful",
+      "companyName": "Contentful",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/contentful",
+      "boardSlug": "contentful",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "saas"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:12.319Z",
+      "lastJobCount": 33
+    },
+    {
+      "id": "amplitude",
+      "companyName": "Amplitude",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/amplitude",
+      "boardSlug": "amplitude",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "saas"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:12.721Z",
+      "lastJobCount": 43
+    },
+    {
+      "id": "cloudflare",
+      "companyName": "Cloudflare",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/cloudflare",
+      "boardSlug": "cloudflare",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "infra"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:13.328Z",
+      "lastJobCount": 264
+    },
+    {
+      "id": "rubrik",
+      "companyName": "Rubrik",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/rubrik",
+      "boardSlug": "rubrik",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "security"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:14.530Z",
+      "lastJobCount": 100
+    },
+    {
+      "id": "block",
+      "companyName": "Block",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/block",
+      "boardSlug": "block",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "fintech"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:15.049Z",
+      "lastJobCount": 203
+    },
+    {
+      "id": "okta",
+      "companyName": "Okta",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/okta",
+      "boardSlug": "okta",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "security"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:15.658Z",
+      "lastJobCount": 339
+    },
+    {
+      "id": "elastic",
+      "companyName": "Elastic",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/elastic",
+      "boardSlug": "elastic",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "data"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:16.159Z",
+      "lastJobCount": 168
+    },
+    {
+      "id": "datadog",
+      "companyName": "Datadog",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/datadog",
+      "boardSlug": "datadog",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "devtools"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:16.785Z",
+      "lastJobCount": 423
+    },
+    {
+      "id": "pagerduty",
+      "companyName": "PagerDuty",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/pagerduty",
+      "boardSlug": "pagerduty",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "saas"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:17.171Z",
+      "lastJobCount": 17
+    },
+    {
+      "id": "fastly",
+      "companyName": "Fastly",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/fastly",
+      "boardSlug": "fastly",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "infra"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:17.600Z",
+      "lastJobCount": 55
+    },
+    {
+      "id": "cockroachlabs",
+      "companyName": "Cockroach Labs",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/cockroachlabs",
+      "boardSlug": "cockroachlabs",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "data"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:17.998Z",
+      "lastJobCount": 34
+    },
+    {
+      "id": "coursera",
+      "companyName": "Coursera",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/coursera",
+      "boardSlug": "coursera",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "edtech"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:18.429Z",
+      "lastJobCount": 11
+    },
+    {
+      "id": "sofi",
+      "companyName": "SoFi",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/sofi",
+      "boardSlug": "sofi",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "fintech"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:18.853Z",
+      "lastJobCount": 64
+    },
+    {
+      "id": "launchdarkly",
+      "companyName": "LaunchDarkly",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/launchdarkly",
+      "boardSlug": "launchdarkly",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "devtools"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:19.261Z",
+      "lastJobCount": 36
+    },
+    {
+      "id": "netlify",
+      "companyName": "Netlify",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/netlify",
+      "boardSlug": "netlify",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "frontend-heavy"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:19.626Z",
+      "lastJobCount": 4
+    },
+    {
+      "id": "circleci",
+      "companyName": "CircleCI",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/circleci",
+      "boardSlug": "circleci",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "devtools"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:19.990Z",
+      "lastJobCount": 10
+    },
+    {
+      "id": "calendly",
+      "companyName": "Calendly",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/calendly",
+      "boardSlug": "calendly",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "saas"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:20.367Z",
+      "lastJobCount": 18
+    },
+    {
+      "id": "airbnb",
+      "companyName": "Airbnb",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/airbnb",
+      "boardSlug": "airbnb",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "travel-tech"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:20.875Z",
+      "lastJobCount": 197
+    },
+    {
+      "id": "squarespace",
+      "companyName": "Squarespace",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/squarespace",
+      "boardSlug": "squarespace",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "saas"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:21.252Z",
+      "lastJobCount": 16
+    },
+    {
+      "id": "waymo",
+      "companyName": "Waymo",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/waymo",
+      "boardSlug": "waymo",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "ai"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:21.789Z",
+      "lastJobCount": 390
+    },
+    {
+      "id": "palantir",
+      "companyName": "Palantir",
+      "atsProvider": "lever",
+      "boardUrl": "https://jobs.lever.co/palantir",
+      "boardSlug": "palantir",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "data"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:23.395Z",
+      "lastJobCount": 277
+    },
+    {
+      "id": "linear",
+      "companyName": "Linear",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/linear",
+      "boardSlug": "linear",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "devtools"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:23.778Z",
+      "lastJobCount": 24
+    },
+    {
+      "id": "vanta",
+      "companyName": "Vanta",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/vanta",
+      "boardSlug": "vanta",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "security"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:24.181Z",
+      "lastJobCount": 110
+    },
+    {
+      "id": "perplexity",
+      "companyName": "Perplexity",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/perplexity",
+      "boardSlug": "perplexity",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "ai"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:24.559Z",
+      "lastJobCount": 83
+    },
+    {
+      "id": "harvey",
+      "companyName": "Harvey",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/harvey",
+      "boardSlug": "harvey",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "legal-tech",
+        "ai"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:27.150Z",
+      "lastJobCount": 339
+    },
+    {
+      "id": "sierra",
+      "companyName": "Sierra",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/sierra",
+      "boardSlug": "sierra",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "ai"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:27.588Z",
+      "lastJobCount": 157
+    },
+    {
+      "id": "cognition",
+      "companyName": "Cognition",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/cognition",
+      "boardSlug": "cognition",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "ai"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:27.981Z",
+      "lastJobCount": 74
+    },
+    {
+      "id": "elevenlabs",
+      "companyName": "ElevenLabs",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/elevenlabs",
+      "boardSlug": "elevenlabs",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "ai"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:28.427Z",
+      "lastJobCount": 183
+    },
+    {
+      "id": "runway",
+      "companyName": "Runway",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/runway",
+      "boardSlug": "runway",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "ai"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:28.759Z",
+      "lastJobCount": 4
+    },
+    {
+      "id": "replit",
+      "companyName": "Replit",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/replit",
+      "boardSlug": "replit",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "devtools"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:29.159Z",
+      "lastJobCount": 99
+    },
+    {
+      "id": "cursor",
+      "companyName": "Cursor",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/cursor",
+      "boardSlug": "cursor",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "devtools",
+        "ai"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:29.577Z",
+      "lastJobCount": 113
+    },
+    {
+      "id": "lovable",
+      "companyName": "Lovable",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/lovable",
+      "boardSlug": "lovable",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "ai"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:30.040Z",
+      "lastJobCount": 68
+    },
+    {
+      "id": "supabase",
+      "companyName": "Supabase",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/supabase",
+      "boardSlug": "supabase",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "devtools"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:30.449Z",
+      "lastJobCount": 52
+    },
+    {
+      "id": "neon",
+      "companyName": "Neon",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/neon",
+      "boardSlug": "neon",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "data"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:30.811Z",
+      "lastJobCount": 8
+    },
+    {
+      "id": "resend",
+      "companyName": "Resend",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/resend",
+      "boardSlug": "resend",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "devtools"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:31.175Z",
+      "lastJobCount": 8
+    },
+    {
+      "id": "posthog",
+      "companyName": "PostHog",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/posthog",
+      "boardSlug": "posthog",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "saas"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:31.534Z",
+      "lastJobCount": 19
+    },
+    {
+      "id": "incident",
+      "companyName": "Incident.io",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/incident",
+      "boardSlug": "incident",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "saas"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:31.906Z",
+      "lastJobCount": 21
+    },
+    {
+      "id": "plain",
+      "companyName": "Plain",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/plain",
+      "boardSlug": "plain",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "saas"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:32.257Z",
+      "lastJobCount": 12
+    },
+    {
+      "id": "attio",
+      "companyName": "Attio",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/attio",
+      "boardSlug": "attio",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "saas"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:32.653Z",
+      "lastJobCount": 38
+    },
+    {
+      "id": "modal",
+      "companyName": "Modal",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/modal",
+      "boardSlug": "modal",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "ai",
+        "infra"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:33.001Z",
+      "lastJobCount": 33
+    },
+    {
+      "id": "langchain",
+      "companyName": "LangChain",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/langchain",
+      "boardSlug": "langchain",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "ai"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:33.421Z",
+      "lastJobCount": 94
+    },
+    {
+      "id": "cohere",
+      "companyName": "Cohere",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/cohere",
+      "boardSlug": "cohere",
+      "country": "CA",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "ai"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:33.852Z",
+      "lastJobCount": 133
+    },
+    {
+      "id": "toast",
+      "companyName": "Toast",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/toast",
+      "boardSlug": "toast",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "fintech"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:34.501Z",
+      "lastJobCount": 303
+    },
+    {
+      "id": "roblox",
+      "companyName": "Roblox",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/roblox",
+      "boardSlug": "roblox",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "gaming"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:35.005Z",
+      "lastJobCount": 228
+    },
+    {
+      "id": "epicgames",
+      "companyName": "Epic Games",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/epicgames",
+      "boardSlug": "epicgames",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "gaming"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:35.455Z",
+      "lastJobCount": 127
+    },
+    {
+      "id": "riotgames",
+      "companyName": "Riot Games",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/riotgames",
+      "boardSlug": "riotgames",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "gaming"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:35.913Z",
+      "lastJobCount": 154
+    },
+    {
+      "id": "intercom",
+      "companyName": "Intercom",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/intercom",
+      "boardSlug": "intercom",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "saas"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:36.383Z",
+      "lastJobCount": 139
+    },
+    {
+      "id": "nuro",
+      "companyName": "Nuro",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/nuro",
+      "boardSlug": "nuro",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "ai"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:36.811Z",
+      "lastJobCount": 93
+    },
+    {
+      "id": "zscaler",
+      "companyName": "Zscaler",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/zscaler",
+      "boardSlug": "zscaler",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "security"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:37.405Z",
+      "lastJobCount": 337
+    },
+    {
+      "id": "gitlab-gh",
+      "companyName": "GitLab",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/gitlab",
+      "boardSlug": "gitlab",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "devtools"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:37.918Z",
+      "lastJobCount": 165
+    },
+    {
+      "id": "figma-gh",
+      "companyName": "Figma",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/figma",
+      "boardSlug": "figma",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "design-tools"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:38.397Z",
+      "lastJobCount": 166
+    },
+    {
+      "id": "anthropic-gh",
+      "companyName": "Anthropic",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/anthropic",
+      "boardSlug": "anthropic",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "ai"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:39.077Z",
+      "lastJobCount": 414
+    },
+    {
+      "id": "reddit-gh",
+      "companyName": "Reddit",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/reddit",
+      "boardSlug": "reddit",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "consumer"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:39.615Z",
+      "lastJobCount": 191
+    },
+    {
+      "id": "lyft-gh",
+      "companyName": "Lyft",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/lyft",
+      "boardSlug": "lyft",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "mobility"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:40.089Z",
+      "lastJobCount": 159
+    },
+    {
+      "id": "affirm-gh",
+      "companyName": "Affirm",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/affirm",
+      "boardSlug": "affirm",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "fintech"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:40.589Z",
+      "lastJobCount": 179
+    },
+    {
+      "id": "robinhood-gh",
+      "companyName": "Robinhood",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/robinhood",
+      "boardSlug": "robinhood",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "fintech"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:41.028Z",
+      "lastJobCount": 111
+    },
+    {
+      "id": "flexport-gh",
+      "companyName": "Flexport",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/flexport",
+      "boardSlug": "flexport",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "logistics"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:41.499Z",
+      "lastJobCount": 146
+    },
+    {
+      "id": "checkr-gh",
+      "companyName": "Checkr",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/checkr",
+      "boardSlug": "checkr",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "saas"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:41.886Z",
+      "lastJobCount": 59
+    },
+    {
+      "id": "gusto-gh",
+      "companyName": "Gusto",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/gusto",
+      "boardSlug": "gusto",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "saas"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:42.332Z",
+      "lastJobCount": 77
+    },
+    {
+      "id": "mixpanel-gh",
+      "companyName": "Mixpanel",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/mixpanel",
+      "boardSlug": "mixpanel",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "saas"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:42.732Z",
+      "lastJobCount": 41
+    },
+    {
+      "id": "warp",
+      "companyName": "Warp",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/warp",
+      "boardSlug": "warp",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "devtools"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:43.147Z",
+      "lastJobCount": 21
+    },
+    {
+      "id": "motherduck",
+      "companyName": "MotherDuck",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/motherduck",
+      "boardSlug": "motherduck",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "data"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:43.525Z",
+      "lastJobCount": 9
+    },
+    {
+      "id": "turbopuffer",
+      "companyName": "Turbopuffer",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/turbopuffer",
+      "boardSlug": "turbopuffer",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "data"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:43.872Z",
+      "lastJobCount": 7
+    },
+    {
+      "id": "browserbase",
+      "companyName": "Browserbase",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/browserbase",
+      "boardSlug": "browserbase",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "devtools"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:44.242Z",
+      "lastJobCount": 7
+    },
+    {
+      "id": "notable",
+      "companyName": "Notable",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/notable",
+      "boardSlug": "notable",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "healthtech"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:44.608Z",
+      "lastJobCount": 15
+    },
+    {
+      "id": "suno",
+      "companyName": "Suno",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/suno",
+      "boardSlug": "suno",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "ai"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:45.010Z",
+      "lastJobCount": 61
+    },
+    {
+      "id": "character",
+      "companyName": "Character.AI",
+      "atsProvider": "ashby",
+      "boardUrl": "https://jobs.ashbyhq.com/character",
+      "boardSlug": "character",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "ai"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:45.352Z",
+      "lastJobCount": 16
+    },
+    {
+      "id": "carta-gh",
+      "companyName": "Carta",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/carta",
+      "boardSlug": "carta",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "fintech"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:45.753Z",
+      "lastJobCount": 58
+    },
+    {
+      "id": "samsara",
+      "companyName": "Samsara",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/samsara",
+      "boardSlug": "samsara",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "iot"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:46.371Z",
+      "lastJobCount": 314
+    },
+    {
+      "id": "verkada",
+      "companyName": "Verkada",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/verkada",
+      "boardSlug": "verkada",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "security"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:47.039Z",
+      "lastJobCount": 282
+    },
+    {
+      "id": "relativity",
+      "companyName": "Relativity",
+      "atsProvider": "greenhouse",
+      "boardUrl": "https://boards.greenhouse.io/relativity",
+      "boardSlug": "relativity",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "legal-tech"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:47.775Z",
+      "lastJobCount": 342
+    },
+    {
+      "id": "lever-spotify",
+      "companyName": "Spotify",
+      "atsProvider": "lever",
+      "boardUrl": "https://jobs.lever.co/spotify",
+      "boardSlug": "spotify",
+      "country": "GLOBAL",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "consumer"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:48.858Z",
+      "lastJobCount": 111
+    },
+    {
+      "id": "lever-palantir",
+      "companyName": "Palantir",
+      "atsProvider": "lever",
+      "boardUrl": "https://jobs.lever.co/palantir",
+      "boardSlug": "palantir",
+      "country": "US",
+      "tags": [
+        "remote-canada",
+        "frontend-heavy",
+        "data"
+      ],
+      "enabled": true,
+      "verifiedAt": "2026-07-15T05:32:49.715Z",
+      "lastJobCount": 277
+    }
+  ]
+}
