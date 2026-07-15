@@ -9,7 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export function LoginForm() {
+export function LoginForm({
+  appConfigured,
+  missingVars,
+}: {
+  appConfigured: boolean;
+  missingVars: string[];
+}) {
   const searchParams = useSearchParams();
   const missingEnv = searchParams.get("error") === "missing_env";
   const supabaseConfigured = isSupabaseConfigured();
@@ -21,9 +27,9 @@ export function LoginForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!supabaseConfigured) {
+    if (!appConfigured || !supabaseConfigured) {
       setMessage(
-        "Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel, then redeploy."
+        `Missing environment variables: ${missingVars.join(", ")}. Add them in Vercel, then redeploy.`
       );
       return;
     }
@@ -53,16 +59,27 @@ export function LoginForm() {
           </p>
         </CardHeader>
         <CardContent>
-          {(missingEnv || !supabaseConfigured) && (
+          {(missingEnv || !appConfigured) && (
             <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
               <p className="font-medium">Deployment configuration required</p>
               <p className="mt-1">
-                Set{" "}
-                <code className="rounded bg-amber-100 px-1">NEXT_PUBLIC_SUPABASE_URL</code>,{" "}
-                <code className="rounded bg-amber-100 px-1">NEXT_PUBLIC_SUPABASE_ANON_KEY</code>,
-                and <code className="rounded bg-amber-100 px-1">DATABASE_URL</code> in Vercel →
-                Project Settings → Environment Variables, then redeploy.
+                Set these in Vercel → Project Settings → Environment Variables, then redeploy:
               </p>
+              <ul className="mt-2 list-disc space-y-1 pl-4">
+                <li>
+                  <code className="rounded bg-amber-100 px-1">NEXT_PUBLIC_SUPABASE_URL</code>
+                </li>
+                <li>
+                  <code className="rounded bg-amber-100 px-1">NEXT_PUBLIC_SUPABASE_ANON_KEY</code>
+                </li>
+                <li>
+                  <code className="rounded bg-amber-100 px-1">DATABASE_URL</code> (Supabase Session
+                  pooler, port 6543)
+                </li>
+              </ul>
+              {missingVars.length > 0 && (
+                <p className="mt-2 text-xs">Currently missing: {missingVars.join(", ")}</p>
+              )}
             </div>
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -74,7 +91,7 @@ export function LoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                disabled={!supabaseConfigured}
+                disabled={!appConfigured}
               />
             </div>
             <div className="space-y-2">
@@ -85,14 +102,14 @@ export function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                disabled={!supabaseConfigured}
+                disabled={!appConfigured}
               />
             </div>
             {message && <p className="text-sm text-muted-foreground">{message}</p>}
             <Button
               type="submit"
               className="w-full"
-              disabled={loading || !supabaseConfigured}
+              disabled={loading || !appConfigured}
             >
               {loading ? "Loading..." : isSignUp ? "Sign Up" : "Sign In"}
             </Button>
@@ -101,7 +118,7 @@ export function LoginForm() {
               variant="ghost"
               className="w-full"
               onClick={() => setIsSignUp(!isSignUp)}
-              disabled={!supabaseConfigured}
+              disabled={!appConfigured}
             >
               {isSignUp ? "Already have an account? Sign in" : "Need an account? Sign up"}
             </Button>

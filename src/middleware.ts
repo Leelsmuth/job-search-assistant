@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isProtectedPath, isSupabaseConfigured } from "@/lib/supabase/config";
+import { isAppConfigured } from "@/lib/env";
+import { isProtectedPath } from "@/lib/supabase/config";
 
 export async function middleware(request: NextRequest) {
-  if (!isSupabaseConfigured()) {
+  if (!isAppConfigured()) {
     if (request.nextUrl.pathname.startsWith("/login")) {
       return NextResponse.next();
     }

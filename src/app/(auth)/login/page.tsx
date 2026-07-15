@@ -1,7 +1,11 @@
 import { Suspense } from "react";
+import { isAppConfigured, getMissingEnvVars } from "@/lib/env";
 import { LoginForm } from "./login-form";
 
 export default function LoginPage() {
+  const appConfigured = isAppConfigured();
+  const missingVars = getMissingEnvVars();
+
   return (
     <Suspense
       fallback={
@@ -10,7 +14,7 @@ export default function LoginPage() {
         </div>
       }
     >
-      <LoginForm />
+      <LoginForm appConfigured={appConfigured} missingVars={missingVars} />
     </Suspense>
   );
 }
