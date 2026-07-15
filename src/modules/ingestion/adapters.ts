@@ -8,6 +8,8 @@ import { extractRequirementsFromText } from "./extract-requirements";
 import { htmlToPlainText, extractTitleFromHtml, decodeHtmlEntities, sanitizeJobTitle } from "./html-text";
 import { greenhouseAdapter } from "./greenhouse";
 import { leverAdapter } from "./lever";
+import { ashbyAdapter } from "./ashby";
+import type { JobSourceProvider } from "./types";
 
 export const manualDescriptionAdapter: JobSourceAdapter = {
   provider: "pasted_description",
@@ -150,9 +152,20 @@ export const allAdapters: JobSourceAdapter[] = [
   manualFormAdapter,
   greenhouseAdapter,
   leverAdapter,
+  ashbyAdapter,
   manualDescriptionAdapter,
   genericUrlAdapter,
 ];
+
+const adapterByProvider = new Map(
+  allAdapters.map((adapter) => [adapter.provider, adapter])
+);
+
+export function getAdapterForProvider(
+  provider: JobSourceProvider
+): JobSourceAdapter | undefined {
+  return adapterByProvider.get(provider);
+}
 
 export async function detectBestAdapter(input: string): Promise<JobSourceAdapter> {
   const results = await Promise.all(

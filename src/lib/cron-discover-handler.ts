@@ -1,49 +1,59 @@
-import {
-  CRON_MAX_BOARDS_PER_RUN,
-  CRON_BOARD_DELAY_MS,
-  summarizeCronPollResults,
-  sleep,
-} from "@/lib/cron-discover";
-import { verifyCronAuth } from "@/lib/cron-auth";
 import { eq } from "drizzle-orm";
+import { CRON_MAX_BOARDS_PER_RUN, CRON_MAX_NEW_JOBS_PER_RUN } from "@/lib/cron-discover";
+import { verifyCronAuth } from "@/lib/cron-auth";
 import { getDb } from "@/db/client";
 import { savedBoards } from "@/db/schema";
-import { detectBestAdapter } from "@/modules/ingestion";
+import { withUserDb } from "@/db/user-context";
+import {
+  aggregateDiscoverStats,
+  pollBoardsForUser,
+} from "@/modules/discovery/poll-board";
+import type { JobSourceProvider } from "@/modules/ingestion/types";
 
-export async function runCronDiscoverPoll(): Promise<{
-  polled: number;
-  succeeded: number;
-  failed: number;
-}> {
+function groupBoardsByUser(
+  boards: Array<{
+    id: string;
+    userId: string;
+    boardUrl: string;
+    provider: JobSourceProvider;
+    companyName: string;
+  }>
+) {
+  const map = new Map<string, typeof boards>();
+  for (const board of boards) {
+    const list = map.get(board.userId) ?? [];
+    list.push(board);
+    map.set(board.userId, list);
+  }
+  return map;
+}
+
+export async function runCronDiscoverPoll() {
   const db = getDb();
   const boards = await db.query.savedBoards.findMany({
     where: eq(savedBoards.isActive, true),
     limit: CRON_MAX_BOARDS_PER_RUN,
   });
 
-  const results: Array<{ status: "success" | "error" }> = [];
+  const byUser = groupBoardsByUser(boards);
+  const allResults: Array<{ status: "success" | "error" }> = [];
+  const totals = { newJobs: 0, skipped: 0, matched: 0 };
+  const caps = { remainingNewJobs: CRON_MAX_NEW_JOBS_PER_RUN };
 
-  for (let i = 0; i < boards.length; i++) {
-    const board = boards[i];
-    try {
-      const adapter = await detectBestAdapter(board.boardUrl);
-      await adapter.fetch(board.boardUrl);
-      results.push({ status: "success" });
+  for (const [userId, userBoards] of byUser) {
+    if (caps.remainingNewJobs <= 0) break;
 
-      await db
-        .update(savedBoards)
-        .set({ lastPolledAt: new Date() })
-        .where(eq(savedBoards.id, board.id));
-    } catch {
-      results.push({ status: "error" });
-    }
+    const { results, stats } = await withUserDb(userId, (userDb) =>
+      pollBoardsForUser(userDb, userId, userBoards, caps)
+    );
 
-    if (i < boards.length - 1) {
-      await sleep(CRON_BOARD_DELAY_MS);
-    }
+    allResults.push(...results);
+    totals.newJobs += stats.newJobs;
+    totals.skipped += stats.skipped;
+    totals.matched += stats.matched;
   }
 
-  return summarizeCronPollResults(results);
+  return aggregateDiscoverStats(allResults, totals);
 }
 
 export async function handleCronDiscoverRequest(

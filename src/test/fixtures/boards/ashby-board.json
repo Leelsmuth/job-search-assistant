@@ -1,0 +1,26 @@
+{
+  "jobs": [
+    {
+      "id": "ashby-111",
+      "title": "Software Engineer",
+      "team": "Engineering",
+      "location": "San Francisco, CA",
+      "publishedAt": "2026-02-01T12:00:00Z",
+      "isRemote": false,
+      "workplaceType": "Hybrid",
+      "jobUrl": "https://jobs.ashbyhq.com/acme/ashby-111",
+      "descriptionHtml": "<p>Build scalable systems.</p>"
+    },
+    {
+      "id": "ashby-222",
+      "title": "DevOps Engineer",
+      "team": "Infrastructure",
+      "location": "Remote",
+      "publishedAt": "2026-02-02T12:00:00Z",
+      "isRemote": true,
+      "workplaceType": "Remote",
+      "jobUrl": "https://jobs.ashbyhq.com/acme/ashby-222",
+      "descriptionHtml": "<p>Kubernetes and CI/CD.</p>"
+    }
+  ]
+}

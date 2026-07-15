@@ -1,0 +1,24 @@
+[
+  {
+    "id": "aaa-111",
+    "text": "<p>Senior Frontend Engineer</p><p>React and TypeScript required.</p>",
+    "hostedUrl": "https://jobs.lever.co/acme/aaa-111",
+    "categories": {
+      "location": "Remote",
+      "team": "Engineering",
+      "commitment": "Full-time"
+    },
+    "createdAt": 1700000000000
+  },
+  {
+    "id": "bbb-222",
+    "text": "<p>Backend Engineer</p><p>Go and PostgreSQL.</p>",
+    "hostedUrl": "https://jobs.lever.co/acme/bbb-222",
+    "categories": {
+      "location": "Toronto",
+      "team": "Platform",
+      "commitment": "Full-time"
+    },
+    "createdAt": 1700100000000
+  }
+]

@@ -56,6 +56,7 @@ In Supabase **SQL Editor**, run these files in order:
 2. `drizzle/migrations/0001_indexes.sql` — performance indexes
 3. `drizzle/migrations/0003_storage_resumes_bucket.sql` — private **`resumes`** storage bucket (required for resume upload)
 4. `drizzle/migrations/0004_phase4_qa_tailoring.sql` — Q&A unsupported-claims column + tailoring bullet traceability
+5. `drizzle/migrations/0005_discovery_dedup.sql` — unique index for discovered job deduplication
 
 Alternatively, `supabase/policies/rls.sql` contains the same table policies (use on first setup only).
 
@@ -111,7 +112,7 @@ The app accepts **either** name for each row. After connecting:
 
 1. In Vercel → **Environment Variables**, confirm vars exist for **Production** and **Preview** (edit each → check both boxes)
 2. **Redeploy** (env changes do not apply to existing deployments)
-3. In Supabase **SQL Editor**, run migrations [`0002`](drizzle/migrations/0002_rls_policies.sql) → [`0004`](drizzle/migrations/0004_phase4_qa_tailoring.sql)
+3. In Supabase **SQL Editor**, run migrations [`0002`](drizzle/migrations/0002_rls_policies.sql) → [`0005`](drizzle/migrations/0005_discovery_dedup.sql)
 4. Sign up at `/login` on the deployed URL (prod has a separate user table from local)
 
 ### Option B: Manual env vars
@@ -131,10 +132,30 @@ If env vars are missing, `/jobs` redirects to `/login` with a configuration noti
 ## Daily workflow
 
 1. **Profile** — confirm skills, experience, preferences at `/profile`
-2. **Import jobs** — paste descriptions or URLs at `/jobs/import`
-3. **Review feed** — scan match scores and gaps at `/jobs`
-4. **Prepare** — tailoring + Q&A on job detail pages
-5. **Track** — move saved jobs through statuses at `/applications`
+2. **Discovery** — save ATS board URLs at `/settings` (Greenhouse, Lever, Ashby)
+3. **Import jobs** — paste descriptions or URLs at `/jobs/import` (manual)
+4. **Review feed** — scan match scores and gaps at `/jobs` (filter by discovered vs manual)
+5. **Prepare** — tailoring + Q&A on job detail pages
+6. **Track** — move saved jobs through statuses at `/applications`
+
+## Automated discovery (V1)
+
+Discovery polls **saved ATS boards** daily — it does not search the open web.
+
+1. Add board URLs in **Settings** (`/settings`) — e.g. `https://boards.greenhouse.io/stripe`
+2. Set `CRON_SECRET` in Vercel (and `.env.local` for manual testing)
+3. Vercel cron runs daily at **08:00 UTC** (`vercel.json` → `/api/cron/discover`)
+
+Manual poll (single board): use **Poll now** in Settings.
+
+Manual cron trigger:
+
+```bash
+curl -X POST "https://your-app.vercel.app/api/cron/discover" \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+Cron response includes `{ newJobs, skipped, matched }` for monitoring.
 
 ## Scripts
 

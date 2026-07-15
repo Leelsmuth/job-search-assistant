@@ -1,0 +1,31 @@
+{
+  "jobs": [
+    {
+      "id": 111,
+      "title": "Senior Frontend Engineer",
+      "location": { "name": "Remote - Canada" },
+      "absolute_url": "https://boards.greenhouse.io/acme/jobs/111",
+      "content": "<p>Build React apps with TypeScript.</p>",
+      "updated_at": "2026-01-15T10:00:00Z",
+      "departments": [{ "name": "Engineering" }]
+    },
+    {
+      "id": 222,
+      "title": "Staff Platform Engineer",
+      "location": { "name": "Toronto, ON" },
+      "absolute_url": "https://boards.greenhouse.io/acme/jobs/222",
+      "content": "<p>Own platform infrastructure.</p>",
+      "updated_at": "2026-01-16T10:00:00Z",
+      "departments": [{ "name": "Platform" }]
+    },
+    {
+      "id": 333,
+      "title": "Product Designer",
+      "location": { "name": "New York, NY" },
+      "absolute_url": "https://boards.greenhouse.io/acme/jobs/333",
+      "content": "<p>Design product experiences.</p>",
+      "updated_at": "2026-01-17T10:00:00Z",
+      "departments": [{ "name": "Design" }]
+    }
+  ]
+}

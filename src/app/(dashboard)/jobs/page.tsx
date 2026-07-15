@@ -17,6 +17,7 @@ export default async function JobsPage({
     remote?: string;
     canada?: string;
     classification?: string;
+    source?: string;
     sort?: string;
   }>;
 }) {
@@ -29,6 +30,7 @@ export default async function JobsPage({
     remoteOnly: params.remote === "true",
     canadaOnly: params.canada === "true",
     classification: params.classification,
+    source: params.source as "discovered" | "manual" | undefined,
     sort,
   });
 
@@ -82,6 +84,8 @@ export default async function JobsPage({
               ? isAnalysisStale(match.createdAt, profileUpdatedAt)
               : false;
             const lowExtraction = extractionQuality.confidence === "low";
+            const isNew =
+              Date.now() - new Date(job.dateDiscovered).getTime() < 24 * 60 * 60 * 1000;
 
             return (
               <Link key={job.id} href={`/jobs/${job.id}`}>
@@ -105,6 +109,9 @@ export default async function JobsPage({
                           <Badge className="border border-blue-300 bg-transparent text-blue-700">
                             saved
                           </Badge>
+                        )}
+                        {isNew && (
+                          <Badge className="bg-green-100 text-green-900">new</Badge>
                         )}
                         {isStale && (
                           <Badge className="bg-amber-100 text-amber-900">stale</Badge>

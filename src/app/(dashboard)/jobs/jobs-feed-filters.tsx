@@ -46,6 +46,18 @@ export function JobsFeedFilters() {
         </select>
       </div>
       <div>
+        <Label className="text-xs">Source</Label>
+        <select
+          className="mt-1 block rounded-md border border-input px-2 py-1 text-sm"
+          value={params.get("source") ?? ""}
+          onChange={(e) => update("source", e.target.value)}
+        >
+          <option value="">All</option>
+          <option value="discovered">Discovered (boards)</option>
+          <option value="manual">Manual import</option>
+        </select>
+      </div>
+      <div>
         <Label className="text-xs">Sort</Label>
         <select
           className="mt-1 block rounded-md border border-input px-2 py-1 text-sm"

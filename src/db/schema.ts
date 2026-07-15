@@ -501,6 +501,7 @@ export const applicationAnswersRelations = relations(applicationAnswers, ({ one 
 
 export const jobsRelations = relations(jobs, ({ one, many }) => ({
   company: one(companies, { fields: [jobs.companyId], references: [companies.id] }),
+  source: one(jobSources, { fields: [jobs.sourceId], references: [jobSources.id] }),
   requirements: many(jobRequirements),
   matchAnalyses: many(matchAnalyses),
   applications: many(applications),

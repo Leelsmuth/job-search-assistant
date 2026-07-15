@@ -20,13 +20,9 @@ import {
   profileEvidence,
   resumeDocuments,
   resumeVersions,
-  companies,
-  jobSources,
   jobs,
   jobRequirements,
   matchAnalyses,
-  matchCategoryScores,
-  requirementMatches,
   applications,
   applicationAnswers,
   tailoringSuggestions,
@@ -34,24 +30,18 @@ import {
   savedBoards,
 } from "@/db/schema";
 import { getUser } from "@/lib/supabase/server";
-import { previewJobImport, requirementsToStructured } from "@/modules/ingestion";
-import {
-  confirmJobImportSchema,
-  jobImportMetaSchema,
-  MAX_RAW_PAYLOAD_BYTES,
-} from "@/modules/ingestion/types";
+import { previewJobImport, persistDiscoveredJob } from "@/modules/ingestion";
+import { runAndSaveMatchAnalysisDb } from "@/modules/matching/save-match-analysis";
 import type { NormalizedJob } from "@/modules/ingestion";
 import { extractResumeText, MAX_RESUME_BYTES, MIN_RESUME_TEXT_LENGTH } from "@/modules/resumes/extract";
 import { extractProfileFromResume, computeInputHash } from "@/modules/ai/client";
 import { generateTailoringSuggestions, draftApplicationAnswer } from "@/modules/ai/client";
 import { detectUnsupportedClaims } from "@/modules/ai/schemas";
 import { normalizeSkillCategory, extractEvidenceSkills } from "@/modules/candidate/skills";
-import { runMatchAnalysis, type CandidateProfile } from "@/modules/matching/engine";
 import type { ApplicationStatus } from "@/lib/utils";
 import { parseOptionalInt } from "@/lib/utils";
 import { uploadResumeFile, deleteResumeFile } from "@/modules/resumes/storage";
 import { wipeExtractedProfileData } from "@/modules/resumes/profile-wipe";
-import { MATCH_ANALYSIS_VERSION } from "@/modules/matching/stale";
 
 async function requireUser() {
   const user = await getUser();
@@ -352,19 +342,6 @@ export async function applyResumeSuggestions(
   });
 }
 
-async function findOrCreateCompany(db: Db, name: string, atsProvider?: string) {
-  const existing = await db.query.companies.findFirst({
-    where: eq(companies.name, name),
-  });
-  if (existing) return existing;
-
-  const [company] = await db
-    .insert(companies)
-    .values({ name, atsProvider })
-    .returning();
-  return company;
-}
-
 export async function previewJobImportAction(input: string) {
   await requireUser();
   const { raw, normalized, adapter } = await previewJobImport(input);
@@ -387,78 +364,16 @@ export async function confirmJobImportAction(
   }
 ) {
   const user = await requireUser();
-  const validatedJob = confirmJobImportSchema.parse(normalized);
-  const validatedMeta = jobImportMetaSchema.parse(meta);
-  if (
-    validatedMeta.rawPayload !== undefined &&
-    JSON.stringify(validatedMeta.rawPayload).length > MAX_RAW_PAYLOAD_BYTES
-  ) {
-    throw new Error("Import payload too large");
-  }
 
   return withUserDb(user.id, async (db) => {
-    const [source] = await db
-      .insert(jobSources)
-      .values({
-        provider: validatedMeta.provider,
-        sourceUrl: validatedMeta.sourceUrl,
-        sourceJobId: validatedMeta.sourceJobId,
-        rawPayload: validatedMeta.rawPayload as Record<string, unknown> | undefined,
-      })
-      .returning();
+    const result = await persistDiscoveredJob(db, user.id, normalized, meta);
 
-    const company = await findOrCreateCompany(
-      db,
-      validatedJob.company,
-      validatedMeta.provider
-    );
-
-    const [job] = await db
-      .insert(jobs)
-      .values({
-        userId: user.id,
-        companyId: company.id,
-        sourceId: source.id,
-        title: validatedJob.title,
-        location: validatedJob.location,
-        workplaceType: validatedJob.workplaceType,
-        salaryMin: validatedJob.salaryMin,
-        salaryMax: validatedJob.salaryMax,
-        salaryCurrency: validatedJob.salaryCurrency,
-        jobUrl: validatedJob.jobUrl || validatedMeta.sourceUrl,
-        sourceJobId: validatedJob.sourceJobId,
-        employmentType: validatedJob.employmentType,
-        description: validatedJob.description,
-        responsibilities: validatedJob.responsibilities,
-        requiredQualifications: validatedJob.requiredQualifications,
-        preferredQualifications: validatedJob.preferredQualifications,
-        technologies: validatedJob.technologies,
-        experienceRequirements: validatedJob.experienceRequirements,
-        educationRequirements: validatedJob.educationRequirements,
-      })
-      .returning();
-
-    const structuredReqs = requirementsToStructured(validatedJob);
-    const insertedReqs = [];
-    for (const req of structuredReqs) {
-      const [r] = await db
-        .insert(jobRequirements)
-        .values({
-          jobId: job.id,
-          requirementType: req.requirementType,
-          text: req.text,
-          normalizedSkill: req.normalizedSkill,
-          importance: req.importance,
-          isHardRequirement: req.isHardRequirement,
-        })
-        .returning();
-      insertedReqs.push(r);
+    if (result.isNew) {
+      await runAndSaveMatchAnalysisDb(db, user.id, result.jobId);
     }
 
-    await runAndSaveMatchAnalysisDb(db, user.id, job.id, insertedReqs);
-
     revalidatePath("/jobs");
-    return { jobId: job.id };
+    return { jobId: result.jobId, isNew: result.isNew };
   });
 }
 
@@ -471,116 +386,6 @@ export async function importJobPost(input: string) {
     sourceJobId: preview.sourceJobId,
     rawPayload: preview.rawPayload,
   });
-}
-
-async function buildCandidateProfileForMatching(
-  db: Db,
-  profileId: string
-): Promise<CandidateProfile> {
-  const profile = await db.query.candidateProfiles.findFirst({
-    where: eq(candidateProfiles.id, profileId),
-    with: { skills: true, evidence: true },
-  });
-  if (!profile) throw new Error("Profile not found");
-
-  return {
-    location: profile.location,
-    workAuthorization: profile.workAuthorization,
-    targetTitles: (profile.targetTitles as string[]) ?? [],
-    preferredSeniority: profile.preferredSeniority,
-    remotePreference: profile.remotePreference,
-    preferredLocations: (profile.preferredLocations as string[]) ?? [],
-    yearsExperience: profile.yearsExperience,
-    skills: profile.skills.map((s) => ({
-      name: s.name,
-      category: s.category,
-      proficiency: s.proficiency,
-      yearsExperience: s.yearsExperience,
-    })),
-    evidence: profile.evidence.map((e) => ({
-      id: e.id,
-      evidenceText: e.evidenceText,
-      normalizedSkills: (e.normalizedSkills as string[]) ?? [],
-    })),
-  };
-}
-
-async function runAndSaveMatchAnalysisDb(
-  db: Db,
-  userId: string,
-  jobId: string,
-  reqs?: Array<{
-    id: string;
-    requirementType: string;
-    text: string;
-    normalizedSkill: string | null;
-    importance: string | null;
-    isHardRequirement: boolean | null;
-  }>
-) {
-  const profile = await getOrCreateProfileDb(db, userId);
-
-  const job = await db.query.jobs.findFirst({
-    where: and(eq(jobs.id, jobId), eq(jobs.userId, userId)),
-    with: { requirements: true },
-  });
-  if (!job) throw new Error("Job not found");
-
-  const requirements = reqs ?? job.requirements;
-  const candidateProfile = await buildCandidateProfileForMatching(db, profile.id);
-
-  const result = runMatchAnalysis(candidateProfile, {
-    title: job.title,
-    location: job.location,
-    workplaceType: job.workplaceType,
-    description: job.description,
-    requirements: requirements.map((r) => ({
-      id: r.id,
-      requirementType: r.requirementType,
-      text: r.text,
-      normalizedSkill: r.normalizedSkill,
-      importance: r.importance ?? "required",
-      isHardRequirement: r.isHardRequirement ?? false,
-    })),
-  });
-
-  const [analysis] = await db
-    .insert(matchAnalyses)
-    .values({
-      jobId: job.id,
-      profileId: profile.id,
-      analysisVersion: MATCH_ANALYSIS_VERSION,
-      overallScore: result.overallScore,
-      classification: result.classification,
-      hardFilterResult: result.hardFilter,
-      summary: result.summary,
-      topMatchingSkills: result.topMatchingSkills,
-      topConcern: result.topConcern,
-    })
-    .returning();
-
-  for (const cs of result.categoryScores) {
-    await db.insert(matchCategoryScores).values({
-      matchAnalysisId: analysis.id,
-      category: cs.category as "core_skills",
-      score: cs.score,
-      maxScore: cs.maxScore,
-      explanation: cs.explanation,
-    });
-  }
-
-  for (const rm of result.requirementMatches) {
-    await db.insert(requirementMatches).values({
-      matchAnalysisId: analysis.id,
-      jobRequirementId: rm.jobRequirementId,
-      matchStatus: rm.matchStatus,
-      confidence: rm.confidence,
-      evidenceId: rm.evidenceId,
-      explanation: rm.explanation,
-    });
-  }
-
-  return analysis;
 }
 
 export async function runAndSaveMatchAnalysis(
@@ -614,9 +419,12 @@ export async function getJobsFeed(filters?: {
   remoteOnly?: boolean;
   canadaOnly?: boolean;
   classification?: string;
+  source?: "discovered" | "manual";
   sort?: "match" | "recent" | "salary";
 }) {
   const user = await requireUser();
+  const discoveryProviders = new Set(["greenhouse", "lever", "ashby"]);
+
   return withUserDb(user.id, async (db) => {
     const profile = await getOrCreateProfileDb(db, user.id);
 
@@ -625,6 +433,7 @@ export async function getJobsFeed(filters?: {
       orderBy: [desc(jobs.dateDiscovered)],
       with: {
         company: true,
+        source: true,
         requirements: {
           columns: {
             id: true,
@@ -641,6 +450,16 @@ export async function getJobsFeed(filters?: {
     });
 
     let filtered = allJobs;
+
+    if (filters?.source === "discovered") {
+      filtered = filtered.filter((j) =>
+        j.source?.provider ? discoveryProviders.has(j.source.provider) : false
+      );
+    } else if (filters?.source === "manual") {
+      filtered = filtered.filter(
+        (j) => !j.source?.provider || !discoveryProviders.has(j.source.provider)
+      );
+    }
 
     if (filters?.minScore) {
       filtered = filtered.filter(
@@ -1138,18 +957,100 @@ export async function getSavedBoards() {
 export async function addSavedBoard(data: {
   companyName: string;
   boardUrl: string;
-  provider: "greenhouse" | "lever";
+  provider: "greenhouse" | "lever" | "ashby";
 }) {
   const user = await requireUser();
+  const boardUrl = data.boardUrl.trim();
+  if (!/^https?:\/\//i.test(boardUrl)) {
+    throw new Error("Board URL must start with http:// or https://");
+  }
+
   return withUserDb(user.id, async (db) => {
     await db.insert(savedBoards).values({
       userId: user.id,
-      companyName: data.companyName,
-      boardUrl: data.boardUrl,
+      companyName: data.companyName.trim(),
+      boardUrl,
       provider: data.provider,
     });
 
     revalidatePath("/settings");
+  });
+}
+
+export async function deleteSavedBoard(boardId: string) {
+  const user = await requireUser();
+  return withUserDb(user.id, async (db) => {
+    const board = await db.query.savedBoards.findFirst({
+      where: and(eq(savedBoards.id, boardId), eq(savedBoards.userId, user.id)),
+    });
+    if (!board) throw new Error("Board not found");
+
+    await db.delete(savedBoards).where(eq(savedBoards.id, boardId));
+    revalidatePath("/settings");
+  });
+}
+
+export async function updateSavedBoard(
+  boardId: string,
+  data: { isActive?: boolean; companyName?: string; boardUrl?: string; provider?: "greenhouse" | "lever" | "ashby" }
+) {
+  const user = await requireUser();
+  return withUserDb(user.id, async (db) => {
+    const board = await db.query.savedBoards.findFirst({
+      where: and(eq(savedBoards.id, boardId), eq(savedBoards.userId, user.id)),
+    });
+    if (!board) throw new Error("Board not found");
+
+    await db
+      .update(savedBoards)
+      .set({
+        ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
+        ...(data.companyName !== undefined ? { companyName: data.companyName.trim() } : {}),
+        ...(data.boardUrl !== undefined ? { boardUrl: data.boardUrl.trim() } : {}),
+        ...(data.provider !== undefined ? { provider: data.provider } : {}),
+      })
+      .where(eq(savedBoards.id, boardId));
+
+    revalidatePath("/settings");
+  });
+}
+
+export async function detectBoardProviderAction(url: string) {
+  await requireUser();
+  const { detectBestAdapter } = await import("@/modules/ingestion/adapters");
+  const adapter = await detectBestAdapter(url.trim());
+  return {
+    provider: adapter.provider,
+    reason: (await adapter.detect(url.trim())).reason,
+  };
+}
+
+export async function pollSavedBoardNow(boardId: string) {
+  const user = await requireUser();
+  return withUserDb(user.id, async (db) => {
+    const board = await db.query.savedBoards.findFirst({
+      where: and(eq(savedBoards.id, boardId), eq(savedBoards.userId, user.id)),
+    });
+    if (!board) throw new Error("Board not found");
+
+    const { pollSavedBoard } = await import("@/modules/discovery/poll-board");
+    const { CRON_MAX_NEW_JOBS_PER_RUN } = await import("@/lib/cron-discover");
+
+    const stats = await pollSavedBoard(
+      db,
+      user.id,
+      {
+        id: board.id,
+        boardUrl: board.boardUrl,
+        provider: board.provider,
+        companyName: board.companyName,
+      },
+      { remainingNewJobs: CRON_MAX_NEW_JOBS_PER_RUN }
+    );
+
+    revalidatePath("/settings");
+    revalidatePath("/jobs");
+    return stats;
   });
 }
 
