@@ -95,22 +95,34 @@ At **Resumes** (`/resumes`) you can delete uploaded files. Optionally wipe extra
 
 ## Deploy to Vercel
 
-The app requires Supabase and Postgres at runtime. Local `.env.local` is **not** uploaded to Vercel — you must set variables in the Vercel dashboard.
+The app requires Supabase and Postgres at runtime. Local `.env.local` is **not** uploaded to Vercel.
 
-1. Open **Vercel → your project → Settings → Environment Variables**
-2. Add these for **Production**, **Preview**, and **Development**:
+### Option A: Supabase ↔ Vercel integration (recommended)
+
+If you connected Supabase via **Vercel Marketplace → Supabase**, env vars are synced automatically — but the names differ from `.env.example`:
+
+| This app reads | Supabase integration often sets |
+|----------------|----------------------------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | `NEXT_PUBLIC_SUPABASE_URL` ✓ |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` |
+| `DATABASE_URL` | `POSTGRES_URL` |
+
+The app accepts **either** name for each row. After connecting:
+
+1. In Vercel → **Environment Variables**, confirm vars exist for **Production** and **Preview** (edit each → check both boxes)
+2. **Redeploy** (env changes do not apply to existing deployments)
+3. In Supabase **SQL Editor**, run migrations [`0002`](drizzle/migrations/0002_rls_policies.sql) → [`0004`](drizzle/migrations/0004_phase4_qa_tailoring.sql)
+4. Sign up at `/login` on the deployed URL (prod has a separate user table from local)
+
+### Option B: Manual env vars
 
 | Variable | Required | Notes |
 |----------|----------|-------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase Project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase `anon` public key |
-| `DATABASE_URL` | Yes | Use Supabase **Session pooler** URI (port 6543) for serverless |
-| `OPENAI_API_KEY` | Optional | Heuristics work without it |
-| `CRON_SECRET` | Optional | Protect `/api/cron/discover` in production |
+| `DATABASE_URL` | Yes | Supabase **Session pooler** URI (port 6543) for serverless |
 
-3. **Redeploy** after saving env vars (Deployments → ⋯ → Redeploy)
-
-4. In Supabase **SQL Editor**, run migrations from [`drizzle/migrations/`](drizzle/migrations/) if not already applied.
+Optional: `OPENAI_API_KEY`, `CRON_SECRET`
 
 If env vars are missing, `/jobs` redirects to `/login` with a configuration notice instead of a 500 error.
 

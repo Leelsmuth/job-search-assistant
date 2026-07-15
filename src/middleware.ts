@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isAppConfigured } from "@/lib/env";
-import { isProtectedPath } from "@/lib/supabase/config";
+import { isAppConfigured, isProtectedPath } from "@/lib/env";
 
 export async function middleware(request: NextRequest) {
   if (!isAppConfigured()) {
