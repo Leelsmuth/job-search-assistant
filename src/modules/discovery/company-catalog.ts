@@ -1,18 +1,13 @@
-import { readFileSync, existsSync } from "fs";
-import { join } from "path";
 import {
   companySourcesSeedSchema,
   type CompanyJobSource,
 } from "../../../data/company-sources.schema";
+import verifiedCatalog from "../../../data/company-sources.verified.json";
 
 let cachedSeed: CompanyJobSource[] | null = null;
 
-function loadSeedFile() {
-  const verifiedPath = join(process.cwd(), "data/company-sources.verified.json");
-  const seedPath = join(process.cwd(), "data/company-sources.seed.json");
-  const path = existsSync(verifiedPath) ? verifiedPath : seedPath;
-  const raw = JSON.parse(readFileSync(path, "utf-8"));
-  const seed = companySourcesSeedSchema.parse(raw);
+function loadCatalog(): CompanyJobSource[] {
+  const seed = companySourcesSeedSchema.parse(verifiedCatalog);
   return seed.companies.filter(
     (c) => c.enabled && c.verificationStatus === "verified"
   );
@@ -20,7 +15,7 @@ function loadSeedFile() {
 
 export function getCompanySourceCatalog(): CompanyJobSource[] {
   if (!cachedSeed) {
-    cachedSeed = loadSeedFile();
+    cachedSeed = loadCatalog();
   }
   return cachedSeed;
 }
