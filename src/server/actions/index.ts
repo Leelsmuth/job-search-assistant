@@ -1054,7 +1054,8 @@ export async function pollSavedBoardNow(boardId: string) {
 export async function getCompanySourceCatalog(filters?: {
   provider?: string;
   country?: string;
-  tag?: string;
+  industry?: string;
+  signal?: string;
   search?: string;
 }) {
   await requireUser();

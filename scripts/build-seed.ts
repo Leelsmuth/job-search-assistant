@@ -23,21 +23,28 @@ for (const c of SEED_CANDIDATES) {
   if (seen.has(key)) continue;
   seen.add(key);
 
+  const industries = c.tags.filter(
+    (t) => !["remote-canada", "frontend-heavy", "remote-friendly"].includes(t)
+  );
+
   companies.push({
     id: c.id,
     companyName: c.companyName,
+    companySlug: c.id,
     atsProvider: c.atsProvider,
     boardUrl: boardUrlFor(c),
     boardSlug: c.boardSlug,
     companyWebsite: c.companyWebsite,
-    country: c.country,
-    tags: c.tags,
+    headquartersCountry: c.country === "CA" ? "CA" : c.country === "US" ? "US" : undefined,
+    industries,
     enabled: true,
+    verificationStatus: "verification_failed",
+    discoverySource: "seed-candidates",
   });
 }
 
 const seed = {
-  version: 1,
+  version: 2,
   updatedAt: new Date().toISOString(),
   companies,
 };

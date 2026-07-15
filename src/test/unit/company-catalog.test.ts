@@ -6,22 +6,54 @@ const sample: CompanyJobSource[] = [
   {
     id: "stripe",
     companyName: "Stripe",
+    companySlug: "stripe",
     atsProvider: "greenhouse",
     boardUrl: "https://boards.greenhouse.io/stripe",
     boardSlug: "stripe",
-    country: "GLOBAL",
-    tags: ["remote-canada", "fintech"],
+    headquartersCountry: "US",
+    industries: ["fintech"],
     enabled: true,
+    verificationStatus: "verified",
+    observedSignals: {
+      hasCanadaJobs: true,
+      hasRemoteCanadaJobs: false,
+      hasFrontendJobs: true,
+      hasReactJobs: true,
+      hasTypeScriptJobs: true,
+      hasRemoteJobs: true,
+      frontendJobCount: 5,
+      reactJobCount: 3,
+      typescriptJobCount: 4,
+      canadaJobCount: 2,
+      remoteCanadaJobCount: 0,
+      analyzedAt: "2026-01-01T00:00:00.000Z",
+    },
   },
   {
     id: "jobber",
     companyName: "Jobber",
+    companySlug: "jobber",
     atsProvider: "ashby",
     boardUrl: "https://jobs.ashbyhq.com/jobber",
     boardSlug: "jobber",
-    country: "CA",
-    tags: ["remote-canada", "saas"],
+    headquartersCountry: "CA",
+    industries: ["saas"],
     enabled: true,
+    verificationStatus: "verified",
+    observedSignals: {
+      hasCanadaJobs: true,
+      hasRemoteCanadaJobs: true,
+      hasFrontendJobs: false,
+      hasReactJobs: false,
+      hasTypeScriptJobs: false,
+      hasRemoteJobs: true,
+      frontendJobCount: 0,
+      reactJobCount: 0,
+      typescriptJobCount: 0,
+      canadaJobCount: 10,
+      remoteCanadaJobCount: 3,
+      analyzedAt: "2026-01-01T00:00:00.000Z",
+    },
   },
 ];
 
@@ -30,12 +62,16 @@ describe("filterCatalog", () => {
     expect(filterCatalog(sample, { provider: "ashby" })).toHaveLength(1);
   });
 
-  it("filters by country", () => {
+  it("filters by headquarters country", () => {
     expect(filterCatalog(sample, { country: "CA" })).toHaveLength(1);
   });
 
-  it("filters by tag", () => {
-    expect(filterCatalog(sample, { tag: "fintech" })).toHaveLength(1);
+  it("filters by industry", () => {
+    expect(filterCatalog(sample, { industry: "fintech" })).toHaveLength(1);
+  });
+
+  it("filters by observed signal", () => {
+    expect(filterCatalog(sample, { signal: "hasRemoteCanadaJobs" })).toHaveLength(1);
   });
 
   it("searches by company name", () => {

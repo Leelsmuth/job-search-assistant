@@ -19,7 +19,10 @@
     "fixtures:pdf": "node scripts/generate-pdf-fixture.mjs",
     "build:seed": "tsx scripts/build-seed.ts",
     "prune:seed": "tsx scripts/prune-seed.ts",
-    "verify:boards": "tsx scripts/verify-boards.ts"
+    "verify:boards": "tsx scripts/verify-boards.ts",
+    "audit:registry": "tsx scripts/audit-registry.ts",
+    "discover:companies": "tsx scripts/discover-companies.ts",
+    "verify:registry": "tsx scripts/verify-registry.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.6",

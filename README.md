@@ -157,21 +157,23 @@ curl -X POST "https://your-app.vercel.app/api/cron/discover" \
 
 Cron response includes `{ newJobs, skipped, matched, filtered }` for monitoring.
 
-## Company catalog (Discovery V2)
+## Company catalog (1,000+ verified ATS boards)
 
-Settings includes a **Browse Company Catalog** with ~100 verified Greenhouse, Lever, and Ashby boards (Canada/remote-friendly tech employers). One-click **Add** saves the board to your account for daily polling.
+Settings includes **Browse Company Catalog** with verified active Greenhouse, Lever, and Ashby job boards. Filter by **observed job signals** (Canada jobs, remote Canada, frontend roles) — not permanent relevance tags. One-click **Add** saves the board for daily polling.
 
-### Maintaining the seed file
+See **[docs/COMPANY_REGISTRY.md](docs/COMPANY_REGISTRY.md)** for the full discovery/verification pipeline.
+
+### Registry maintenance
 
 | Command | Description |
 |---------|-------------|
-| `pnpm build:seed` | Regenerate `data/company-sources.seed.json` from `scripts/seed-candidates.ts` |
-| `pnpm verify:boards` | Dry-run verify all enabled boards (hits live ATS APIs) |
-| `pnpm verify:boards --write` | Update `verifiedAt`, `lastJobCount`, disable failures |
-| `pnpm verify:boards --write --id=stripe` | Re-verify a single entry |
-| `pnpm prune:seed` | Keep only verified enabled entries |
+| `pnpm discover:companies` | Merge discovery candidates into `data/company-sources.seed.json` |
+| `pnpm verify:registry --write --target=1000` | Verify boards until 1,000+ active |
+| `pnpm verify:registry --write --provider=greenhouse --target=550` | Provider-scoped verification |
+| `pnpm audit:registry` | Audit duplicates/tags; migrate schema v2 |
+| `pnpm verify:boards --write` | Legacy alias for re-verify |
 
-To add a company manually, edit `data/company-sources.seed.json` (or add to `scripts/seed-candidates.ts` and run `build:seed`), then run `pnpm verify:boards --write`.
+Import ATS URLs via `data/discovery/imports/*.json`, then run `discover:companies` + `verify:registry`.
 
 ### Pre-import filters
 
@@ -189,9 +191,12 @@ During board polling, jobs are filtered **before** database insert using determi
 | `pnpm db:push` | Push Drizzle schema to database |
 | `pnpm db:seed` | Seed profile (requires `SEED_USER_ID`) |
 | `pnpm fixtures:pdf` | Regenerate text-based PDF test fixture |
-| `pnpm build:seed` | Build company catalog JSON from seed candidates |
-| `pnpm verify:boards` | Verify ATS board URLs in catalog seed file |
-| `pnpm prune:seed` | Remove unverified entries from catalog seed |
+| `pnpm discover:companies` | Merge ATS discovery candidates into registry |
+| `pnpm verify:registry` | Batch-verify boards against live ATS APIs |
+| `pnpm audit:registry` | Audit registry; migrate schema |
+| `pnpm verify:boards` | Legacy verify alias |
+| `pnpm build:seed` | Build seed from `scripts/seed-candidates.ts` (legacy) |
+| `pnpm prune:seed` | Keep only verified entries (legacy) |
 
 ### RLS integration test (optional)
 

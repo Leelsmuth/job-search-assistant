@@ -34,10 +34,16 @@ type CatalogEntry = {
   companyName: string;
   atsProvider: BoardProvider;
   boardUrl: string;
-  country: string;
-  tags: string[];
+  headquartersCountry?: string;
+  industries: string[];
   verifiedAt?: string;
   lastJobCount?: number;
+  observedSignals?: {
+    hasCanadaJobs?: boolean;
+    hasRemoteCanadaJobs?: boolean;
+    hasFrontendJobs?: boolean;
+    hasReactJobs?: boolean;
+  };
 };
 
 function formatLastPolled(lastPolledAt: Date | null) {
@@ -70,7 +76,8 @@ export function SettingsClient({
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogProvider, setCatalogProvider] = useState("");
   const [catalogCountry, setCatalogCountry] = useState("");
-  const [catalogTag, setCatalogTag] = useState("");
+  const [catalogIndustry, setCatalogIndustry] = useState("");
+  const [catalogSignal, setCatalogSignal] = useState("");
 
   const followingUrls = useMemo(
     () => new Set(initialBoards.map((b) => b.boardUrl)),
@@ -80,15 +87,19 @@ export function SettingsClient({
   const filteredCatalog = useMemo(() => {
     return initialCatalog.filter((entry) => {
       if (catalogProvider && entry.atsProvider !== catalogProvider) return false;
-      if (catalogCountry && entry.country !== catalogCountry) return false;
-      if (catalogTag && !entry.tags.includes(catalogTag)) return false;
+      if (catalogCountry && entry.headquartersCountry !== catalogCountry) return false;
+      if (catalogIndustry && !entry.industries.includes(catalogIndustry)) return false;
+      if (catalogSignal) {
+        const signals = entry.observedSignals;
+        if (!signals || !signals[catalogSignal as keyof typeof signals]) return false;
+      }
       if (catalogSearch) {
         const q = catalogSearch.toLowerCase();
         if (!entry.companyName.toLowerCase().includes(q)) return false;
       }
       return true;
     });
-  }, [initialCatalog, catalogProvider, catalogCountry, catalogTag, catalogSearch]);
+  }, [initialCatalog, catalogProvider, catalogCountry, catalogIndustry, catalogSignal, catalogSearch]);
 
   useEffect(() => {
     const trimmed = boardUrl.trim();
@@ -123,8 +134,8 @@ export function SettingsClient({
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            {initialCatalog.length} verified Canada/remote-friendly tech employers.
-            One-click add to your saved boards.
+            {initialCatalog.length} verified active ATS job boards. Filter by observed job signals
+            (Canada, remote Canada, frontend) — not permanent company tags.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
@@ -156,23 +167,37 @@ export function SettingsClient({
                 onChange={(e) => setCatalogCountry(e.target.value)}
               >
                 <option value="">All</option>
-                <option value="CA">Canada</option>
-                <option value="US">US</option>
-                <option value="GLOBAL">Global</option>
+                <option value="CA">Canada HQ</option>
+                <option value="US">US HQ</option>
               </select>
             </div>
             <div>
-              <Label className="text-xs">Tag</Label>
+              <Label className="text-xs">Industry</Label>
               <select
                 className="w-full rounded-md border border-input px-3 py-2 text-sm"
-                value={catalogTag}
-                onChange={(e) => setCatalogTag(e.target.value)}
+                value={catalogIndustry}
+                onChange={(e) => setCatalogIndustry(e.target.value)}
               >
                 <option value="">All</option>
-                <option value="remote-canada">Remote Canada</option>
-                <option value="frontend-heavy">Frontend-heavy</option>
                 <option value="fintech">Fintech</option>
                 <option value="ai">AI</option>
+                <option value="saas">SaaS</option>
+                <option value="devtools">DevTools</option>
+                <option value="security">Security</option>
+              </select>
+            </div>
+            <div>
+              <Label className="text-xs">Observed signal</Label>
+              <select
+                className="w-full rounded-md border border-input px-3 py-2 text-sm"
+                value={catalogSignal}
+                onChange={(e) => setCatalogSignal(e.target.value)}
+              >
+                <option value="">All</option>
+                <option value="hasCanadaJobs">Has Canada jobs</option>
+                <option value="hasRemoteCanadaJobs">Has remote Canada jobs</option>
+                <option value="hasFrontendJobs">Has frontend jobs</option>
+                <option value="hasReactJobs">Has React jobs</option>
               </select>
             </div>
           </div>
@@ -191,8 +216,21 @@ export function SettingsClient({
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-medium">{entry.companyName}</p>
                         <Badge className="text-xs uppercase">{entry.atsProvider}</Badge>
-                        <Badge className="text-xs">{entry.country}</Badge>
+                        {entry.headquartersCountry ? (
+                          <Badge className="text-xs">{entry.headquartersCountry}</Badge>
+                        ) : null}
+                        {entry.observedSignals?.hasRemoteCanadaJobs ? (
+                          <Badge className="text-xs">Remote CA</Badge>
+                        ) : null}
+                        {entry.observedSignals?.hasFrontendJobs ? (
+                          <Badge className="text-xs">Frontend</Badge>
+                        ) : null}
                       </div>
+                      {entry.industries.length > 0 ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {entry.industries.slice(0, 3).join(" · ")}
+                        </p>
+                      ) : null}
                       <p className="mt-1 text-xs text-muted-foreground">
                         {entry.lastJobCount ?? "?"} jobs
                         {entry.verifiedAt

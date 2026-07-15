@@ -7,7 +7,9 @@ const path = join(process.cwd(), "data/company-sources.seed.json");
 const raw = JSON.parse(readFileSync(path, "utf-8"));
 const seed = companySourcesSeedSchema.parse(raw);
 
-const kept = seed.companies.filter((c) => c.enabled && c.verifiedAt);
+const kept = seed.companies.filter(
+  (c) => c.enabled && c.verificationStatus === "verified"
+);
 const seenIds = new Set<string>();
 
 const companies = kept.map((c) => {

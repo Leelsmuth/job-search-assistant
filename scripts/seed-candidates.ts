@@ -22,7 +22,7 @@ function ashby(slug: string, name: string, country: SeedCandidate["country"], ta
   return { id: slug, companyName: name, atsProvider: "ashby", boardSlug: slug, country, tags };
 }
 
-const baseTags = ["remote-canada", "frontend-heavy"];
+const baseTags: string[] = [];
 
 export const SEED_CANDIDATES: SeedCandidate[] = [
   // Canada-focused
