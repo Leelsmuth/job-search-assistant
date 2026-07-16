@@ -1,8 +1,16 @@
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { createRequire } from "node:module";
 import type { ExtractedDocument, ExtractedPage, ExtractedTextItem, ExtractionWarning } from "./types";
 import { EXTRACTOR_VERSION } from "./types";
+
+const PDFJS_WORKER_RELATIVE = join(
+  "node_modules",
+  "pdfjs-dist",
+  "legacy",
+  "build",
+  "pdf.worker.mjs"
+);
 
 type PdfTextItem = {
   str: string;
@@ -14,20 +22,19 @@ type PdfTextItem = {
 
 let workerConfigured = false;
 
+function resolvePdfJsWorkerPath(): string | null {
+  const workerPath = join(process.cwd(), PDFJS_WORKER_RELATIVE);
+  return existsSync(workerPath) ? workerPath : null;
+}
+
 async function configurePdfJsWorker(
   pdfjs: typeof import("pdfjs-dist/legacy/build/pdf.mjs")
 ): Promise<void> {
   if (workerConfigured && pdfjs.GlobalWorkerOptions.workerSrc) return;
 
-  let workerPath: string;
-  try {
-    const require = createRequire(import.meta.url);
-    workerPath = require.resolve("pdfjs-dist/legacy/build/pdf.worker.mjs");
-  } catch {
-    workerPath = join(
-      process.cwd(),
-      "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"
-    );
+  const workerPath = resolvePdfJsWorkerPath();
+  if (!workerPath) {
+    throw new Error("pdfjs worker not found in node_modules");
   }
 
   pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href;

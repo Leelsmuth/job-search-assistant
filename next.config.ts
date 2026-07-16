@@ -1,6 +1,21 @@
 import type { NextConfig } from "next";
 
 const catalogDataFiles = ["./data/company-sources.verified.json"];
+const pdfWorkerFile = "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs";
+
+const resumeRoutes = ["/onboarding", "/resumes", "/profile", "/applications"] as const;
+
+const outputFileTracingIncludes: Record<string, string[]> = {
+  "/discovery": catalogDataFiles,
+  "/settings": catalogDataFiles,
+  "/jobs": catalogDataFiles,
+  "/jobs/import": catalogDataFiles,
+  "/api/cron/discover": catalogDataFiles,
+};
+
+for (const route of resumeRoutes) {
+  outputFileTracingIncludes[route] = [...catalogDataFiles, pdfWorkerFile];
+}
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["pdfjs-dist", "pdf-parse"],
@@ -9,22 +24,7 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "10mb",
     },
   },
-  // Bundled JSON is imported statically; this ensures file tracing on Vercel as backup.
-  outputFileTracingIncludes: {
-    "/discovery": catalogDataFiles,
-    "/settings": catalogDataFiles,
-    "/jobs": catalogDataFiles,
-    "/jobs/import": catalogDataFiles,
-    "/api/cron/discover": catalogDataFiles,
-    "/onboarding": [
-      ...catalogDataFiles,
-      "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
-    ],
-    "/resumes": [
-      ...catalogDataFiles,
-      "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
-    ],
-  },
+  outputFileTracingIncludes,
 };
 
 export default nextConfig;
