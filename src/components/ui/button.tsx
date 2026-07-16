@@ -55,8 +55,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         aria-busy={loading || undefined}
         {...props}
       >
-        {loading ? <Spinner /> : null}
-        {children}
+        {loading ? <Spinner className="shrink-0" /> : null}
+        <span>{children}</span>
       </button>
     );
   }
