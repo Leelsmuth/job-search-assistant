@@ -1,0 +1,39 @@
+Alex Developer
+Toronto, Canada | alex.dev@example.com | github.com/alexdev | linkedin.com/in/alexdev
+
+Career Objective
+Frontend-focused engineer with 6+ years building production React applications and design systems.
+
+Core Technical Skills
+Frontend: React, Next.js, TypeScript, JavaScript, Tailwind CSS
+Backend: Node.js, GraphQL
+Testing: Playwright, Vitest
+
+Work Experience
+
+Priceline | Software Developer | Jun 2022 - Present | Remote
+- Architected and migrated legacy authentication to a React + Node.js Okta-
+based system, improving reliability and maintainability across checkout flows.
+- Built reusable component library adopted by three product teams.
+- Reduced page load time by 35% through code splitting and lazy loading.
+
+Myplanet | Frontend Developer | Jan 2020 - May 2022 | Toronto
+- Led migration from AngularJS to React for client-facing dashboards.
+- Implemented accessibility improvements meeting WCAG 2.1 AA standards.
+
+CIBC | Web Developer | Sep 2018 - Dec 2019 | Toronto
+- Developed internal banking tools with React and Redux.
+- Collaborated with UX team on responsive design patterns.
+
+Code Clan NG | Instructor | Jun 2017 - Aug 2018 | Lagos
+- Taught full-stack JavaScript curriculum to 40+ students.
+- Mentored capstone projects using React and Node.js.
+
+Education
+Bachelor of Science, Computer Science | University of Lagos | 2017
+
+Certifications
+AWS Certified Cloud Practitioner | Amazon Web Services | Credential ID: ABC-12345
+
+Projects
+Personal Portfolio - Next.js site showcasing open-source contributions.

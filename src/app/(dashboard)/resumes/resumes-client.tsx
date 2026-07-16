@@ -6,12 +6,17 @@ import {
   uploadResume,
   deleteResumeDocument,
   listResumeDocuments,
+  approveParsedResume,
+  getResumeParseReview,
 } from "@/server/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { ResumeUploadField } from "@/components/resumes/resume-upload-field";
+import { ParsedResumeReview } from "@/components/resumes/review/parsed-resume-review";
 import { usePendingTransition } from "@/components/layout/action-pending-provider";
+import type { ParsedResume } from "@/modules/resumes/schema/resume-schema";
+import { sanitizeParsedResume } from "@/modules/resumes/schema/resume-schema";
 
 type ResumeDoc = {
   id: string;
@@ -35,6 +40,12 @@ export function ResumesClient({ initialDocuments }: { initialDocuments: ResumeDo
   const { isPending, run } = usePendingTransition();
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [wipeExtracted, setWipeExtracted] = useState(false);
+  const [reviewStep, setReviewStep] = useState<"idle" | "review">("idle");
+  const [parsedVersionId, setParsedVersionId] = useState<string | null>(null);
+  const [normalizedText, setNormalizedText] = useState("");
+  const [sourcePreviewUrl, setSourcePreviewUrl] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [parsed, setParsed] = useState<ParsedResume | null>(null);
 
   function refreshDocuments() {
     run(async () => {
@@ -45,10 +56,21 @@ export function ResumesClient({ initialDocuments }: { initialDocuments: ResumeDo
 
   async function handleUpload(formData: FormData) {
     try {
-      await uploadResume(formData);
-      toast({ title: "Resume uploaded", description: "File saved successfully." });
+      const result = await uploadResume(formData);
+      setParsedVersionId(result.parsedVersionId);
+      setNormalizedText(result.extractedText);
+      setParsed(result.parsed);
+      setReviewStep("review");
       refreshDocuments();
-      router.refresh();
+
+      const review = await getResumeParseReview(result.parsedVersionId);
+      setSourcePreviewUrl(review.sourcePreviewUrl);
+      setFileName(review.fileName);
+
+      toast({
+        title: "Resume uploaded",
+        description: "Review the structured profile below before saving.",
+      });
     } catch (err) {
       toast({
         title: "Upload failed",
@@ -57,6 +79,35 @@ export function ResumesClient({ initialDocuments }: { initialDocuments: ResumeDo
       });
       throw err;
     }
+  }
+
+  function handleApproveProfile() {
+    if (!parsed || !parsedVersionId) return;
+
+    if (parsed.confidence.overall < 0.5) {
+      const ok = window.confirm(
+        "Parser confidence is low. Save to profile anyway?"
+      );
+      if (!ok) return;
+    }
+
+    const cleaned = sanitizeParsedResume(parsed);
+    run(async () => {
+      try {
+        await approveParsedResume(parsedVersionId, cleaned);
+        setReviewStep("idle");
+        setParsed(null);
+        setParsedVersionId(null);
+        toast({ title: "Profile updated", description: "Structured resume data saved." });
+        router.refresh();
+      } catch (err) {
+        toast({
+          title: "Save failed",
+          description: err instanceof Error ? err.message : "Unknown error",
+          variant: "destructive",
+        });
+      }
+    });
   }
 
   function handleDelete(documentId: string) {
@@ -84,7 +135,7 @@ export function ResumesClient({ initialDocuments }: { initialDocuments: ResumeDo
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       <h1 className="text-2xl font-bold">Resumes</h1>
       <Card>
         <CardHeader>
@@ -93,10 +144,45 @@ export function ResumesClient({ initialDocuments }: { initialDocuments: ResumeDo
         <CardContent>
           <ResumeUploadField
             onUpload={handleUpload}
-            hint="Use onboarding to review extracted profile data after upload."
+            hint="After upload, review structured sections before saving to your profile."
           />
         </CardContent>
       </Card>
+
+      {reviewStep === "review" && parsed && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Review structured profile</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Confidence: {Math.round(parsed.confidence.overall * 100)}%
+            </p>
+            <ParsedResumeReview
+              value={parsed}
+              onChange={setParsed}
+              normalizedText={normalizedText}
+              sourcePreviewUrl={sourcePreviewUrl}
+              fileName={fileName}
+            />
+            <div className="flex gap-2">
+              <Button loading={isPending} disabled={isPending} onClick={handleApproveProfile}>
+                {isPending ? "Saving..." : "Save to profile"}
+              </Button>
+              <Button
+                variant="outline"
+                disabled={isPending}
+                onClick={() => {
+                  setReviewStep("idle");
+                  setParsed(null);
+                }}
+              >
+                Dismiss
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

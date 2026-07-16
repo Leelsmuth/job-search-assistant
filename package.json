@@ -44,6 +44,7 @@
     "next": "^15.2.3",
     "openai": "^4.87.3",
     "pdf-parse": "^1.1.1",
+    "pdfjs-dist": "4.10.38",
     "postgres": "^3.4.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

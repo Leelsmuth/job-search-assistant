@@ -68,7 +68,10 @@ export function TailoringPanel({
             try {
               const result = await generateTailoring(jobId);
               setSuggestions(result);
-              toast({ title: "Suggestions generated" });
+              toast({
+                title: "Suggestions generated",
+                description: `${result.length} suggestion${result.length === 1 ? "" : "s"} ready to review.`,
+              });
             } catch (e) {
               toast({
                 title: "Generation failed",
@@ -82,10 +85,18 @@ export function TailoringPanel({
         {generating ? "Generating..." : "Generate Tailoring Suggestions"}
       </Button>
       <p className="text-xs text-muted-foreground">
-        Suggestions only — never auto-applied. Review each change for factual accuracy.
+        Suggestions rewrite your <strong>experience achievement bullets</strong> for this role —
+        not contact info or headers. Review each change for factual accuracy before using.
       </p>
       {suggestions.length === 0 && (
-        <p className="text-sm text-muted-foreground">No suggestions yet.</p>
+        <p className="text-sm text-muted-foreground">
+          No suggestions yet. Generate tailoring to see bullet-level rewrites grounded in your
+          profile. If generation fails, upload a resume and confirm experience bullets on{" "}
+          <a href="/profile" className="text-primary underline">
+            Profile
+          </a>
+          .
+        </p>
       )}
       {suggestions.map((s) => {
         const lowConfidence = s.confidence != null && s.confidence < 0.5;

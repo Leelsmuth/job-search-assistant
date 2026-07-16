@@ -17,10 +17,12 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
 import { useKeyedPending } from "@/components/layout/action-pending-provider";
 import { JobDeleteButton } from "./job-delete-button";
+import { ApplyLink } from "@/components/jobs/apply-link";
 
 type FeedJob = {
   id: string;
   title: string;
+  jobUrl: string | null;
   location: string | null;
   workplaceType: string | null;
   salaryMin: number | null;
@@ -110,6 +112,7 @@ export function JobFeedRow({
           </div>
         </Link>
         <div className="flex shrink-0 flex-col gap-1">
+          <ApplyLink jobId={job.id} jobUrl={job.jobUrl} variant="default" />
           <Button
             variant={saved ? "secondary" : "outline"}
             size="sm"

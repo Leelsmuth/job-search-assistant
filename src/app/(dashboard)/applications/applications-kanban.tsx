@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useKeyedPending } from "@/components/layout/action-pending-provider";
 import { Spinner } from "@/components/ui/spinner";
+import { ApplyLink } from "@/components/jobs/apply-link";
 
 type App = {
   id: string;
@@ -17,6 +18,7 @@ type App = {
   jobId: string;
   job: {
     title: string;
+    jobUrl: string | null;
     company: { name: string } | null;
   } | null;
 };
@@ -35,6 +37,14 @@ const PIPELINE_COLUMNS: ApplicationStatus[] = [
 ];
 
 const CLOSED_STATUSES: ApplicationStatus[] = ["rejected", "withdrawn"];
+
+const POST_APPLY_STATUSES = new Set<ApplicationStatus>([
+  "applied",
+  "recruiter_screen",
+  "technical_interview",
+  "final_interview",
+  "offer",
+]);
 
 export function ApplicationsKanban({ applications }: { applications: App[] }) {
   const router = useRouter();
@@ -102,6 +112,17 @@ export function ApplicationsKanban({ applications }: { applications: App[] }) {
                         {app.notes}
                       </p>
                     ) : null}
+                    <div className="mt-2">
+                      <ApplyLink
+                        jobId={app.jobId}
+                        jobUrl={app.job?.jobUrl}
+                        variant="outline"
+                        showIcon={false}
+                        isAlreadyApplied={POST_APPLY_STATUSES.has(
+                          app.status as ApplicationStatus
+                        )}
+                      />
+                    </div>
                     <div className="mt-2 flex items-center gap-1">
                       <select
                         className="w-full rounded border border-input px-1 py-0.5 text-xs"
@@ -145,6 +166,16 @@ export function ApplicationsKanban({ applications }: { applications: App[] }) {
                     <p className="font-medium">{app.job?.title}</p>
                     <Badge className="text-[10px]">{app.status}</Badge>
                   </div>
+                  <ApplyLink
+                    jobId={app.jobId}
+                    jobUrl={app.job?.jobUrl}
+                    variant="ghost"
+                    showIcon={false}
+                    className="mt-1 h-7 px-2"
+                    isAlreadyApplied={POST_APPLY_STATUSES.has(
+                      app.status as ApplicationStatus
+                    )}
+                  />
                   {app.notes ? (
                     <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
                       {app.notes}

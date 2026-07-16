@@ -1,0 +1,19 @@
+Work Experience
+
+Priceline
+Software Developer | Jun 2022 - Present | Remote
+- Architected and migrated legacy authentication to a React + Node.js Okta-
+based system, improving reliability and maintainability across checkout flows.
+- Built reusable component library adopted by three product teams.
+
+Myplanet
+Full Stack Developer | Oct 2021 - Jun 2022 | Toronto
+- Delivered Composable.com, a production-grade site built with Next.js and TypeScript.
+
+Canadian Imperial Bank of Commerce
+Software Developer | Nov 2020 - Oct 2021 | Toronto
+- Implemented and optimized frontend features for digital banking applications.
+
+Code Clan NG
+Instructor | Jun 2017 - Aug 2018 | Lagos
+- Taught full-stack JavaScript curriculum to 40+ students.

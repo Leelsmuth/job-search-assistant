@@ -60,10 +60,13 @@ export function validateTailoringSuggestions(
     if (s.evidenceId && !evidenceIds.has(s.evidenceId)) return false;
     const bulletText = bulletsById.get(s.bulletId);
     if (!bulletText) return false;
-    if (s.originalText.trim() !== bulletText.trim()) {
-      s.originalText = bulletText;
+    // Always anchor to the stored bullet text — prevents invented originals.
+    s.originalText = bulletText;
+    // Rewrites may diverge heavily from the source bullet; bulletId binding is the guardrail.
+    if (s.suggestionType === "emphasize" && s.suggestedText.trim() === bulletText.trim()) {
+      return false;
     }
-    return hasSubstantialOverlap(bulletText, s.suggestedText);
+    return s.suggestedText.trim().length > 0;
   });
 }
 

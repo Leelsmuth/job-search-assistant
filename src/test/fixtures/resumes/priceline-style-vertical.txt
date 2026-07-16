@@ -1,0 +1,25 @@
+Work Experience
+
+Jun 2022 – Present
+Software Developer
+Priceline
+- Architected and migrated legacy authentication to a React and Node.js Okta-based system, improving reliability and scalability for millions of daily users.
+- Led frontend modernization using Next.js, TypeScript, and shadcn/ui, enforcing consistency and accessibility through a shared design-system library.
+
+Oct 2021 – Jun 2022
+Full Stack Developer
+Myplanet
+- Delivered Composable.com, a production-grade site built with Next.js and TypeScript.
+- Integrated headless CMS content models with preview and publishing workflows.
+
+Nov 2020 – Oct 2021
+Software Developer
+Canadian Imperial Bank of Commerce
+- Implemented and optimized frontend features for digital banking applications.
+- Collaborated with cross-functional teams on accessibility and performance improvements.
+
+May 2019 – Nov 2020
+Full Stack Developer
+Code Clan NG
+- Built curriculum-aligned full-stack projects for student cohorts.
+- Mentored junior developers on React, Node.js, and testing practices.

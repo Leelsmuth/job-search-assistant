@@ -30,6 +30,8 @@ export const evidenceSourceTypeEnum = pgEnum("evidence_source_type", [
   "project",
   "education",
   "manual_profile_fact",
+  "certification",
+  "summary",
 ]);
 
 export const jobSourceProviderEnum = pgEnum("job_source_provider", [
@@ -95,6 +97,14 @@ export const applicationStatusEnum = pgEnum("application_status", [
   "withdrawn",
 ]);
 
+export const parsedResumeStatusEnum = pgEnum("parsed_resume_status", [
+  "pending_review",
+  "approved",
+  "rejected",
+  "superseded",
+  "failed",
+]);
+
 export const tailoringDecisionEnum = pgEnum("tailoring_decision", [
   "pending",
   "accepted",
@@ -157,6 +167,7 @@ export const candidateExperienceBullets = pgTable("candidate_experience_bullets"
   impact: text("impact"),
   skills: jsonb("skills").$type<string[]>().default([]),
   sourceResumeId: uuid("source_resume_id"),
+  sourceEvidenceJson: jsonb("source_evidence_json"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -180,7 +191,24 @@ export const candidateEducation = pgTable("candidate_education", {
   institution: text("institution").notNull(),
   degree: text("degree"),
   field: text("field"),
+  startDate: text("start_date"),
   endDate: text("end_date"),
+  location: text("location"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const candidateCertifications = pgTable("candidate_certifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  profileId: uuid("profile_id")
+    .notNull()
+    .references(() => candidateProfiles.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  issuer: text("issuer"),
+  issuedDateText: text("issued_date_text"),
+  expirationDateText: text("expiration_date_text"),
+  credentialId: text("credential_id"),
+  credentialUrl: text("credential_url"),
+  sourceEvidenceJson: jsonb("source_evidence_json"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -193,6 +221,47 @@ export const resumeDocuments = pgTable("resume_documents", {
   fileSize: integer("file_size"),
   extractedText: text("extracted_text"),
   parserVersion: text("parser_version"),
+  mimeType: text("mime_type"),
+  validationWarningsJson: jsonb("validation_warnings_json"),
+  latestExtractionId: uuid("latest_extraction_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const resumeExtractions = pgTable("resume_extractions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
+  resumeDocumentId: uuid("resume_document_id")
+    .notNull()
+    .references(() => resumeDocuments.id, { onDelete: "cascade" }),
+  sourceType: text("source_type").notNull(),
+  extractorVersion: text("extractor_version").notNull(),
+  pageCount: integer("page_count"),
+  itemCount: integer("item_count"),
+  extractedDocumentJson: jsonb("extracted_document_json").notNull(),
+  normalizedText: text("normalized_text").notNull(),
+  normalizationVersion: text("normalization_version").notNull(),
+  extractionHash: text("extraction_hash").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const parsedResumeVersions = pgTable("parsed_resume_versions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
+  resumeExtractionId: uuid("resume_extraction_id")
+    .notNull()
+    .references(() => resumeExtractions.id, { onDelete: "cascade" }),
+  schemaVersion: integer("schema_version").notNull().default(1),
+  parserVersion: text("parser_version").notNull(),
+  promptVersion: text("prompt_version").notNull(),
+  model: text("model"),
+  parsedJson: jsonb("parsed_json").notNull(),
+  confidenceJson: jsonb("confidence_json"),
+  warningsJson: jsonb("warnings_json"),
+  status: parsedResumeStatusEnum("status").notNull().default("pending_review"),
+  approvedAt: timestamp("approved_at"),
+  extractionHash: text("extraction_hash").notNull(),
+  parseDurationMs: integer("parse_duration_ms"),
+  tokenUsageJson: jsonb("token_usage_json"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -446,6 +515,7 @@ export const candidateProfilesRelations = relations(candidateProfiles, ({ many }
   experiences: many(candidateExperiences),
   projects: many(candidateProjects),
   education: many(candidateEducation),
+  certifications: many(candidateCertifications),
   evidence: many(profileEvidence),
 }));
 
@@ -485,6 +555,30 @@ export const candidateEducationRelations = relations(candidateEducation, ({ one 
   profile: one(candidateProfiles, {
     fields: [candidateEducation.profileId],
     references: [candidateProfiles.id],
+  }),
+}));
+
+export const candidateCertificationsRelations = relations(
+  candidateCertifications,
+  ({ one }) => ({
+    profile: one(candidateProfiles, {
+      fields: [candidateCertifications.profileId],
+      references: [candidateProfiles.id],
+    }),
+  })
+);
+
+export const resumeExtractionsRelations = relations(resumeExtractions, ({ one }) => ({
+  document: one(resumeDocuments, {
+    fields: [resumeExtractions.resumeDocumentId],
+    references: [resumeDocuments.id],
+  }),
+}));
+
+export const parsedResumeVersionsRelations = relations(parsedResumeVersions, ({ one }) => ({
+  extraction: one(resumeExtractions, {
+    fields: [parsedResumeVersions.resumeExtractionId],
+    references: [resumeExtractions.id],
   }),
 }));
 

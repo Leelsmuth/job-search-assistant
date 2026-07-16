@@ -32,6 +32,26 @@ describe("tailoring suggestion validation", () => {
           bulletId,
           originalText: bulletText,
           suggestedText: "Managed Kubernetes clusters in production",
+          suggestionType: "rewrite",
+        },
+      ],
+      new Set([bulletId]),
+      new Set([evidenceId]),
+      new Map([[bulletId, bulletText]])
+    );
+    // Rewrites may diverge from the source bullet when bulletId is valid.
+    expect(result).toHaveLength(1);
+    expect(result[0].originalText).toBe(bulletText);
+  });
+
+  it("rejects emphasize suggestions identical to the source bullet", () => {
+    const result = validateTailoringSuggestions(
+      [
+        {
+          bulletId,
+          originalText: bulletText,
+          suggestedText: bulletText,
+          suggestionType: "emphasize",
         },
       ],
       new Set([bulletId]),

@@ -11,6 +11,7 @@ import { formatMatchScore } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
 import { useKeyedPending } from "@/components/layout/action-pending-provider";
 import { Spinner } from "@/components/ui/spinner";
+import { ApplyTextLink } from "@/components/jobs/apply-link";
 
 type App = {
   id: string;
@@ -21,6 +22,7 @@ type App = {
   jobId: string;
   job: {
     title: string;
+    jobUrl: string | null;
     company: { name: string } | null;
     matchAnalyses: Array<{ overallScore: number; classification: string }>;
   } | null;
@@ -120,6 +122,7 @@ export function ApplicationsTable({ applications }: { applications: App[] }) {
         <thead className="border-b border-border bg-muted/50">
           <tr>
             <th className="p-3 text-left font-medium">Role</th>
+            <th className="p-3 text-left font-medium">Apply</th>
             <th className="p-3 text-left font-medium">Company</th>
             <th className="p-3 text-left font-medium">Match</th>
             <th className="p-3 text-left font-medium">Status</th>
@@ -138,6 +141,13 @@ export function ApplicationsTable({ applications }: { applications: App[] }) {
                   <Link href={`/jobs/${app.jobId}`} className="hover:underline">
                     {app.job?.title}
                   </Link>
+                </td>
+                <td className="p-3">
+                  {app.job?.jobUrl ? (
+                    <ApplyTextLink jobId={app.jobId} jobUrl={app.job.jobUrl} />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
                 </td>
                 <td className="p-3">{app.job?.company?.name}</td>
                 <td className="p-3">

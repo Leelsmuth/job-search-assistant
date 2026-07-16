@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
-import { applications, jobs } from "@/db/schema";
+import { applications, jobs, candidateProfiles } from "@/db/schema";
 import type * as schema from "@/db/schema";
 
 export type Db = PostgresJsDatabase<typeof schema>;
@@ -61,4 +61,26 @@ export function assertApplicationMatchesJob(applicationJobId: string, jobId: str
   if (applicationJobId !== jobId) {
     throw new Error("Application does not match this job");
   }
+}
+
+export async function getOrCreateProfileDb(db: Db, userId: string) {
+  const existing = await db.query.candidateProfiles.findFirst({
+    where: eq(candidateProfiles.userId, userId),
+    with: {
+      skills: true,
+      experiences: { with: { bullets: true } },
+      projects: true,
+      education: true,
+      evidence: true,
+    },
+  });
+
+  if (existing) return existing;
+
+  const [profile] = await db
+    .insert(candidateProfiles)
+    .values({ userId })
+    .returning();
+
+  return profile;
 }

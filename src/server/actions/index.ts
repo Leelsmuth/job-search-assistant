@@ -8,6 +8,7 @@ import {
   getApplicationForJob,
   resolveApplicationForJob,
   filterApplicationsForOwnedJobs,
+  getOrCreateProfileDb,
   type Db,
 } from "@/server/actions/helpers";
 import {
@@ -33,42 +34,24 @@ import { getUser } from "@/lib/supabase/server";
 import { previewJobImport, persistDiscoveredJob, normalizeBoardUrl } from "@/modules/ingestion";
 import { runAndSaveMatchAnalysisDb } from "@/modules/matching/save-match-analysis";
 import type { NormalizedJob } from "@/modules/ingestion";
-import { extractResumeText, MAX_RESUME_BYTES, MIN_RESUME_TEXT_LENGTH } from "@/modules/resumes/extract";
-import { extractProfileFromResume, computeInputHash } from "@/modules/ai/client";
+import { extractProfileFromResume } from "@/modules/ai/client";
 import { generateTailoringSuggestions, draftApplicationAnswer } from "@/modules/ai/client";
+import { selectTailoringBullets } from "@/modules/ai/tailoring-eligibility";
 import { detectUnsupportedClaims } from "@/modules/ai/schemas";
-import { normalizeSkillCategory, extractEvidenceSkills } from "@/modules/candidate/skills";
 import type { ApplicationStatus } from "@/lib/utils";
 import { parseOptionalInt } from "@/lib/utils";
-import { uploadResumeFile, deleteResumeFile } from "@/modules/resumes/storage";
+import { deleteResumeFile } from "@/modules/resumes/storage";
 import { wipeExtractedProfileData } from "@/modules/resumes/profile-wipe";
+import { sanitizeProfileExtraction } from "@/modules/resumes/profile-extraction-utils";
+import { profileExtractionToParsedResume } from "@/modules/resumes/legacy/profile-extraction-adapter";
+import { mapParsedResumeToProfile } from "@/modules/resumes/map/candidate-profile-mapper";
+import * as resumeActions from "@/server/actions/resume-actions";
+import type { ParsedResume } from "@/modules/resumes/schema/resume-schema";
 
 async function requireUser() {
   const user = await getUser();
   if (!user) throw new Error("Unauthorized");
   return user;
-}
-
-async function getOrCreateProfileDb(db: Db, userId: string) {
-  const existing = await db.query.candidateProfiles.findFirst({
-    where: eq(candidateProfiles.userId, userId),
-    with: {
-      skills: true,
-      experiences: { with: { bullets: true } },
-      projects: true,
-      education: true,
-      evidence: true,
-    },
-  });
-
-  if (existing) return existing;
-
-  const [profile] = await db
-    .insert(candidateProfiles)
-    .values({ userId })
-    .returning();
-
-  return profile;
 }
 
 export async function getOrCreateProfile() {
@@ -109,62 +92,22 @@ export async function updateProfile(data: {
 }
 
 export async function uploadResume(formData: FormData) {
-  const user = await requireUser();
-  const file = formData.get("file") as File;
-  if (!file) throw new Error("No file provided");
-  if (file.size > MAX_RESUME_BYTES) {
-    throw new Error("File too large. Maximum size is 5 MB.");
-  }
+  return resumeActions.uploadResume(formData);
+}
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const extracted = await extractResumeText(buffer);
-  if (extracted.text.trim().length < MIN_RESUME_TEXT_LENGTH) {
-    throw new Error("Could not extract enough text from resume. Try a different file.");
-  }
+export async function getResumeParseReview(parsedVersionId: string) {
+  return resumeActions.getResumeParseReview(parsedVersionId);
+}
 
-  const storagePath = await uploadResumeFile(
-    user.id,
-    file.name,
-    buffer,
-    file.type || "application/octet-stream"
-  );
+export async function approveParsedResume(
+  parsedVersionId: string,
+  editedParsed: ParsedResume
+) {
+  return resumeActions.approveParsedResume(parsedVersionId, editedParsed);
+}
 
-  return withUserDb(user.id, async (db) => {
-    const [doc] = await db
-      .insert(resumeDocuments)
-      .values({
-        userId: user.id,
-        storagePath,
-        fileName: file.name,
-        fileType: extracted.fileType,
-        fileSize: file.size,
-        extractedText: extracted.text,
-        parserVersion: extracted.parserVersion,
-      })
-      .returning();
-
-    await db.insert(resumeVersions).values({
-      userId: user.id,
-      resumeDocumentId: doc.id,
-      name: "Master Resume",
-      versionType: "master",
-      contentText: extracted.text,
-    });
-
-    const suggestions = await extractProfileFromResume(extracted.text);
-
-    await db.insert(aiRuns).values({
-      userId: user.id,
-      taskType: "resume.extract_profile",
-      promptVersion: "resume.extract_profile.v1",
-      inputHash: computeInputHash("resume", extracted.text),
-      inputSummary: `Resume: ${file.name}`,
-      output: suggestions,
-      status: "completed",
-    });
-
-    return { documentId: doc.id, extractedText: extracted.text, suggestions };
-  });
+export async function uploadResumeText(text: string) {
+  return resumeActions.uploadResumeText(text);
 }
 
 export async function listResumeDocuments() {
@@ -226,119 +169,27 @@ export async function deleteResumeDocument(
   });
 }
 
+/** @deprecated Use approveParsedResume with structured ParsedResume instead. */
 export async function applyResumeSuggestions(
   suggestions: Awaited<ReturnType<typeof extractProfileFromResume>>,
   rawResumeText: string
 ) {
   const user = await requireUser();
   return withUserDb(user.id, async (db) => {
-    const profile = await getOrCreateProfileDb(db, user.id);
-
-  await wipeExtractedProfileData(db, profile.id);
-
-  await db
-    .update(candidateProfiles)
-    .set({
-      displayName: suggestions?.displayName,
-      location: suggestions?.location,
-      workAuthorization: suggestions?.workAuthorization,
-      targetTitles: suggestions?.targetTitles ?? [],
-      preferredSeniority: suggestions?.preferredSeniority,
-      remotePreference: suggestions?.remotePreference,
-      yearsExperience: parseOptionalInt(suggestions?.yearsExperience),
-      summary: suggestions?.summary,
-      rawResumeText: rawResumeText,
-      updatedAt: new Date(),
-    })
-    .where(eq(candidateProfiles.id, profile.id));
-
-  if (suggestions?.skills) {
-    for (const skill of suggestions.skills) {
-      await db.insert(candidateSkills).values({
-        profileId: profile.id,
-        name: skill.name,
-        category: normalizeSkillCategory(skill.category, skill.name),
-        proficiency: skill.proficiency,
-        yearsExperience: parseOptionalInt(skill.yearsExperience),
-      });
-    }
-  }
-
-  if (suggestions?.experiences) {
-    for (const exp of suggestions.experiences) {
-      const [experience] = await db
-        .insert(candidateExperiences)
-        .values({
-          profileId: profile.id,
-          company: exp.company,
-          title: exp.title,
-          startDate: exp.startDate,
-          endDate: exp.endDate,
-          location: exp.location,
-        })
-        .returning();
-
-      for (const bullet of exp.bullets ?? []) {
-        const normalizedSkills = extractEvidenceSkills(bullet);
-        const [b] = await db
-          .insert(candidateExperienceBullets)
-          .values({
-            experienceId: experience.id,
-            text: bullet,
-            skills: normalizedSkills,
-          })
-          .returning();
-
-        await db.insert(profileEvidence).values({
-          profileId: profile.id,
-          sourceType: "resume_bullet",
-          sourceId: b.id,
-          evidenceText: bullet,
-          normalizedSkills,
-        });
+    const legacy = sanitizeProfileExtraction(
+      suggestions ?? {
+        skills: [],
+        experiences: [],
+        projects: [],
+        education: [],
+        targetTitles: [],
       }
-    }
-  }
-
-  if (suggestions?.projects) {
-    for (const project of suggestions.projects) {
-      const [proj] = await db
-        .insert(candidateProjects)
-        .values({
-          profileId: profile.id,
-          name: project.name,
-          description: project.description,
-          skills: project.skills ?? [],
-        })
-        .returning();
-
-      if (project.description) {
-        await db.insert(profileEvidence).values({
-          profileId: profile.id,
-          sourceType: "project",
-          sourceId: proj.id,
-          evidenceText: project.description,
-          normalizedSkills: (project.skills ?? []).map((s) => s.toLowerCase()),
-        });
-      }
-    }
-  }
-
-  if (suggestions?.education) {
-    for (const edu of suggestions.education) {
-      await db.insert(candidateEducation).values({
-        profileId: profile.id,
-        institution: edu.institution,
-        degree: edu.degree,
-        field: edu.field,
-        endDate: edu.endDate,
-      });
-    }
-  }
-
-  revalidatePath("/profile");
-  revalidatePath("/onboarding");
-  return { success: true, profileUpdated: true };
+    );
+    const parsed = profileExtractionToParsedResume(legacy);
+    await mapParsedResumeToProfile(db, user.id, parsed, rawResumeText);
+    revalidatePath("/profile");
+    revalidatePath("/onboarding");
+    return { success: true, profileUpdated: true };
   });
 }
 
@@ -712,6 +563,55 @@ export async function updateApplicationStatus(
   });
 }
 
+export async function markJobAsApplied(jobId: string) {
+  const user = await requireUser();
+  return withUserDb(user.id, async (db) => {
+    await requireOwnedJob(db, user.id, jobId);
+    const app = await resolveApplicationForJob(db, user.id, jobId);
+    const alreadyApplied = app.status === "applied";
+
+    await db
+      .update(applications)
+      .set({
+        status: "applied",
+        dateApplied: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(eq(applications.id, app.id), eq(applications.userId, user.id)));
+
+    revalidatePath("/applications");
+    revalidatePath("/jobs");
+    revalidatePath("/dashboard");
+    revalidatePath(`/jobs/${jobId}`);
+
+    return { alreadyApplied };
+  });
+}
+
+export async function prepareJobApplication(jobId: string) {
+  const user = await requireUser();
+  return withUserDb(user.id, async (db) => {
+    await requireOwnedJob(db, user.id, jobId);
+    const app = await resolveApplicationForJob(db, user.id, jobId);
+    const preApply = new Set(["discovered", "reviewing", "saved", "preparing"]);
+
+    if (preApply.has(app.status)) {
+      await db
+        .update(applications)
+        .set({ status: "ready_to_apply", updatedAt: new Date() })
+        .where(and(eq(applications.id, app.id), eq(applications.userId, user.id)));
+    }
+
+    revalidatePath("/applications");
+    revalidatePath(`/jobs/${jobId}`);
+
+    return {
+      applicationId: app.id,
+      wasApplied: app.status === "applied",
+    };
+  });
+}
+
 export async function updateApplicationNotes(applicationId: string, notes: string) {
   const user = await requireUser();
   return withUserDb(user.id, async (db) => {
@@ -772,15 +672,55 @@ export async function generateTailoring(jobId: string) {
       where: eq(profileEvidence.profileId, profile.id),
     });
 
-    const bullets = experiences.flatMap((e) =>
+    const bulletsFromExperiences = experiences.flatMap((e) =>
       e.bullets.map((b) => ({ id: b.id, text: b.text }))
+    );
+
+    const bulletsFromEvidence = evidence
+      .filter((e) => e.sourceType === "resume_bullet" && e.sourceId)
+      .map((e) => ({ id: e.sourceId!, text: e.evidenceText }));
+
+    const bulletMap = new Map<string, { id: string; text: string }>();
+    for (const b of [...bulletsFromExperiences, ...bulletsFromEvidence]) {
+      bulletMap.set(b.id, b);
+    }
+    const bullets = Array.from(bulletMap.values());
+
+    if (bullets.length === 0) {
+      throw new Error(
+        "No resume bullets found. Upload a resume on /onboarding or /resumes, then review extracted experience before generating tailoring."
+      );
+    }
+
+    const eligibleBullets = selectTailoringBullets(bullets, job.description ?? "");
+
+    if (eligibleBullets.length === 0) {
+      throw new Error(
+        "No achievement bullets found for tailoring. Check /profile — contact lines and headers are skipped. Add experience bullets from your resume import."
+      );
+    }
+
+    const evidenceIdByBulletId = new Map(
+      evidence
+        .filter((e) => e.sourceType === "resume_bullet" && e.sourceId)
+        .map((e) => [e.sourceId!, e.id] as const)
+    );
+
+    const tailoringEvidence = evidence.filter((e) =>
+      eligibleBullets.some((b) => b.id === e.sourceId || b.text === e.evidenceText)
     );
 
     const suggestions = await generateTailoringSuggestions(
       job.description ?? "",
-      evidence.map((e) => ({ id: e.id, evidenceText: e.evidenceText })),
-      bullets
+      tailoringEvidence.map((e) => ({ id: e.id, evidenceText: e.evidenceText })),
+      eligibleBullets
     );
+
+    if (suggestions.length === 0) {
+      throw new Error(
+        "Could not generate tailoring suggestions for this job. Try updating your profile bullets or re-running match analysis."
+      );
+    }
 
     for (const s of suggestions) {
       await db.insert(tailoringSuggestions).values({
@@ -789,7 +729,7 @@ export async function generateTailoring(jobId: string) {
         suggestionType: s.suggestionType,
         originalText: s.originalText,
         suggestedText: s.suggestedText,
-        evidenceId: s.evidenceId,
+        evidenceId: s.evidenceId ?? evidenceIdByBulletId.get(s.bulletId) ?? null,
         bulletId: s.bulletId,
         confidence: s.confidence,
       });

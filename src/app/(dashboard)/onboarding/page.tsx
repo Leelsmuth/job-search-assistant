@@ -2,30 +2,37 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { uploadResume, applyResumeSuggestions } from "@/server/actions";
+import { uploadResume, approveParsedResume } from "@/server/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { ResumeUploadField } from "@/components/resumes/resume-upload-field";
-import type { ProfileExtraction } from "@/modules/ai/client";
+import { ParsedResumeReview } from "@/components/resumes/review/parsed-resume-review";
+import type { ParsedResume } from "@/modules/resumes/schema/resume-schema";
+import { sanitizeParsedResume } from "@/modules/resumes/schema/resume-schema";
 
 export default function OnboardingPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [step, setStep] = useState<"upload" | "review">("upload");
-  const [extractedText, setExtractedText] = useState("");
-  const [suggestions, setSuggestions] = useState<ProfileExtraction | null>(null);
+  const [parsedVersionId, setParsedVersionId] = useState<string | null>(null);
+  const [normalizedText, setNormalizedText] = useState("");
+  const [parsed, setParsed] = useState<ParsedResume | null>(null);
   const [error, setError] = useState("");
 
   async function handleUpload(formData: FormData) {
     setError("");
     try {
       const result = await uploadResume(formData);
-      setExtractedText(result.extractedText);
-      setSuggestions(result.suggestions);
+      setParsedVersionId(result.parsedVersionId);
+      setNormalizedText(result.extractedText);
+      setParsed(result.parsed);
       setStep("review");
-      toast({ title: "Resume uploaded", description: "Review extracted data below." });
+      toast({
+        title: "Resume uploaded",
+        description: "Review the structured profile before saving.",
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Upload failed";
       setError(msg);
@@ -35,13 +42,23 @@ export default function OnboardingPage() {
   }
 
   function handleApprove() {
-    if (!suggestions) return;
+    if (!parsed || !parsedVersionId) return;
+
+    const needsConfirm = parsed.confidence.overall < 0.5;
+    if (needsConfirm) {
+      const ok = window.confirm(
+        "Parser confidence is low. Approve anyway and save to your profile?"
+      );
+      if (!ok) return;
+    }
+
+    const cleaned = sanitizeParsedResume(parsed);
     startTransition(async () => {
       try {
-        await applyResumeSuggestions(suggestions, extractedText);
+        await approveParsedResume(parsedVersionId, cleaned);
         toast({
           title: "Profile saved",
-          description: "Match scores may be outdated — review your job feed at /jobs",
+          description: "Your structured resume data is now on your profile.",
         });
         router.push("/profile");
       } catch (err) {
@@ -52,10 +69,10 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       <h1 className="text-2xl font-bold">Welcome — Set Up Your Profile</h1>
       <p className="text-muted-foreground">
-        Upload your resume. Review extracted data before it affects matching.
+        Upload your resume. Edit the structured extraction before it affects matching.
       </p>
       {error && <p className="text-sm text-destructive">{error}</p>}
 
@@ -66,41 +83,29 @@ export default function OnboardingPage() {
           </CardHeader>
           <CardContent>
             <ResumeUploadField onUpload={handleUpload} />
-            <Button
-              variant="ghost"
-              className="mt-4"
-              onClick={() => router.push("/profile")}
-            >
+            <Button variant="ghost" className="mt-4" onClick={() => router.push("/profile")}>
               Skip for now
             </Button>
           </CardContent>
         </Card>
       )}
 
-      {step === "review" && suggestions && (
+      {step === "review" && parsed && (
         <div className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Extracted Profile Suggestions</CardTitle>
+              <CardTitle className="text-base">Review structured profile</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              {suggestions.summary && <p>{suggestions.summary}</p>}
-              <p>
-                <strong>Skills:</strong>{" "}
-                {suggestions.skills?.map((s) => s.name).join(", ")}
+            <CardContent>
+              <p className="mb-4 text-sm text-muted-foreground">
+                Overall confidence: {Math.round(parsed.confidence.overall * 100)}% — edit
+                sections below before approving.
               </p>
-              {suggestions.experiences?.map((exp, i) => (
-                <div key={i}>
-                  <strong>
-                    {exp.title} at {exp.company}
-                  </strong>
-                  <ul className="ml-4 list-disc">
-                    {exp.bullets?.map((b, j) => (
-                      <li key={j}>{b}</li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
+              <ParsedResumeReview
+                value={parsed}
+                onChange={setParsed}
+                normalizedText={normalizedText}
+              />
             </CardContent>
           </Card>
           <div className="flex gap-2">

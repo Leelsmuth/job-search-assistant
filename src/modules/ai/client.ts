@@ -3,6 +3,8 @@ import { z } from "zod";
 import { hashInput } from "@/lib/utils";
 import { validateTailoringSuggestions, validateDraftAnswerResponse, type TailoringSuggestionInput, type DraftAnswerResult } from "@/modules/ai/schemas";
 import { extractTechnologies } from "@/modules/ingestion/extract-requirements";
+import { selectTailoringBullets, isTailorableBullet } from "@/modules/ai/tailoring-eligibility";
+import { filterExtractedBullets } from "@/modules/resumes/resume-line-classifier";
 
 function isOpenAiConfigured(): boolean {
   const key = process.env.OPENAI_API_KEY?.trim();
@@ -76,7 +78,14 @@ export async function extractProfileFromResume(
           role: "system",
           content: `Extract structured profile data from resume text. Return JSON only.
 Do not invent experience not present in the resume.
-Prompt version: resume.extract_profile.v1`,
+
+Rules for experience bullets:
+- bullets must be accomplishment statements (what you built, led, shipped, improved)
+- do NOT put contact info, section headers, skills lists, education lines, or job titles in bullets
+- put name in displayName; email/phone/LinkedIn are omitted unless clearly a location field
+- if a line is not a real achievement bullet, omit it rather than forcing it into bullets
+
+Prompt version: resume.extract_profile.v2`,
         },
         { role: "user", content: resumeText.slice(0, 12000) },
       ],
@@ -86,10 +95,21 @@ Prompt version: resume.extract_profile.v1`,
 
     const content = response.choices[0]?.message?.content;
     if (!content) return extractProfileHeuristic(resumeText);
-    return profileExtractionSchema.parse(JSON.parse(content));
+    const parsed = profileExtractionSchema.parse(JSON.parse(content));
+    return postProcessExtractedProfile(parsed);
   } catch {
     return extractProfileHeuristic(resumeText);
   }
+}
+
+function postProcessExtractedProfile(profile: ProfileExtraction): ProfileExtraction {
+  return {
+    ...profile,
+    experiences: (profile.experiences ?? []).map((exp) => ({
+      ...exp,
+      bullets: filterExtractedBullets(exp.bullets ?? []),
+    })),
+  };
 }
 
 function extractProfileHeuristic(resumeText: string): ProfileExtraction {
@@ -113,7 +133,7 @@ function extractProfileHeuristic(resumeText: string): ProfileExtraction {
       experiences.push({
         company: lines[0].split("|")[0]?.trim() || "Unknown",
         title: lines[0].split("|")[1]?.trim() || "Engineer",
-        bullets: lines.slice(1).map((l) => l.replace(/^[-•]\s*/, "")).filter((l) => l.length > 10),
+        bullets: filterExtractedBullets(lines.slice(1)),
       });
     }
   }
@@ -136,18 +156,34 @@ export async function generateTailoringSuggestions(
   evidence: Array<{ id: string; evidenceText: string }>,
   bullets: Array<{ id: string; text: string }>
 ): Promise<TailoringSuggestionInput[]> {
-  const bulletIds = new Set(bullets.map((b) => b.id));
-  const evidenceIds = new Set(evidence.map((e) => e.id));
-  const bulletsById = new Map(bullets.map((b) => [b.id, b.text]));
+  const eligibleBullets = selectTailoringBullets(bullets, jobDescription);
+  if (eligibleBullets.length === 0) return [];
 
-  const heuristicFallback = (): TailoringSuggestionInput[] =>
-    bullets.slice(0, 3).map((b) => ({
-      suggestionType: "emphasize" as const,
-      bulletId: b.id,
-      originalText: b.text,
-      suggestedText: b.text,
-      confidence: 0.5,
-    }));
+  const bulletIds = new Set(eligibleBullets.map((b) => b.id));
+  const evidenceIds = new Set(evidence.map((e) => e.id));
+  const bulletsById = new Map(eligibleBullets.map((b) => [b.id, b.text]));
+
+  const heuristicFallback = (): TailoringSuggestionInput[] => {
+    const jobTechs = extractTechnologies(jobDescription).slice(0, 6);
+    return eligibleBullets.slice(0, 5).map((b) => {
+      const bulletLower = b.text.toLowerCase();
+      const matchingTechs = jobTechs.filter((t) => bulletLower.includes(t.toLowerCase()));
+      const suggestedText =
+        matchingTechs.length > 0
+          ? `${b.text} (Emphasize for role: ${matchingTechs.join(", ")})`
+          : jobTechs.length > 0
+            ? `${b.text} — highlight overlap with ${jobTechs.slice(0, 3).join(", ")} where accurate`
+            : b.text;
+
+      return {
+        suggestionType: "emphasize" as const,
+        bulletId: b.id,
+        originalText: b.text,
+        suggestedText,
+        confidence: matchingTechs.length > 0 ? 0.55 : 0.4,
+      };
+    }).filter((s) => s.suggestedText.trim() !== s.originalText.trim());
+  };
 
   if (!openai) {
     return heuristicFallback();
@@ -160,18 +196,22 @@ export async function generateTailoringSuggestions(
         {
           role: "system",
           content: `Suggest resume bullet improvements for a job. Never invent experience.
-Only rewrite existing bullets to emphasize relevant skills.
+Only rewrite EXISTING achievement bullets from the bullets list — never contact info, names, emails, titles, or headers.
+Focus on emphasizing skills and outcomes that match the job description using only facts from the original bullet.
 Each suggestion MUST include bulletId from the provided bullets list.
 Optional evidenceId MUST come from the provided evidence list.
 Return JSON: { "suggestions": [...] }
-Prompt version: resume.tailor_suggestions.v1`,
+Prompt version: resume.tailor_suggestions.v2`,
         },
         {
           role: "user",
           content: JSON.stringify({
             jobDescription: jobDescription.slice(0, 4000),
-            bullets: bullets.map((b) => ({ id: b.id, text: b.text })),
-            evidence: evidence.map((e) => ({ id: e.id, text: e.evidenceText })),
+            bullets: eligibleBullets.map((b) => ({ id: b.id, text: b.text })),
+            evidence: evidence
+              .filter((e) => isTailorableBullet(e.evidenceText))
+              .slice(0, 15)
+              .map((e) => ({ id: e.id, text: e.evidenceText })),
           }),
         },
       ],
