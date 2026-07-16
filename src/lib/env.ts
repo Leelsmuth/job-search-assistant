@@ -82,6 +82,20 @@ export function getMissingEnvVars(): string[] {
   return missing;
 }
 
+export function getSupabaseConfigOrNull(): { url: string; anonKey: string } | null {
+  const url = resolveSupabaseUrl();
+  const anonKey = resolveSupabaseAnonKey();
+  if (!url || !anonKey) return null;
+  return { url, anonKey };
+}
+
+export function formatMissingConfigMessage(missingVars: string[]): string {
+  if (missingVars.length > 0) {
+    return `Missing environment variables: ${missingVars.join(", ")}. Add them in Vercel, then redeploy.`;
+  }
+  return "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel, then redeploy.";
+}
+
 export const PROTECTED_PATH_PREFIXES = [
   "/jobs",
   "/profile",

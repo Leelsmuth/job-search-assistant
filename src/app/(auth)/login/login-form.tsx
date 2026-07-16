@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { createClient, type SupabaseClientConfig } from "@/lib/supabase/client";
+import { formatMissingConfigMessage } from "@/lib/env";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,13 +15,15 @@ type AuthPhase = "idle" | "submitting" | "redirecting";
 export function LoginForm({
   appConfigured,
   missingVars,
+  supabaseConfig,
 }: {
   appConfigured: boolean;
   missingVars: string[];
+  supabaseConfig: SupabaseClientConfig | null;
 }) {
   const searchParams = useSearchParams();
   const missingEnv = searchParams.get("error") === "missing_env";
-  const supabaseConfigured = isSupabaseConfigured();
+  const canSignIn = Boolean(supabaseConfig);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phase, setPhase] = useState<AuthPhase>("idle");
@@ -33,11 +35,9 @@ export function LoginForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!appConfigured || !supabaseConfigured) {
+    if (!supabaseConfig) {
       setIsError(true);
-      setMessage(
-        `Missing environment variables: ${missingVars.join(", ")}. Add them in Vercel, then redeploy.`
-      );
+      setMessage(formatMissingConfigMessage(missingVars));
       return;
     }
 
@@ -46,7 +46,7 @@ export function LoginForm({
     setIsError(false);
 
     try {
-      const supabase = createClient();
+      const supabase = createClient(supabaseConfig);
 
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({ email, password });
@@ -144,7 +144,7 @@ export function LoginForm({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                disabled={!appConfigured || busy}
+                disabled={!canSignIn || busy}
                 className="min-h-11"
               />
             </div>
@@ -157,7 +157,7 @@ export function LoginForm({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                disabled={!appConfigured || busy}
+                disabled={!canSignIn || busy}
                 className="min-h-11"
               />
             </div>
@@ -175,7 +175,7 @@ export function LoginForm({
               type="submit"
               className="min-h-11 w-full"
               loading={busy}
-              disabled={busy || !appConfigured}
+              disabled={busy || !canSignIn}
             >
               {phase === "redirecting"
                 ? "Opening jobs…"
@@ -196,7 +196,7 @@ export function LoginForm({
                 setMessage("");
                 setIsError(false);
               }}
-              disabled={!appConfigured || busy}
+              disabled={!canSignIn || busy}
             >
               {isSignUp ? "Already have an account? Sign in" : "Need an account? Sign up"}
             </Button>

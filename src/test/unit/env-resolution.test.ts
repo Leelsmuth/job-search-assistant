@@ -4,6 +4,8 @@ import {
   resolveSupabaseAnonKey,
   resolveSupabaseUrl,
   isAppConfigured,
+  getSupabaseConfigOrNull,
+  formatMissingConfigMessage,
 } from "@/lib/env";
 
 describe("env resolution", () => {
@@ -33,5 +35,18 @@ describe("env resolution", () => {
     delete process.env.DATABASE_URL;
     expect(isAppConfigured()).toBe(true);
     expect(resolveSupabaseUrl()).toBe("https://abc.supabase.co");
+  });
+
+  it("getSupabaseConfigOrNull returns config when Supabase vars are set", () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://abc.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-test";
+    expect(getSupabaseConfigOrNull()).toEqual({
+      url: "https://abc.supabase.co",
+      anonKey: "anon-test",
+    });
+  });
+
+  it("formatMissingConfigMessage handles empty missing list", () => {
+    expect(formatMissingConfigMessage([])).toContain("NEXT_PUBLIC_SUPABASE_URL");
   });
 });

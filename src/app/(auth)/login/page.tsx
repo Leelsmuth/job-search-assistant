@@ -1,10 +1,15 @@
 import { Suspense } from "react";
-import { isAppConfigured, getMissingEnvVars } from "@/lib/env";
+import {
+  isAppConfigured,
+  getMissingEnvVars,
+  getSupabaseConfigOrNull,
+} from "@/lib/env";
 import { LoginForm } from "./login-form";
 
 export default function LoginPage() {
   const appConfigured = isAppConfigured();
   const missingVars = getMissingEnvVars();
+  const supabaseConfig = getSupabaseConfigOrNull();
 
   return (
     <Suspense
@@ -14,7 +19,11 @@ export default function LoginPage() {
         </div>
       }
     >
-      <LoginForm appConfigured={appConfigured} missingVars={missingVars} />
+      <LoginForm
+        appConfigured={appConfigured}
+        missingVars={missingVars}
+        supabaseConfig={supabaseConfig}
+      />
     </Suspense>
   );
 }
