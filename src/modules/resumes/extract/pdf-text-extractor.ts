@@ -164,6 +164,18 @@ async function extractWithPdfJs(buffer: Buffer): Promise<ExtractedDocument> {
 }
 
 export async function extractPdfDocument(buffer: Buffer): Promise<ExtractedDocument> {
+  // pdf-parse is more reliable in serverless (no worker file / symlinks).
+  if (process.env.VERCEL === "1") {
+    try {
+      const fallback = await extractWithPdfParse(buffer);
+      if (fallback.rawText.length >= 50) {
+        return flatTextToDocument(fallback.rawText, fallback.warnings);
+      }
+    } catch {
+      // try pdfjs below
+    }
+  }
+
   try {
     return await extractWithPdfJs(buffer);
   } catch (error) {
