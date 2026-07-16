@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { updateApplicationStatus } from "@/server/actions";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { updateApplicationStatus, updateApplicationNotes } from "@/server/actions";
 import type { ApplicationStatus } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { formatMatchScore } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
 import { useKeyedPending } from "@/components/layout/action-pending-provider";
@@ -38,7 +41,63 @@ const STATUSES: ApplicationStatus[] = [
   "withdrawn",
 ];
 
+function NotesCell({ appId, initialNotes }: { appId: string; initialNotes: string | null }) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const { run, isKeyPending } = useKeyedPending();
+  const [open, setOpen] = useState(false);
+  const [notes, setNotes] = useState(initialNotes ?? "");
+
+  if (!open) {
+    return (
+      <Button variant="ghost" size="sm" className="h-auto px-1 py-0 text-xs" onClick={() => setOpen(true)}>
+        {initialNotes ? `${initialNotes.slice(0, 40)}…` : "Add notes"}
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex min-w-[200px] flex-col gap-1">
+      <textarea
+        className="min-h-[60px] rounded border border-input px-2 py-1 text-xs"
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+      />
+      <div className="flex gap-1">
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs"
+          loading={isKeyPending(`notes-${appId}`)}
+          onClick={() =>
+            run(`notes-${appId}`, async () => {
+              try {
+                await updateApplicationNotes(appId, notes);
+                router.refresh();
+                setOpen(false);
+                toast({ title: "Notes saved" });
+              } catch (err) {
+                toast({
+                  title: "Save failed",
+                  description: err instanceof Error ? err.message : "Unknown error",
+                  variant: "destructive",
+                });
+              }
+            })
+          }
+        >
+          Save
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function ApplicationsTable({ applications }: { applications: App[] }) {
+  const router = useRouter();
   const { toast } = useToast();
   const { run, isKeyPending } = useKeyedPending();
 
@@ -64,6 +123,7 @@ export function ApplicationsTable({ applications }: { applications: App[] }) {
             <th className="p-3 text-left font-medium">Company</th>
             <th className="p-3 text-left font-medium">Match</th>
             <th className="p-3 text-left font-medium">Status</th>
+            <th className="p-3 text-left font-medium">Notes</th>
             <th className="p-3 text-left font-medium">Saved</th>
             <th className="p-3 text-left font-medium">Applied</th>
           </tr>
@@ -73,11 +133,7 @@ export function ApplicationsTable({ applications }: { applications: App[] }) {
             const match = app.job?.matchAnalyses[0];
             const saving = isKeyPending(`status-${app.id}`);
             return (
-              <tr
-                key={app.id}
-                className="border-b border-border"
-                aria-busy={saving}
-              >
+              <tr key={app.id} className="border-b border-border" aria-busy={saving}>
                 <td className="p-3 font-medium">
                   <Link href={`/jobs/${app.jobId}`} className="hover:underline">
                     {app.job?.title}
@@ -106,6 +162,7 @@ export function ApplicationsTable({ applications }: { applications: App[] }) {
                               app.id,
                               e.target.value as ApplicationStatus
                             );
+                            router.refresh();
                             toast({ title: "Status updated" });
                           } catch (err) {
                             toast({
@@ -126,15 +183,14 @@ export function ApplicationsTable({ applications }: { applications: App[] }) {
                     {saving ? <Spinner className="h-3 w-3" /> : null}
                   </div>
                 </td>
-                <td className="p-3 text-muted-foreground">
-                  {app.dateSaved
-                    ? new Date(app.dateSaved).toLocaleDateString()
-                    : "—"}
+                <td className="p-3">
+                  <NotesCell appId={app.id} initialNotes={app.notes} />
                 </td>
                 <td className="p-3 text-muted-foreground">
-                  {app.dateApplied
-                    ? new Date(app.dateApplied).toLocaleDateString()
-                    : "—"}
+                  {app.dateSaved ? new Date(app.dateSaved).toLocaleDateString() : "—"}
+                </td>
+                <td className="p-3 text-muted-foreground">
+                  {app.dateApplied ? new Date(app.dateApplied).toLocaleDateString() : "—"}
                 </td>
               </tr>
             );

@@ -87,6 +87,7 @@ export async function pollSavedBoard(
       provider: board.provider,
       sourceUrl: job.jobUrl || parsed.boardUrl,
       sourceJobId: job.sourceJobId,
+      boardUrl: parsed.boardUrl,
     });
 
     if (!result.isNew) {
@@ -103,7 +104,13 @@ export async function pollSavedBoard(
 
   await db
     .update(savedBoards)
-    .set({ lastPolledAt: new Date(), boardUrl: parsed.boardUrl })
+    .set({
+      lastPolledAt: new Date(),
+      boardUrl: parsed.boardUrl,
+      lastPollNewJobs: stats.newJobs,
+      lastPollSkipped: stats.skipped,
+      lastPollFiltered: stats.filtered,
+    })
     .where(eq(savedBoards.id, board.id));
 
   return stats;

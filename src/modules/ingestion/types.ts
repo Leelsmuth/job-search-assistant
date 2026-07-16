@@ -42,6 +42,7 @@ export const jobImportMetaSchema = z.object({
   ]),
   sourceUrl: z.string().url().optional(),
   sourceJobId: z.string().max(200).optional(),
+  boardUrl: z.string().url().optional(),
   rawPayload: z.unknown().optional(),
 });
 

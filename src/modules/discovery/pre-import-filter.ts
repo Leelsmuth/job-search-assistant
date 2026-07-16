@@ -12,6 +12,7 @@ const BLOCKED_TITLE_PATTERNS = [
 const ALLOWED_TITLE_PATTERNS = [
   /\b(frontend|front-end|front end)\b/i,
   /\b(full[\s-]?stack|software|web|product|platform|mobile|ios|android)\b/i,
+  /\b(staff|principal|senior|lead)\b.*\b(engineer|developer)\b/i,
   /\b(engineer|developer|programmer|architect)\b/i,
   /\b(ui|ux|design engineer)\b/i,
   /\b(react|typescript|javascript|node)\b/i,

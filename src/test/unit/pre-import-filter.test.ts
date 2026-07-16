@@ -45,4 +45,13 @@ describe("shouldImportDiscoveredJob", () => {
       ).import
     ).toBe(false);
   });
+
+  it("allows staff frontend engineer titles", () => {
+    expect(
+      shouldImportDiscoveredJob({
+        ...baseJob,
+        title: "Staff Software Engineer, Frontend",
+      }).import
+    ).toBe(true);
+  });
 });

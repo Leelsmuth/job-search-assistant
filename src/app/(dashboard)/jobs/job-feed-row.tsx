@@ -2,11 +2,20 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  toggleSaveJob,
+  dismissJob,
+  startReviewingJob,
+} from "@/server/actions";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { classificationColor, formatSalary, formatMatchScore } from "@/lib/utils";
 import type { MatchClassification } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/use-toast";
+import { useKeyedPending } from "@/components/layout/action-pending-provider";
 import { JobDeleteButton } from "./job-delete-button";
 
 type FeedJob = {
@@ -40,8 +49,13 @@ export function JobFeedRow({
   lowExtraction: boolean;
   isNew: boolean;
 }) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const { run, isKeyPending } = useKeyedPending();
   const [deleting, setDeleting] = useState(false);
+  const [saved, setSaved] = useState(job.isSaved);
   const match = job.matchAnalyses[0];
+  const actionKey = `feed-${job.id}`;
 
   return (
     <Card
@@ -65,7 +79,7 @@ export function JobFeedRow({
               {classification && (
                 <Badge className={classificationColor(classification)}>{classification}</Badge>
               )}
-              {job.isSaved && (
+              {saved && (
                 <Badge className="border border-blue-300 bg-transparent text-blue-700">saved</Badge>
               )}
               {isNew && <Badge className="bg-green-100 text-green-900">new</Badge>}
@@ -95,6 +109,78 @@ export function JobFeedRow({
             </div>
           </div>
         </Link>
+        <div className="flex shrink-0 flex-col gap-1">
+          <Button
+            variant={saved ? "secondary" : "outline"}
+            size="sm"
+            loading={isKeyPending(`${actionKey}-save`)}
+            onClick={() =>
+              run(`${actionKey}-save`, async () => {
+                try {
+                  await toggleSaveJob(job.id, !saved);
+                  setSaved(!saved);
+                  router.refresh();
+                  toast({ title: saved ? "Unsaved" : "Job saved" });
+                } catch (e) {
+                  toast({
+                    title: "Failed",
+                    description: e instanceof Error ? e.message : "Unknown error",
+                    variant: "destructive",
+                  });
+                }
+              })
+            }
+          >
+            {saved ? "Saved" : "Save"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            loading={isKeyPending(`${actionKey}-review`)}
+            onClick={() =>
+              run(`${actionKey}-review`, async () => {
+                try {
+                  await startReviewingJob(job.id);
+                  router.refresh();
+                  toast({
+                    title: "Marked reviewing",
+                    description: "Added to your application pipeline.",
+                  });
+                } catch (e) {
+                  toast({
+                    title: "Failed",
+                    description: e instanceof Error ? e.message : "Unknown error",
+                    variant: "destructive",
+                  });
+                }
+              })
+            }
+          >
+            Review
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            loading={isKeyPending(`${actionKey}-dismiss`)}
+            onClick={() =>
+              run(`${actionKey}-dismiss`, async () => {
+                try {
+                  await dismissJob(job.id);
+                  router.refresh();
+                  toast({ title: "Job dismissed" });
+                } catch (e) {
+                  toast({
+                    title: "Failed",
+                    description: e instanceof Error ? e.message : "Unknown error",
+                    variant: "destructive",
+                  });
+                }
+              })
+            }
+          >
+            Dismiss
+          </Button>
+        </div>
         <JobDeleteButton
           jobId={job.id}
           jobTitle={job.title}

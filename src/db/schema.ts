@@ -236,7 +236,29 @@ export const savedBoards = pgTable("saved_boards", {
   provider: jobSourceProviderEnum("provider").notNull(),
   isActive: boolean("is_active").default(true).notNull(),
   lastPolledAt: timestamp("last_polled_at"),
+  lastPollNewJobs: integer("last_poll_new_jobs").default(0),
+  lastPollSkipped: integer("last_poll_skipped").default(0),
+  lastPollFiltered: integer("last_poll_filtered").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const companyJobSources = pgTable("company_job_sources", {
+  id: text("id").primaryKey(),
+  companyName: text("company_name").notNull(),
+  companySlug: text("company_slug").notNull(),
+  atsProvider: text("ats_provider").notNull(),
+  boardSlug: text("board_slug").notNull(),
+  boardUrl: text("board_url").notNull(),
+  headquartersCountry: text("headquarters_country"),
+  industries: jsonb("industries").$type<string[]>().default([]).notNull(),
+  enabled: boolean("enabled").default(true).notNull(),
+  verificationStatus: text("verification_status").default("verification_failed").notNull(),
+  verifiedAt: timestamp("verified_at"),
+  lastJobCount: integer("last_job_count"),
+  observedSignals: jsonb("observed_signals"),
+  discoverySource: text("discovery_source"),
+  lastSyncedAt: timestamp("last_synced_at"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const jobSources = pgTable("job_sources", {
@@ -272,6 +294,8 @@ export const jobs = pgTable("jobs", {
   experienceRequirements: text("experience_requirements"),
   educationRequirements: text("education_requirements"),
   status: text("status").default("active"),
+  discoveredBoardUrl: text("discovered_board_url"),
+  descriptionHash: text("description_hash"),
   isSaved: boolean("is_saved").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   addSavedBoard,
@@ -14,8 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
-import { CompanyCatalogPanel } from "@/components/discovery/company-catalog-panel";
 import { useKeyedPending } from "@/components/layout/action-pending-provider";
 
 type BoardProvider = "greenhouse" | "lever" | "ashby";
@@ -27,9 +28,12 @@ type Board = {
   provider: string;
   isActive: boolean;
   lastPolledAt: Date | null;
+  lastPollNewJobs: number | null;
+  lastPollSkipped: number | null;
+  lastPollFiltered: number | null;
+  discoveredJobCount: number;
+  considerRemoving: boolean;
 };
-
-type CatalogEntry = Parameters<typeof CompanyCatalogPanel>[0]["catalog"][number];
 
 function formatLastPolled(lastPolledAt: Date | null) {
   if (!lastPolledAt) return "Never polled";
@@ -43,13 +47,7 @@ function formatLastPolled(lastPolledAt: Date | null) {
   return `${days}d ago`;
 }
 
-export function SettingsClient({
-  initialBoards,
-  initialCatalog,
-}: {
-  initialBoards: Board[];
-  initialCatalog: CatalogEntry[];
-}) {
+export function SettingsClient({ initialBoards }: { initialBoards: Board[] }) {
   const router = useRouter();
   const { toast } = useToast();
   const { run, isKeyPending } = useKeyedPending();
@@ -57,11 +55,6 @@ export function SettingsClient({
   const [boardUrl, setBoardUrl] = useState("");
   const [provider, setProvider] = useState<BoardProvider>("greenhouse");
   const [detectHint, setDetectHint] = useState<string | null>(null);
-
-  const followingUrls = useMemo(
-    () => new Set(initialBoards.map((b) => b.boardUrl)),
-    [initialBoards]
-  );
 
   useEffect(() => {
     const trimmed = boardUrl.trim();
@@ -88,9 +81,12 @@ export function SettingsClient({
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <h1 className="text-2xl font-bold">Settings</h1>
-
-      <CompanyCatalogPanel catalog={initialCatalog} followingUrls={followingUrls} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">Settings</h1>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/discovery">Browse company catalog</Link>
+        </Button>
+      </div>
 
       <Card>
         <CardHeader>
@@ -98,7 +94,11 @@ export function SettingsClient({
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Boards you follow are polled daily (or use Poll now). Structured ATS polling only.
+            Boards you follow are polled daily (or use Poll now). Add more from{" "}
+            <Link href="/discovery" className="text-primary underline">
+              Discovery
+            </Link>
+            .
           </p>
           {initialBoards.length > 0 ? (
             <ul className="space-y-2">
@@ -109,10 +109,23 @@ export function SettingsClient({
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium">{board.companyName}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium">{board.companyName}</p>
+                        {board.considerRemoving ? (
+                          <Badge className="bg-amber-100 text-amber-900">
+                            Consider removing
+                          </Badge>
+                        ) : null}
+                      </div>
                       <p className="truncate text-xs text-muted-foreground">{board.boardUrl}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         Last polled: {formatLastPolled(board.lastPolledAt)}
+                        {board.lastPolledAt
+                          ? ` · ${board.lastPollNewJobs ?? 0} new, ${board.lastPollSkipped ?? 0} skipped, ${board.lastPollFiltered ?? 0} filtered`
+                          : ""}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {board.discoveredJobCount} jobs in feed from this board
                       </p>
                     </div>
                     <span className="text-xs uppercase text-muted-foreground">
@@ -199,7 +212,11 @@ export function SettingsClient({
             </ul>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No saved boards yet. Add from the catalog above or paste a board URL below.
+              No saved boards yet.{" "}
+              <Link href="/discovery" className="text-primary underline">
+                Browse the catalog
+              </Link>{" "}
+              or paste a board URL below.
             </p>
           )}
           <div>

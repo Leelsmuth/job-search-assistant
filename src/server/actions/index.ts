@@ -421,6 +421,10 @@ export async function getJobsFeed(filters?: {
   classification?: string;
   source?: "discovered" | "manual";
   sort?: "match" | "recent" | "salary";
+  search?: string;
+  discoveredSince?: "24h" | "7d";
+  includeDismissed?: boolean;
+  strongUnseenOnly?: boolean;
 }) {
   const user = await requireUser();
   const discoveryProviders = new Set(["greenhouse", "lever", "ashby"]);
@@ -451,6 +455,10 @@ export async function getJobsFeed(filters?: {
 
     let filtered = allJobs;
 
+    if (!filters?.includeDismissed) {
+      filtered = filtered.filter((j) => j.status !== "dismissed");
+    }
+
     if (filters?.source === "discovered") {
       filtered = filtered.filter((j) =>
         j.source?.provider ? discoveryProviders.has(j.source.provider) : false
@@ -459,6 +467,32 @@ export async function getJobsFeed(filters?: {
       filtered = filtered.filter(
         (j) => !j.source?.provider || !discoveryProviders.has(j.source.provider)
       );
+    }
+
+    if (filters?.discoveredSince) {
+      const ms = filters.discoveredSince === "24h" ? 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
+      const since = new Date(Date.now() - ms);
+      filtered = filtered.filter((j) => new Date(j.dateDiscovered) >= since);
+    }
+
+    if (filters?.search) {
+      const q = filters.search.toLowerCase();
+      filtered = filtered.filter(
+        (j) =>
+          j.title.toLowerCase().includes(q) ||
+          (j.company?.name ?? "").toLowerCase().includes(q)
+      );
+    }
+
+    if (filters?.strongUnseenOnly) {
+      filtered = filtered.filter((j) => {
+        const cls = j.matchAnalyses[0]?.classification;
+        return (
+          !j.isSaved &&
+          j.status !== "dismissed" &&
+          (cls === "excellent" || cls === "strong")
+        );
+      });
     }
 
     if (filters?.minScore) {
@@ -534,6 +568,25 @@ export async function getJobDetail(jobId: string): Promise<JobWithRelations | un
   });
 }
 
+export async function getMatchHistoryForJob(jobId: string) {
+  const user = await requireUser();
+  return withUserDb(user.id, async (db) => {
+    await requireOwnedJob(db, user.id, jobId);
+    return db.query.matchAnalyses.findMany({
+      where: eq(matchAnalyses.jobId, jobId),
+      orderBy: [desc(matchAnalyses.createdAt)],
+      limit: 3,
+      columns: {
+        id: true,
+        overallScore: true,
+        classification: true,
+        topConcern: true,
+        createdAt: true,
+      },
+    });
+  });
+}
+
 export async function toggleSaveJob(jobId: string, saved: boolean) {
   const user = await requireUser();
   return withUserDb(user.id, async (db) => {
@@ -559,6 +612,35 @@ export async function toggleSaveJob(jobId: string, saved: boolean) {
     revalidatePath("/jobs");
     revalidatePath(`/jobs/${jobId}`);
     revalidatePath("/applications");
+  });
+}
+
+export async function dismissJob(jobId: string) {
+  const user = await requireUser();
+  return withUserDb(user.id, async (db) => {
+    await requireOwnedJob(db, user.id, jobId);
+    await db
+      .update(jobs)
+      .set({ status: "dismissed", updatedAt: new Date() })
+      .where(and(eq(jobs.id, jobId), eq(jobs.userId, user.id)));
+    revalidatePath("/jobs");
+    revalidatePath("/dashboard");
+  });
+}
+
+export async function startReviewingJob(jobId: string) {
+  const user = await requireUser();
+  return withUserDb(user.id, async (db) => {
+    await requireOwnedJob(db, user.id, jobId);
+    const app = await resolveApplicationForJob(db, user.id, jobId);
+    await db
+      .update(applications)
+      .set({ status: "reviewing", updatedAt: new Date() })
+      .where(eq(applications.id, app.id));
+    revalidatePath("/jobs");
+    revalidatePath("/applications");
+    revalidatePath("/dashboard");
+    return { applicationId: app.id };
   });
 }
 
@@ -624,6 +706,25 @@ export async function updateApplicationStatus(
     await db
       .update(applications)
       .set(updates)
+      .where(and(eq(applications.id, applicationId), eq(applications.userId, user.id)));
+
+    revalidatePath("/applications");
+  });
+}
+
+export async function updateApplicationNotes(applicationId: string, notes: string) {
+  const user = await requireUser();
+  return withUserDb(user.id, async (db) => {
+    const app = await db.query.applications.findFirst({
+      where: and(eq(applications.id, applicationId), eq(applications.userId, user.id)),
+    });
+    if (!app) throw new Error("Application not found");
+
+    await requireOwnedJob(db, user.id, app.jobId);
+
+    await db
+      .update(applications)
+      .set({ notes, updatedAt: new Date() })
       .where(and(eq(applications.id, applicationId), eq(applications.userId, user.id)));
 
     revalidatePath("/applications");
@@ -927,8 +1028,41 @@ export async function draftAnswer(
   });
 }
 
+export async function getGettingStartedProgress() {
+  const user = await requireUser();
+  return withUserDb(user.id, async (db) => {
+    const profile = await db.query.candidateProfiles.findFirst({
+      where: eq(candidateProfiles.userId, user.id),
+    });
+    const boards = await db.query.savedBoards.findMany({
+      where: eq(savedBoards.userId, user.id),
+      columns: { id: true },
+    });
+    const jobRows = await db.query.jobs.findMany({
+      where: eq(jobs.userId, user.id),
+      columns: { id: true },
+      limit: 1,
+    });
+    const appRows = await db.query.applications.findMany({
+      where: eq(applications.userId, user.id),
+      columns: { id: true },
+      limit: 1,
+    });
+
+    const targetTitles = (profile?.targetTitles as string[] | undefined) ?? [];
+    return {
+      hasProfile: Boolean(profile && (profile.summary || targetTitles.length > 0)),
+      hasBoards: boards.length > 0,
+      hasJobs: jobRows.length > 0,
+      hasApplications: appRows.length > 0,
+    };
+  });
+}
+
 export async function getDashboardStats() {
   const user = await requireUser();
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
   return withUserDb(user.id, async (db) => {
     const allJobs = await db.query.jobs.findMany({
       where: eq(jobs.userId, user.id),
@@ -939,16 +1073,38 @@ export async function getDashboardStats() {
       where: eq(applications.userId, user.id),
     });
 
-    const strongMatches = allJobs.filter(
+    const boards = await db.query.savedBoards.findMany({
+      where: eq(savedBoards.userId, user.id),
+    });
+
+    const activeJobs = allJobs.filter((j) => j.status !== "dismissed");
+
+    const strongMatches = activeJobs.filter(
       (j) =>
         j.matchAnalyses[0]?.classification === "excellent" ||
         j.matchAnalyses[0]?.classification === "strong"
     ).length;
 
+    const newThisWeek = activeJobs.filter(
+      (j) => new Date(j.dateDiscovered) >= weekAgo
+    ).length;
+
+    const strongUnseen = activeJobs.filter((j) => {
+      const cls = j.matchAnalyses[0]?.classification;
+      return !j.isSaved && (cls === "excellent" || cls === "strong");
+    }).length;
+
+    const boardsNeedingAttention = boards.filter(
+      (b) => !b.lastPolledAt || (b.lastPollNewJobs === 0 && b.lastPollFiltered === 0)
+    ).length;
+
     return {
-      totalJobs: allJobs.length,
-      savedJobs: allJobs.filter((j) => j.isSaved).length,
+      totalJobs: activeJobs.length,
+      savedJobs: activeJobs.filter((j) => j.isSaved).length,
       strongMatches,
+      newThisWeek,
+      strongUnseen,
+      boardsNeedingAttention,
       applicationsSubmitted: apps.filter((a) => a.status === "applied").length,
       interviews: apps.filter((a) =>
         ["recruiter_screen", "technical_interview", "final_interview"].includes(a.status)
@@ -965,6 +1121,44 @@ export async function getSavedBoards() {
       where: eq(savedBoards.userId, user.id),
     })
   );
+}
+
+export async function getSavedBoardsWithHealth() {
+  const user = await requireUser();
+  return withUserDb(user.id, async (db) => {
+    const boards = await db.query.savedBoards.findMany({
+      where: eq(savedBoards.userId, user.id),
+    });
+
+    const discoveredJobs = await db.query.jobs.findMany({
+      where: eq(jobs.userId, user.id),
+      columns: { discoveredBoardUrl: true },
+    });
+
+    const countByBoard = new Map<string, number>();
+    for (const job of discoveredJobs) {
+      if (job.discoveredBoardUrl) {
+        countByBoard.set(
+          job.discoveredBoardUrl,
+          (countByBoard.get(job.discoveredBoardUrl) ?? 0) + 1
+        );
+      }
+    }
+
+    return boards.map((board) => {
+      const discoveredJobCount = countByBoard.get(board.boardUrl) ?? 0;
+      const considerRemoving =
+        Boolean(board.lastPolledAt) &&
+        discoveredJobCount === 0 &&
+        (board.lastPollNewJobs ?? 0) === 0;
+
+      return {
+        ...board,
+        discoveredJobCount,
+        considerRemoving: !board.lastPolledAt ? false : considerRemoving,
+      };
+    });
+  });
 }
 
 export async function addSavedBoard(data: {
@@ -1072,16 +1266,35 @@ export async function getCompanySourceCatalog(filters?: {
   search?: string;
 }) {
   await requireUser();
-  const { getCompanySourceCatalog, filterCatalog } = await import(
-    "@/modules/discovery/company-catalog"
-  );
-  return filterCatalog(getCompanySourceCatalog(), filters);
+  const { loadCompanyRegistry } = await import("@/modules/discovery/company-registry-db");
+  const { filterCatalog } = await import("@/modules/discovery/company-catalog");
+  const catalog = await loadCompanyRegistry();
+  return filterCatalog(catalog, filters);
+}
+
+export async function getSuggestedBoards(limit = 8) {
+  const user = await requireUser();
+  return withUserDb(user.id, async (db) => {
+    const profile = await getOrCreateProfileDb(db, user.id);
+    const saved = await db.query.savedBoards.findMany({
+      where: eq(savedBoards.userId, user.id),
+      columns: { boardUrl: true },
+    });
+    const followingUrls = new Set(saved.map((b) => b.boardUrl));
+
+    const { suggestBoardsForProfile } = await import("@/modules/discovery/suggest-boards");
+    const { loadCompanyRegistry } = await import("@/modules/discovery/company-registry-db");
+    const catalog = await loadCompanyRegistry();
+
+    return suggestBoardsForProfile(catalog, profile, followingUrls, limit);
+  });
 }
 
 export async function addSavedBoardFromCatalog(catalogId: string) {
   const user = await requireUser();
-  const { getCatalogEntryById } = await import("@/modules/discovery/company-catalog");
-  const entry = getCatalogEntryById(catalogId);
+  const { loadCompanyRegistry } = await import("@/modules/discovery/company-registry-db");
+  const catalog = await loadCompanyRegistry();
+  const entry = catalog.find((c) => c.id === catalogId);
   if (!entry) throw new Error("Company not found in catalog");
 
   return withUserDb(user.id, async (db) => {
@@ -1103,6 +1316,7 @@ export async function addSavedBoardFromCatalog(catalogId: string) {
       .returning();
 
     revalidatePath("/settings");
+    revalidatePath("/discovery");
     return { boardId: board.id, alreadyFollowing: false };
   });
 }

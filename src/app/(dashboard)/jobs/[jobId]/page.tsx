@@ -6,6 +6,7 @@ import {
   getTailoringSuggestions,
   getApplicationAnswers,
   getOrCreateProfile,
+  getMatchHistoryForJob,
 } from "@/server/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import { JobActions } from "./job-actions";
 import { TailoringPanel } from "./tailoring-panel";
 import { ApplicationQAPanel } from "./application-qa-panel";
 import { MatchTabActions } from "./match-tab-actions";
+import { MatchHistoryPanel } from "@/components/jobs/match-history-panel";
 
 function MatchGroupSection({
   title,
@@ -65,10 +67,11 @@ export default async function JobDetailPage({
   const job = await getJobDetail(jobId);
   if (!job) notFound();
 
-  const [application, tailoringSuggestions, profile] = await Promise.all([
+  const [application, tailoringSuggestions, profile, matchHistory] = await Promise.all([
     getApplicationForJobAction(jobId),
     getTailoringSuggestions(jobId),
     getOrCreateProfile(),
+    getMatchHistoryForJob(jobId),
   ]);
 
   const savedAnswers = await getApplicationAnswers(application?.id ?? null);
@@ -163,6 +166,7 @@ export default async function JobDetailPage({
 
         <TabsContent value="match" className="space-y-4">
           <MatchTabActions jobId={job.id} isStale={isStale} hasAnalysis={Boolean(match)} />
+          <MatchHistoryPanel analyses={matchHistory} profileUpdatedAt={profile.updatedAt} />
           {match ? (
             <>
               <div className="flex flex-wrap items-center gap-2">

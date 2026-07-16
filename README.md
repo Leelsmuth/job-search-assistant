@@ -57,6 +57,7 @@ In Supabase **SQL Editor**, run these files in order:
 3. `drizzle/migrations/0003_storage_resumes_bucket.sql` — private **`resumes`** storage bucket (required for resume upload)
 4. `drizzle/migrations/0004_phase4_qa_tailoring.sql` — Q&A unsupported-claims column + tailoring bullet traceability
 5. `drizzle/migrations/0005_discovery_dedup.sql` — unique index for discovered job deduplication
+6. `drizzle/migrations/0006_board_health_and_registry.sql` — board poll stats, job dismiss tracking, DB company registry
 
 Alternatively, `supabase/policies/rls.sql` contains the same table policies (use on first setup only).
 
@@ -112,7 +113,7 @@ The app accepts **either** name for each row. After connecting:
 
 1. In Vercel → **Environment Variables**, confirm vars exist for **Production** and **Preview** (edit each → check both boxes)
 2. **Redeploy** (env changes do not apply to existing deployments)
-3. In Supabase **SQL Editor**, run migrations [`0002`](drizzle/migrations/0002_rls_policies.sql) → [`0005`](drizzle/migrations/0005_discovery_dedup.sql)
+3. In Supabase **SQL Editor**, run migrations [`0002`](drizzle/migrations/0002_rls_policies.sql) → [`0006`](drizzle/migrations/0006_board_health_and_registry.sql)
 4. Sign up at `/login` on the deployed URL (prod has a separate user table from local)
 
 ### Option B: Manual env vars
@@ -132,17 +133,17 @@ If env vars are missing, `/jobs` redirects to `/login` with a configuration noti
 ## Daily workflow
 
 1. **Profile** — confirm skills, experience, preferences at `/profile`
-2. **Discovery** — save ATS board URLs at `/settings` (Greenhouse, Lever, Ashby)
-3. **Import jobs** — paste descriptions or URLs at `/jobs/import` (manual)
-4. **Review feed** — scan match scores and gaps at `/jobs` (filter by discovered vs manual)
+2. **Discovery** — browse the catalog and add boards at `/discovery`
+3. **Settings** — poll saved boards, review board health (`/settings`)
+4. **Review feed** — search, filter, save/dismiss from `/jobs`
 5. **Prepare** — tailoring + Q&A on job detail pages
-6. **Track** — move saved jobs through statuses at `/applications`
+6. **Track** — table or Kanban at `/applications`
 
 ## Automated discovery (V1)
 
 Discovery polls **saved ATS boards** daily — it does not search the open web.
 
-1. Add board URLs in **Settings** (`/settings`) — e.g. `https://boards.greenhouse.io/stripe`
+1. Add boards from **Discovery** (`/discovery`) or paste URLs in **Settings**
 2. Set `CRON_SECRET` in Vercel (and `.env.local` for manual testing)
 3. Vercel cron runs daily at **08:00 UTC** (`vercel.json` → `/api/cron/discover`)
 
@@ -159,18 +160,42 @@ Cron response includes `{ newJobs, skipped, matched, filtered }` for monitoring.
 
 ## Company catalog (1,000+ verified ATS boards)
 
-Settings includes **Browse Company Catalog** with verified active Greenhouse, Lever, and Ashby job boards. Filter by **observed job signals** (Canada jobs, remote Canada, frontend roles) — not permanent relevance tags. One-click **Add** saves the board for daily polling.
+**Discovery** (`/discovery`) includes profile-based suggestions and the full verified catalog. Filter by **observed job signals** (Canada jobs, remote Canada, frontend roles). One-click **Add** saves the board for daily polling.
 
 See **[docs/COMPANY_REGISTRY.md](docs/COMPANY_REGISTRY.md)** for the full discovery/verification pipeline.
 
 ### Registry maintenance
 
+Re-verify monthly (or after adding Common Crawl slug imports):
+
+```bash
+pnpm verify:registry --reverify --write
+pnpm audit:registry
+```
+
+Expand Greenhouse/Lever coverage:
+
+```bash
+pnpm verify:registry --write --provider=greenhouse --target=550
+pnpm verify:registry --write --provider=lever --target=250
+```
+
+Optional: load catalog into Postgres (after migration `0006`):
+
+```bash
+pnpm seed:company-registry
+```
+
+Registry re-verify cron hook (returns operator instructions): `GET /api/cron/reverify-registry` with `Authorization: Bearer $CRON_SECRET`.
+
 | Command | Description |
 |---------|-------------|
 | `pnpm discover:companies` | Merge discovery candidates into `data/company-sources.seed.json` |
 | `pnpm verify:registry --write --target=1000` | Verify boards until 1,000+ active |
+| `pnpm verify:registry --reverify --write` | Re-check existing verified boards |
 | `pnpm verify:registry --write --provider=greenhouse --target=550` | Provider-scoped verification |
 | `pnpm audit:registry` | Audit duplicates/tags; migrate schema v2 |
+| `pnpm seed:company-registry` | Upsert verified catalog into `company_job_sources` table |
 | `pnpm verify:boards --write` | Legacy alias for re-verify |
 
 Import ATS URLs via `data/discovery/imports/*.json`, then run `discover:companies` + `verify:registry`.
@@ -195,6 +220,7 @@ During board polling, jobs are filtered **before** database insert using determi
 | `pnpm verify:registry` | Batch-verify boards against live ATS APIs |
 | `pnpm audit:registry` | Audit registry; migrate schema |
 | `pnpm verify:boards` | Legacy verify alias |
+| `pnpm seed:company-registry` | Load verified catalog into Postgres |
 | `pnpm build:seed` | Build seed from `scripts/seed-candidates.ts` (legacy) |
 | `pnpm prune:seed` | Keep only verified entries (legacy) |
 

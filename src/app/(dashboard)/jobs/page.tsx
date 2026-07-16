@@ -18,20 +18,28 @@ export default async function JobsPage({
     classification?: string;
     source?: string;
     sort?: string;
+    search?: string;
+    discoveredSince?: "24h" | "7d";
+    strongUnseen?: string;
   }>;
 }) {
   const params = await searchParams;
   const sort = (params.sort as "match" | "recent" | "salary") ?? "match";
 
-  const allFeed = await getJobsFeed({ sort });
-  const filteredFeed = await getJobsFeed({
+  const feedFilters = {
     minScore: params.minScore ? Number(params.minScore) : undefined,
     remoteOnly: params.remote === "true",
     canadaOnly: params.canada === "true",
     classification: params.classification,
     source: params.source as "discovered" | "manual" | undefined,
     sort,
-  });
+    search: params.search,
+    discoveredSince: params.discoveredSince,
+    strongUnseenOnly: params.strongUnseen === "true",
+  };
+
+  const allFeed = await getJobsFeed({ sort });
+  const filteredFeed = await getJobsFeed(feedFilters);
 
   const allJobs = allFeed.jobs;
   const jobs = filteredFeed.jobs;

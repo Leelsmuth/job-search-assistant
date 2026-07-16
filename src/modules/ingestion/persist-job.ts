@@ -8,11 +8,13 @@ import {
   type NormalizedJob,
 } from "./types";
 import { requirementsToStructured } from "./extract-requirements";
+import { hashJobDescription } from "./description-hash";
 
 export type JobImportMeta = {
   provider: string;
   sourceUrl?: string;
   sourceJobId?: string;
+  boardUrl?: string;
   rawPayload?: unknown;
 };
 
@@ -113,6 +115,8 @@ export async function persistDiscoveredJob(
       experienceRequirements: validatedJob.experienceRequirements,
       educationRequirements: validatedJob.educationRequirements,
       dateDiscovered: new Date(),
+      discoveredBoardUrl: validatedMeta.boardUrl,
+      descriptionHash: hashJobDescription(validatedJob.description),
     })
     .returning();
 

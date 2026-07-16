@@ -134,9 +134,9 @@ pnpm verify:boards --write
 | Discovery sources + dedup | Done |
 | Verification pipeline + signals | Done |
 | 1,000+ verified boards | Done (1,001) |
-| Provider balance (GH/Lever) | In progress |
-| DB-backed registry (V2.1) | Deferred |
-| Background board sync + job hashing | Deferred |
+| Provider balance (GH/Lever) | Documented — run scoped `verify:registry` |
+| DB-backed registry (V2.1) | Done — JSON fallback + `pnpm seed:company-registry` |
+| Background board sync + job hashing | Partial — `description_hash` on import |
 | Career page ATS detection source | Deferred |
 
 ## Files

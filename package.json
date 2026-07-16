@@ -22,7 +22,8 @@
     "verify:boards": "tsx scripts/verify-boards.ts",
     "audit:registry": "tsx scripts/audit-registry.ts",
     "discover:companies": "tsx scripts/discover-companies.ts",
-    "verify:registry": "tsx scripts/verify-registry.ts"
+    "verify:registry": "tsx scripts/verify-registry.ts",
+    "seed:company-registry": "tsx scripts/seed-company-registry-db.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.6",

@@ -1,12 +1,14 @@
 import Link from "next/link";
-import { getSavedBoards, getCompanySourceCatalog } from "@/server/actions";
+import { getSavedBoards, getCompanySourceCatalog, getSuggestedBoards } from "@/server/actions";
 import { CompanyCatalogPanel } from "@/components/discovery/company-catalog-panel";
+import { SuggestedBoardsPanel } from "@/components/discovery/suggested-boards-panel";
 import { Button } from "@/components/ui/button";
 
 export default async function DiscoveryPage() {
-  const [boards, catalog] = await Promise.all([
+  const [boards, catalog, suggestions] = await Promise.all([
     getSavedBoards(),
     getCompanySourceCatalog(),
+    getSuggestedBoards(),
   ]);
 
   const followingUrls = new Set(boards.map((b) => b.boardUrl));
@@ -24,6 +26,8 @@ export default async function DiscoveryPage() {
           <Link href="/settings">Manage saved boards</Link>
         </Button>
       </div>
+
+      <SuggestedBoardsPanel suggestions={suggestions} followingUrls={followingUrls} />
 
       <CompanyCatalogPanel
         catalog={catalog}
