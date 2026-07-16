@@ -18,13 +18,13 @@ export default async function ApplicationsPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Applications</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-xl font-bold sm:text-2xl">Applications</h1>
         <div className="flex gap-2">
-          <Button variant="default" size="sm" asChild>
+          <Button variant="default" size="sm" className="min-h-10 flex-1 sm:flex-none" asChild>
             <Link href="/applications">Table</Link>
           </Button>
-          <Button variant="outline" size="sm" asChild>
+          <Button variant="outline" size="sm" className="min-h-10 flex-1 sm:flex-none" asChild>
             <Link href="/applications?view=kanban">Kanban</Link>
           </Button>
         </div>

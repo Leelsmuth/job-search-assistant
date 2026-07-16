@@ -17,12 +17,12 @@ export default async function DiscoveryPage() {
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Discovery</h1>
+          <h1 className="text-xl font-bold sm:text-2xl">Discovery</h1>
           <p className="text-sm text-muted-foreground">
             Browse verified company boards and add them to daily polling.
           </p>
         </div>
-        <Button variant="outline" size="sm" asChild>
+        <Button variant="outline" size="sm" className="w-full sm:w-auto" asChild>
           <Link href="/settings">Manage saved boards</Link>
         </Button>
       </div>

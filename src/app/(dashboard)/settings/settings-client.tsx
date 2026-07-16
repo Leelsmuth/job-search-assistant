@@ -82,9 +82,9 @@ export function SettingsClient({ initialBoards }: { initialBoards: Board[] }) {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <Button variant="outline" size="sm" asChild>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <h1 className="text-xl font-bold sm:text-2xl">Settings</h1>
+        <Button variant="outline" size="sm" className="w-full sm:w-auto" asChild>
           <Link href="/discovery">Browse company catalog</Link>
         </Button>
       </div>

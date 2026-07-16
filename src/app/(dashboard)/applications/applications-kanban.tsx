@@ -69,25 +69,25 @@ export function ApplicationsKanban({ applications }: { applications: App[] }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Applications — Kanban</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-xl font-bold sm:text-2xl">Applications — Kanban</h1>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" asChild>
+          <Button variant="outline" size="sm" className="min-h-10 flex-1 sm:flex-none" asChild>
             <Link href="/applications">Table</Link>
           </Button>
-          <Button variant="default" size="sm" asChild>
+          <Button variant="default" size="sm" className="min-h-10 flex-1 sm:flex-none" asChild>
             <Link href="/applications?view=kanban">Kanban</Link>
           </Button>
         </div>
       </div>
 
-      <div className="flex gap-4 overflow-x-auto pb-4">
+      <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:gap-4 sm:px-0">
         {PIPELINE_COLUMNS.map((status) => {
           const items = applications.filter((a) => a.status === status);
           return (
             <div
               key={status}
-              className="min-w-[220px] rounded-lg border border-border bg-muted/30 p-3"
+              className="min-w-[min(100%,16rem)] shrink-0 rounded-lg border border-border bg-muted/30 p-3 sm:min-w-[220px]"
             >
               <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
                 {status.replace(/_/g, " ")} ({items.length})

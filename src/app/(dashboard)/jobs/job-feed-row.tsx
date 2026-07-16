@@ -49,17 +49,17 @@ export function JobFeedRow({
       )}
       aria-busy={deleting}
     >
-      <CardContent className="flex items-center gap-2 p-4">
-        <Link href={`/jobs/${job.id}`} className="flex min-w-0 flex-1 items-center gap-4">
-          <div className="w-14 shrink-0 text-center">
-            <div className="text-xl font-bold">
+      <CardContent className="space-y-3 p-4 sm:space-y-0">
+        <Link href={`/jobs/${job.id}`} className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4">
+          <div className="w-12 shrink-0 text-center sm:w-14">
+            <div className="text-lg font-bold sm:text-xl">
               {formatMatchScore(match?.overallScore ?? null)}
             </div>
-            <div className="text-xs text-muted-foreground">match</div>
+            <div className="text-[10px] text-muted-foreground sm:text-xs">match</div>
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="truncate font-semibold">{job.title}</h3>
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <h3 className="line-clamp-2 font-semibold leading-snug sm:truncate">{job.title}</h3>
               {classification && (
                 <Badge className={classificationColor(classification)}>{classification}</Badge>
               )}
@@ -77,11 +77,16 @@ export function JobFeedRow({
                 <Badge className="bg-muted text-muted-foreground">Deleting...</Badge>
               ) : null}
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-muted-foreground">
               {job.company?.name ?? "Unknown"} · {job.location ?? "—"} · {job.workplaceType ?? "—"}
             </p>
+            <p className="mt-1 text-xs text-muted-foreground sm:hidden">
+              {formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency ?? "CAD") ?? "—"}
+            </p>
             {match?.topConcern && (
-              <p className="mt-1 truncate text-xs text-orange-700">Gap: {match.topConcern}</p>
+              <p className="mt-1 line-clamp-2 text-xs text-orange-700 sm:truncate">
+                Gap: {match.topConcern}
+              </p>
             )}
           </div>
           <div className="hidden shrink-0 text-right text-sm text-muted-foreground md:block">
@@ -93,11 +98,13 @@ export function JobFeedRow({
             </div>
           </div>
         </Link>
-        <div className="flex shrink-0 flex-col gap-1">
-          <ApplyLink jobId={job.id} jobUrl={job.jobUrl} variant="default" />
+
+        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3 sm:border-0 sm:pt-0">
+          <ApplyLink jobId={job.id} jobUrl={job.jobUrl} variant="default" className="min-h-10" />
           <Button
             variant={saved ? "secondary" : "outline"}
             size="sm"
+            className="min-h-10"
             loading={isKeyPending(`${actionKey}-save`)}
             onClick={() =>
               run(`${actionKey}-save`, async () => {
@@ -121,6 +128,7 @@ export function JobFeedRow({
           <Button
             variant="outline"
             size="sm"
+            className="min-h-10"
             loading={isKeyPending(`${actionKey}-review`)}
             onClick={() =>
               run(`${actionKey}-review`, async () => {
@@ -146,6 +154,7 @@ export function JobFeedRow({
           <Button
             variant="ghost"
             size="sm"
+            className="min-h-10"
             loading={isKeyPending(`${actionKey}-dismiss`)}
             onClick={() =>
               run(`${actionKey}-dismiss`, async () => {
@@ -165,12 +174,12 @@ export function JobFeedRow({
           >
             Dismiss
           </Button>
+          <JobDeleteButton
+            jobId={job.id}
+            jobTitle={job.title}
+            onDeletingChange={setDeleting}
+          />
         </div>
-        <JobDeleteButton
-          jobId={job.id}
-          jobTitle={job.title}
-          onDeletingChange={setDeleting}
-        />
       </CardContent>
     </Card>
   );

@@ -85,13 +85,13 @@ export default async function JobDetailPage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <Button variant="ghost" size="sm" asChild>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <Button variant="ghost" size="sm" asChild className="-ml-2">
             <Link href="/jobs">← Back to feed</Link>
           </Button>
-          <h1 className="mt-2 text-2xl font-bold">{displayTitle}</h1>
-          <p className="text-muted-foreground">
+          <h1 className="mt-2 text-xl font-bold leading-tight sm:text-2xl">{displayTitle}</h1>
+          <p className="text-sm text-muted-foreground">
             {job.company?.name} · {job.location} · {job.workplaceType}
           </p>
           {job.jobUrl && (
@@ -99,13 +99,13 @@ export default async function JobDetailPage({
               href={job.jobUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-blue-600 hover:underline"
+              className="mt-1 inline-block text-sm text-blue-600 hover:underline"
             >
               View original posting
             </a>
           )}
         </div>
-        <div className="text-right">
+        <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end sm:text-right">
           {match && (
             <>
               <div className="text-3xl font-bold">{Math.round(match.overallScore)}%</div>
@@ -128,12 +128,12 @@ export default async function JobDetailPage({
       />
 
       <Tabs defaultValue="match">
-        <TabsList>
+        <TabsList className="mb-2">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="match">Match</TabsTrigger>
           <TabsTrigger value="evidence">Evidence</TabsTrigger>
           <TabsTrigger value="tailoring">Tailoring</TabsTrigger>
-          <TabsTrigger value="application">Application Q&A</TabsTrigger>
+          <TabsTrigger value="application">Q&A</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">

@@ -83,7 +83,7 @@ export default function OnboardingPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <h1 className="text-2xl font-bold">Welcome — Set Up Your Profile</h1>
+      <h1 className="text-xl font-bold leading-tight sm:text-2xl">Welcome — Set Up Your Profile</h1>
       <p className="text-muted-foreground">
         Upload your resume. Edit the structured extraction before it affects matching.
       </p>

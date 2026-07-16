@@ -21,7 +21,7 @@ export function JobsFeedFilters() {
       <div>
         <Label className="text-xs">Search</Label>
         <Input
-          className="mt-1 max-w-md"
+          className="mt-1 w-full sm:max-w-md"
           placeholder="Title or company"
           defaultValue={params.get("search") ?? ""}
           onKeyDown={(e) => {
