@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getJobsFeed } from "@/server/actions";
+import { getJobsFeed, getJobsFeedCounts } from "@/server/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { MatchClassification } from "@/lib/utils";
@@ -38,12 +38,14 @@ export default async function JobsPage({
     strongUnseenOnly: params.strongUnseen === "true",
   };
 
-  const allFeed = await getJobsFeed({ sort });
-  const filteredFeed = await getJobsFeed(feedFilters);
+  const [feed, counts] = await Promise.all([
+    getJobsFeed(feedFilters),
+    getJobsFeedCounts(),
+  ]);
 
-  const allJobs = allFeed.jobs;
-  const jobs = filteredFeed.jobs;
-  const profileUpdatedAt = filteredFeed.profileUpdatedAt;
+  const jobs = feed.jobs;
+  const profileUpdatedAt = feed.profileUpdatedAt;
+  const hasAnyJobs = counts.totalActive > 0;
 
   return (
     <div className="space-y-6">
@@ -51,7 +53,7 @@ export default async function JobsPage({
         <div>
           <h1 className="text-2xl font-bold">Job Feed</h1>
           <p className="text-sm text-muted-foreground">
-            {jobs.length} roles — scan matches and gaps quickly
+            {jobs.length} roles{feed.hasMore ? "+" : ""} — scan matches and gaps quickly
           </p>
         </div>
         <Button asChild>
@@ -64,7 +66,7 @@ export default async function JobsPage({
       {jobs.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            {allJobs.length === 0 ? (
+            {!hasAnyJobs ? (
               <>
                 <p className="text-muted-foreground">No jobs yet.</p>
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
@@ -89,11 +91,12 @@ export default async function JobsPage({
       ) : (
         <div className="space-y-2">
           {jobs.map((job) => {
-            const match = job.matchAnalyses[0];
-            const classification = match?.classification as MatchClassification | undefined;
+            const classification = job.match?.classification as
+              | MatchClassification
+              | undefined;
             const extractionQuality = computeExtractionQuality(job.requirements ?? []);
-            const isStale = match
-              ? isAnalysisStale(match.createdAt, profileUpdatedAt)
+            const isStale = job.match
+              ? isAnalysisStale(job.match.createdAt, profileUpdatedAt)
               : false;
             const lowExtraction = extractionQuality.confidence === "low";
             const isNew =

@@ -1,13 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  getJobDetail,
-  getApplicationForJobAction,
-  getTailoringSuggestions,
-  getApplicationAnswers,
-  getOrCreateProfile,
-  getMatchHistoryForJob,
-} from "@/server/actions";
+import { getJobDetailPageData } from "@/server/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,8 +14,8 @@ import { isSparseExtraction } from "@/modules/matching/engine";
 import { groupRequirementMatches } from "@/modules/matching/group-matches";
 import { JobDescription } from "@/components/jobs/job-description";
 import { JobActions } from "./job-actions";
-import { TailoringPanel } from "./tailoring-panel";
-import { ApplicationQAPanel } from "./application-qa-panel";
+import { LazyTailoringPanel } from "./lazy-tailoring-panel";
+import { LazyApplicationQAPanel } from "./lazy-application-qa-panel";
 import { MatchTabActions } from "./match-tab-actions";
 import { MatchHistoryPanel } from "@/components/jobs/match-history-panel";
 
@@ -64,17 +57,10 @@ export default async function JobDetailPage({
   params: Promise<{ jobId: string }>;
 }) {
   const { jobId } = await params;
-  const job = await getJobDetail(jobId);
-  if (!job) notFound();
+  const pageData = await getJobDetailPageData(jobId);
+  if (!pageData) notFound();
 
-  const [application, tailoringSuggestions, profile, matchHistory] = await Promise.all([
-    getApplicationForJobAction(jobId),
-    getTailoringSuggestions(jobId),
-    getOrCreateProfile(),
-    getMatchHistoryForJob(jobId),
-  ]);
-
-  const savedAnswers = await getApplicationAnswers(application?.id ?? null);
+  const { job, application, profileUpdatedAt, matchHistory } = pageData;
 
   const match = job.matchAnalyses[0];
   const classification = match?.classification as MatchClassification | undefined;
@@ -83,7 +69,7 @@ export default async function JobDetailPage({
     | { warnings?: string[]; blocks?: string[] }
     | undefined;
   const isStale = match
-    ? isAnalysisStale(match.createdAt, profile.updatedAt)
+    ? isAnalysisStale(match.createdAt, profileUpdatedAt)
     : false;
   const requirementInputs = job.requirements.map((r) => ({
     id: r.id,
@@ -172,7 +158,10 @@ export default async function JobDetailPage({
 
         <TabsContent value="match" className="space-y-4">
           <MatchTabActions jobId={job.id} isStale={isStale} hasAnalysis={Boolean(match)} />
-          <MatchHistoryPanel analyses={matchHistory} profileUpdatedAt={profile.updatedAt} />
+          <MatchHistoryPanel
+            analyses={matchHistory}
+            profileUpdatedAt={profileUpdatedAt ?? new Date()}
+          />
           {match ? (
             <>
               <div className="flex flex-wrap items-center gap-2">
@@ -297,15 +286,11 @@ export default async function JobDetailPage({
         </TabsContent>
 
         <TabsContent value="tailoring">
-          <TailoringPanel jobId={job.id} initialSuggestions={tailoringSuggestions} />
+          <LazyTailoringPanel jobId={job.id} />
         </TabsContent>
 
         <TabsContent value="application">
-          <ApplicationQAPanel
-            jobId={job.id}
-            applicationId={application?.id}
-            initialAnswers={savedAnswers}
-          />
+          <LazyApplicationQAPanel jobId={job.id} applicationId={application?.id} />
         </TabsContent>
       </Tabs>
     </div>

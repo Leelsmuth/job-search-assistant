@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import {
   candidateProfiles,
   jobs,
@@ -9,6 +9,8 @@ import {
 import type { Db } from "@/server/actions/helpers";
 import { runMatchAnalysis, type CandidateProfile } from "@/modules/matching/engine";
 import { MATCH_ANALYSIS_VERSION } from "@/modules/matching/stale";
+import { computeMatchAnalysisInputHash } from "@/modules/matching/match-analysis-cache";
+import { measureOperation } from "@/lib/performance/measure-operation";
 
 async function getOrCreateProfileDb(db: Db, userId: string) {
   const existing = await db.query.candidateProfiles.findFirst({
@@ -67,8 +69,12 @@ export async function runAndSaveMatchAnalysisDb(
     normalizedSkill: string | null;
     importance: string | null;
     isHardRequirement: boolean | null;
-  }>
+  }>,
+  options?: { force?: boolean }
 ) {
+  return measureOperation(
+    "matching.runAndSave",
+    async () => {
   const profile = await getOrCreateProfileDb(db, userId);
 
   const job = await db.query.jobs.findFirst({
@@ -76,6 +82,33 @@ export async function runAndSaveMatchAnalysisDb(
     with: { requirements: true },
   });
   if (!job) throw new Error("Job not found");
+
+  const inputHash = computeMatchAnalysisInputHash({
+    jobDescriptionHash: job.descriptionHash,
+    profileUpdatedAt: profile.updatedAt,
+  });
+
+  if (!options?.force) {
+    const cached = await db.query.matchAnalyses.findFirst({
+      where: and(eq(matchAnalyses.jobId, jobId), eq(matchAnalyses.profileId, profile.id)),
+      orderBy: [desc(matchAnalyses.createdAt)],
+    });
+
+    if (
+      cached &&
+      cached.analysisVersion === MATCH_ANALYSIS_VERSION &&
+      job.matchPipelineStatus === "matched" &&
+      job.descriptionHash
+    ) {
+      const cachedHash = computeMatchAnalysisInputHash({
+        jobDescriptionHash: job.descriptionHash,
+        profileUpdatedAt: profile.updatedAt,
+      });
+      if (cachedHash === inputHash) {
+        return cached;
+      }
+    }
+  }
 
   const requirements = reqs ?? job.requirements;
   const candidateProfile = await buildCandidateProfileForMatching(db, profile.id);
@@ -110,26 +143,38 @@ export async function runAndSaveMatchAnalysisDb(
     })
     .returning();
 
-  for (const cs of result.categoryScores) {
-    await db.insert(matchCategoryScores).values({
-      matchAnalysisId: analysis.id,
-      category: cs.category as "core_skills",
-      score: cs.score,
-      maxScore: cs.maxScore,
-      explanation: cs.explanation,
-    });
+  if (result.categoryScores.length > 0) {
+    await db.insert(matchCategoryScores).values(
+      result.categoryScores.map((cs) => ({
+        matchAnalysisId: analysis.id,
+        category: cs.category as "core_skills",
+        score: cs.score,
+        maxScore: cs.maxScore,
+        explanation: cs.explanation,
+      }))
+    );
   }
 
-  for (const rm of result.requirementMatches) {
-    await db.insert(requirementMatches).values({
-      matchAnalysisId: analysis.id,
-      jobRequirementId: rm.jobRequirementId,
-      matchStatus: rm.matchStatus,
-      confidence: rm.confidence,
-      evidenceId: rm.evidenceId,
-      explanation: rm.explanation,
-    });
+  if (result.requirementMatches.length > 0) {
+    await db.insert(requirementMatches).values(
+      result.requirementMatches.map((rm) => ({
+        matchAnalysisId: analysis.id,
+        jobRequirementId: rm.jobRequirementId,
+        matchStatus: rm.matchStatus,
+        confidence: rm.confidence,
+        evidenceId: rm.evidenceId,
+        explanation: rm.explanation,
+      }))
+    );
   }
+
+  await db
+    .update(jobs)
+    .set({ matchPipelineStatus: "matched", updatedAt: new Date() })
+    .where(eq(jobs.id, job.id));
 
   return analysis;
+    },
+    { source: "matching" }
+  );
 }

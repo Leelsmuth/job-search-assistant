@@ -1,25 +1,9 @@
 import { sql, eq, and } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { companyJobSources } from "@/db/schema";
-import {
-  companySourcesSeedSchema,
-  type CompanyJobSource,
-} from "../../../data/company-sources.schema";
-import verifiedCatalog from "../../../data/company-sources.verified.json";
+import type { CompanyJobSource } from "../../../data/company-sources.schema";
 import { ensureUniqueCatalogIds } from "./company-catalog";
-
-let cachedJsonCatalog: CompanyJobSource[] | null = null;
-
-function loadJsonCatalog(): CompanyJobSource[] {
-  if (!cachedJsonCatalog) {
-    const seed = companySourcesSeedSchema.parse(verifiedCatalog);
-    const verified = seed.companies.filter(
-      (c) => c.enabled && c.verificationStatus === "verified"
-    );
-    cachedJsonCatalog = ensureUniqueCatalogIds(verified);
-  }
-  return cachedJsonCatalog;
-}
+import { loadBundledVerifiedCatalog } from "./verified-catalog-bundle";
 
 function rowToCompanyJobSource(row: typeof companyJobSources.$inferSelect): CompanyJobSource {
   return {
@@ -41,33 +25,50 @@ function rowToCompanyJobSource(row: typeof companyJobSources.$inferSelect): Comp
   };
 }
 
-/** Loads catalog from DB when seeded; falls back to verified JSON export. */
+async function loadCatalogFromDb(): Promise<CompanyJobSource[] | null> {
+  const db = getDb();
+  const countResult = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(companyJobSources);
+  const count = countResult[0]?.count ?? 0;
+
+  if (count === 0) return null;
+
+  const rows = await db.query.companyJobSources.findMany({
+    where: and(
+      eq(companyJobSources.enabled, true),
+      eq(companyJobSources.verificationStatus, "verified")
+    ),
+  });
+
+  if (rows.length === 0) return null;
+  return ensureUniqueCatalogIds(rows.map(rowToCompanyJobSource));
+}
+
+function loadCatalogFromBundle(): CompanyJobSource[] {
+  try {
+    return loadBundledVerifiedCatalog();
+  } catch (error) {
+    console.error("[discovery] bundled catalog failed to load", error);
+    return [];
+  }
+}
+
+/** Loads catalog from DB when seeded; falls back to bundled verified JSON (never disk I/O). */
 export async function loadCompanyRegistry(): Promise<CompanyJobSource[]> {
   try {
-    const db = getDb();
-    const countResult = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(companyJobSources);
-    const count = countResult[0]?.count ?? 0;
-
-    if (count > 0) {
-      const rows = await db.query.companyJobSources.findMany({
-        where: and(
-          eq(companyJobSources.enabled, true),
-          eq(companyJobSources.verificationStatus, "verified")
-        ),
-      });
-      if (rows.length > 0) {
-        return ensureUniqueCatalogIds(rows.map(rowToCompanyJobSource));
-      }
+    const fromDb = await loadCatalogFromDb();
+    if (fromDb && fromDb.length > 0) {
+      return fromDb;
     }
-  } catch {
-    // Table may not exist before migration; fall back to JSON.
+  } catch (error) {
+    // Table may not exist before migration; fall back to bundled JSON.
+    console.warn("[discovery] DB catalog unavailable, using bundled export", error);
   }
 
-  return loadJsonCatalog();
+  return loadCatalogFromBundle();
 }
 
 export function getJsonCatalogForSeed(): CompanyJobSource[] {
-  return loadJsonCatalog();
+  return loadBundledVerifiedCatalog();
 }

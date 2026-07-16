@@ -7,6 +7,7 @@ import {
 import { extractRequirementsFromText } from "./extract-requirements";
 import { htmlToPlainText, sanitizeJobTitle } from "./html-text";
 import { extractGreenhouseBoardSlug, normalizeBoardUrl } from "./board-url";
+import { fetchWithTimeout } from "@/lib/performance/fetch-with-timeout";
 
 type GreenhouseJob = {
   id: number;
@@ -45,8 +46,8 @@ export const greenhouseAdapter: JobSourceAdapter = {
       if (board) {
         const apiUrl = `https://boards-api.greenhouse.io/v1/boards/${board}/jobs/${jobMatch[1]}`;
         const [jobResponse, boardResponse] = await Promise.all([
-          fetch(apiUrl),
-          fetch(`https://boards-api.greenhouse.io/v1/boards/${board}`),
+          fetchWithTimeout(apiUrl),
+          fetchWithTimeout(`https://boards-api.greenhouse.io/v1/boards/${board}`),
         ]);
         if (jobResponse.ok) {
           const job = (await jobResponse.json()) as GreenhouseJob;
@@ -72,7 +73,7 @@ export const greenhouseAdapter: JobSourceAdapter = {
     }
     if (board) {
       const apiUrl = `https://boards-api.greenhouse.io/v1/boards/${board}/jobs?content=true`;
-      const response = await fetch(apiUrl);
+      const response = await fetchWithTimeout(apiUrl);
       if (response.ok) {
         const data = (await response.json()) as { jobs: GreenhouseJob[] };
         const combined = data.jobs

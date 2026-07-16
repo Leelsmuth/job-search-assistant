@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getSupabaseEnv, isSupabaseConfigured } from "@/lib/supabase/config";
@@ -24,7 +25,7 @@ export async function createClient() {
   });
 }
 
-export async function getUser() {
+async function getUserUncached() {
   if (!isSupabaseConfigured()) return null;
 
   const supabase = await createClient();
@@ -33,3 +34,5 @@ export async function getUser() {
   } = await supabase.auth.getUser();
   return user;
 }
+
+export const getUser = cache(getUserUncached);

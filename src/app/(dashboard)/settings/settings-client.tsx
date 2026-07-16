@@ -8,6 +8,7 @@ import {
   deleteSavedBoard,
   detectBoardProviderAction,
   pollSavedBoardNow,
+  getBoardPollRunStatus,
   signOut,
   updateSavedBoard,
 } from "@/server/actions";
@@ -166,12 +167,29 @@ export function SettingsClient({ initialBoards }: { initialBoards: Board[] }) {
                       onClick={() =>
                         run(`poll-${board.id}`, async () => {
                           try {
-                            const stats = await pollSavedBoardNow(board.id);
-                            router.refresh();
+                            await pollSavedBoardNow(board.id);
                             toast({
-                              title: "Poll complete",
-                              description: `${stats.newJobs} new, ${stats.skipped} skipped, ${stats.filtered} filtered`,
+                              title: "Poll started",
+                              description: "Fetching jobs in the background. Refresh shortly.",
                             });
+
+                            for (let attempt = 0; attempt < 30; attempt++) {
+                              await new Promise((resolve) => setTimeout(resolve, 2000));
+                              const status = await getBoardPollRunStatus(board.id);
+                              if (!status) continue;
+                              if (status.status === "completed") {
+                                const stats = status.stats ?? {};
+                                router.refresh();
+                                toast({
+                                  title: "Poll complete",
+                                  description: `${stats.newJobs ?? 0} new, ${stats.skipped ?? 0} skipped, ${stats.filtered ?? 0} filtered`,
+                                });
+                                return;
+                              }
+                              if (status.status === "failed") {
+                                throw new Error(status.errorText ?? "Poll failed");
+                              }
+                            }
                           } catch (e) {
                             toast({
                               title: "Poll failed",

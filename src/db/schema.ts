@@ -98,6 +98,7 @@ export const applicationStatusEnum = pgEnum("application_status", [
 ]);
 
 export const parsedResumeStatusEnum = pgEnum("parsed_resume_status", [
+  "processing",
   "pending_review",
   "approved",
   "rejected",
@@ -311,6 +312,20 @@ export const savedBoards = pgTable("saved_boards", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const boardPollRuns = pgTable("board_poll_runs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
+  boardId: uuid("board_id")
+    .notNull()
+    .references(() => savedBoards.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("pending"),
+  statsJson: jsonb("stats_json"),
+  errorText: text("error_text"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+});
+
 export const companyJobSources = pgTable("company_job_sources", {
   id: text("id").primaryKey(),
   companyName: text("company_name").notNull(),
@@ -365,6 +380,7 @@ export const jobs = pgTable("jobs", {
   status: text("status").default("active"),
   discoveredBoardUrl: text("discovered_board_url"),
   descriptionHash: text("description_hash"),
+  matchPipelineStatus: text("match_pipeline_status").default("match_pending"),
   isSaved: boolean("is_saved").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

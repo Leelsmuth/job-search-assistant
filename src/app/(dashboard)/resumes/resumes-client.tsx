@@ -9,6 +9,7 @@ import {
   approveParsedResume,
   getResumeParseReview,
 } from "@/server/actions";
+import { waitForResumeParse } from "@/lib/resume-parse-poll";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
@@ -59,13 +60,25 @@ export function ResumesClient({ initialDocuments }: { initialDocuments: ResumeDo
       const result = await uploadResume(formData);
       setParsedVersionId(result.parsedVersionId);
       setNormalizedText(result.extractedText);
-      setParsed(result.parsed);
       setReviewStep("review");
       refreshDocuments();
 
-      const review = await getResumeParseReview(result.parsedVersionId);
-      setSourcePreviewUrl(review.sourcePreviewUrl);
-      setFileName(review.fileName);
+      if (result.processing) {
+        toast({
+          title: "Parsing resume",
+          description: "Structured extraction is running in the background.",
+        });
+        const review = await waitForResumeParse(result.parsedVersionId);
+        setParsed(review.parsed);
+        setNormalizedText(review.normalizedText);
+        setSourcePreviewUrl(review.sourcePreviewUrl);
+        setFileName(review.fileName);
+      } else {
+        setParsed(result.parsed);
+        const review = await getResumeParseReview(result.parsedVersionId);
+        setSourcePreviewUrl(review.sourcePreviewUrl);
+        setFileName(review.fileName);
+      }
 
       toast({
         title: "Resume uploaded",

@@ -7,6 +7,7 @@ import {
 import { extractRequirementsFromText } from "./extract-requirements";
 import { htmlToPlainText, sanitizeJobTitle } from "./html-text";
 import { extractLeverCompanySlug, normalizeBoardUrl } from "./board-url";
+import { fetchWithTimeout } from "@/lib/performance/fetch-with-timeout";
 
 type LeverPosting = {
   id: string;
@@ -38,7 +39,7 @@ export const leverAdapter: JobSourceAdapter = {
     if (postingMatch) {
       const [, company, postingId] = postingMatch;
       const apiUrl = `https://api.lever.co/v0/postings/${company}/${postingId}`;
-      const response = await fetch(apiUrl);
+      const response = await fetchWithTimeout(apiUrl);
       if (response.ok) {
         const posting = (await response.json()) as LeverPosting;
         return {
@@ -59,7 +60,7 @@ export const leverAdapter: JobSourceAdapter = {
     }
     if (company && !url.match(/jobs\.lever\.co\/[^/]+\/[a-f0-9-]+/i)) {
       const apiUrl = `https://api.lever.co/v0/postings/${company}`;
-      const response = await fetch(apiUrl);
+      const response = await fetchWithTimeout(apiUrl);
       if (response.ok) {
         const postings = (await response.json()) as LeverPosting[];
         const combined = postings.map((p) => p.text).join("\n\n");

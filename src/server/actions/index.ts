@@ -9,6 +9,7 @@ import {
   resolveApplicationForJob,
   filterApplicationsForOwnedJobs,
   getOrCreateProfileDb,
+  getProfileUpdatedAt,
   type Db,
 } from "@/server/actions/helpers";
 import {
@@ -29,10 +30,12 @@ import {
   tailoringSuggestions,
   aiRuns,
   savedBoards,
+  boardPollRuns,
 } from "@/db/schema";
 import { getUser } from "@/lib/supabase/server";
 import { previewJobImport, persistDiscoveredJob, normalizeBoardUrl } from "@/modules/ingestion";
 import { runAndSaveMatchAnalysisDb } from "@/modules/matching/save-match-analysis";
+import { processMatchQueue } from "@/modules/matching/match-queue";
 import type { NormalizedJob } from "@/modules/ingestion";
 import { extractProfileFromResume } from "@/modules/ai/client";
 import { generateTailoringSuggestions, draftApplicationAnswer } from "@/modules/ai/client";
@@ -47,11 +50,24 @@ import { profileExtractionToParsedResume } from "@/modules/resumes/legacy/profil
 import { mapParsedResumeToProfile } from "@/modules/resumes/map/candidate-profile-mapper";
 import * as resumeActions from "@/server/actions/resume-actions";
 import type { ParsedResume } from "@/modules/resumes/schema/resume-schema";
+import { fetchJobsFeed, countAllUserJobs, type JobsFeedFilters } from "@/modules/jobs/jobs-feed-service";
+import type { JobsFeedCursor } from "@/modules/jobs/job-list-item";
+import { measureOperation, estimatePayloadBytes } from "@/lib/performance/measure-operation";
+import { runWithPerfContextAsync } from "@/lib/performance/request-context";
 
 async function requireUser() {
   const user = await getUser();
   if (!user) throw new Error("Unauthorized");
   return user;
+}
+
+function withMeasuredAction<T>(
+  operation: string,
+  fn: () => Promise<T>
+): Promise<T> {
+  return runWithPerfContextAsync(operation, () =>
+    measureOperation(operation, fn, { source: "server_action" })
+  );
 }
 
 export async function getOrCreateProfile() {
@@ -219,8 +235,8 @@ export async function confirmJobImportAction(
   return withUserDb(user.id, async (db) => {
     const result = await persistDiscoveredJob(db, user.id, normalized, meta);
 
-    if (result.isNew) {
-      await runAndSaveMatchAnalysisDb(db, user.id, result.jobId);
+    if (result.isNew || !result.contentUnchanged) {
+      await processMatchQueue(db, user.id, { limit: 1, concurrency: 1 });
     }
 
     revalidatePath("/jobs");
@@ -265,128 +281,18 @@ export async function rematchJobAction(jobId: string) {
   return result;
 }
 
-export async function getJobsFeed(filters?: {
-  minScore?: number;
-  remoteOnly?: boolean;
-  canadaOnly?: boolean;
-  classification?: string;
-  source?: "discovered" | "manual";
-  sort?: "match" | "recent" | "salary";
-  search?: string;
-  discoveredSince?: "24h" | "7d";
-  includeDismissed?: boolean;
-  strongUnseenOnly?: boolean;
-}) {
+export async function getJobsFeed(filters?: JobsFeedFilters & { cursor?: JobsFeedCursor }) {
   const user = await requireUser();
-  const discoveryProviders = new Set(["greenhouse", "lever", "ashby"]);
+  return withMeasuredAction("action.getJobsFeed", () =>
+    withUserDb(user.id, (db) => fetchJobsFeed(db, user.id, filters))
+  );
+}
 
-  return withUserDb(user.id, async (db) => {
-    const profile = await getOrCreateProfileDb(db, user.id);
-
-    const allJobs = await db.query.jobs.findMany({
-      where: eq(jobs.userId, user.id),
-      orderBy: [desc(jobs.dateDiscovered)],
-      with: {
-        company: true,
-        source: true,
-        requirements: {
-          columns: {
-            id: true,
-            requirementType: true,
-            normalizedSkill: true,
-            text: true,
-          },
-        },
-        matchAnalyses: {
-          orderBy: [desc(matchAnalyses.createdAt)],
-          limit: 1,
-        },
-      },
-    });
-
-    let filtered = allJobs;
-
-    if (!filters?.includeDismissed) {
-      filtered = filtered.filter((j) => j.status !== "dismissed");
-    }
-
-    if (filters?.source === "discovered") {
-      filtered = filtered.filter((j) =>
-        j.source?.provider ? discoveryProviders.has(j.source.provider) : false
-      );
-    } else if (filters?.source === "manual") {
-      filtered = filtered.filter(
-        (j) => !j.source?.provider || !discoveryProviders.has(j.source.provider)
-      );
-    }
-
-    if (filters?.discoveredSince) {
-      const ms = filters.discoveredSince === "24h" ? 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
-      const since = new Date(Date.now() - ms);
-      filtered = filtered.filter((j) => new Date(j.dateDiscovered) >= since);
-    }
-
-    if (filters?.search) {
-      const q = filters.search.toLowerCase();
-      filtered = filtered.filter(
-        (j) =>
-          j.title.toLowerCase().includes(q) ||
-          (j.company?.name ?? "").toLowerCase().includes(q)
-      );
-    }
-
-    if (filters?.strongUnseenOnly) {
-      filtered = filtered.filter((j) => {
-        const cls = j.matchAnalyses[0]?.classification;
-        return (
-          !j.isSaved &&
-          j.status !== "dismissed" &&
-          (cls === "excellent" || cls === "strong")
-        );
-      });
-    }
-
-    if (filters?.minScore) {
-      filtered = filtered.filter(
-        (j) => (j.matchAnalyses[0]?.overallScore ?? 0) >= filters.minScore!
-      );
-    }
-    if (filters?.remoteOnly) {
-      filtered = filtered.filter((j) => j.workplaceType === "remote");
-    }
-    if (filters?.canadaOnly) {
-      filtered = filtered.filter((j) => {
-        const loc = (j.location ?? "").toLowerCase();
-        return (
-          loc.includes("canada") ||
-          loc.includes("toronto") ||
-          loc.includes("vancouver") ||
-          loc.includes("montreal") ||
-          loc.includes("remote - canada")
-        );
-      });
-    }
-    if (filters?.classification) {
-      filtered = filtered.filter(
-        (j) => j.matchAnalyses[0]?.classification === filters.classification
-      );
-    }
-
-    if (filters?.sort === "match") {
-      filtered.sort(
-        (a, b) =>
-          (b.matchAnalyses[0]?.overallScore ?? 0) -
-          (a.matchAnalyses[0]?.overallScore ?? 0)
-      );
-    } else if (filters?.sort === "salary") {
-      filtered.sort((a, b) => (b.salaryMax ?? 0) - (a.salaryMax ?? 0));
-    }
-
-    return {
-      jobs: filtered,
-      profileUpdatedAt: profile.updatedAt,
-    };
-  });
+export async function getJobsFeedCounts() {
+  const user = await requireUser();
+  return withUserDb(user.id, async (db) => ({
+    totalActive: await countAllUserJobs(db, user.id),
+  }));
 }
 
 import type { JobWithRelations } from "@/modules/jobs/types";
@@ -416,6 +322,120 @@ export async function getJobDetail(jobId: string): Promise<JobWithRelations | un
   });
 
   return job as JobWithRelations | undefined;
+  });
+}
+
+export async function getJobDetailPageData(jobId: string) {
+  const user = await requireUser();
+  return withMeasuredAction("action.getJobDetailPageData", () =>
+    withUserDb(user.id, async (db) => {
+      const job = await db.query.jobs.findFirst({
+        where: and(eq(jobs.id, jobId), eq(jobs.userId, user.id)),
+        with: {
+          company: true,
+          requirements: true,
+          matchAnalyses: {
+            orderBy: [desc(matchAnalyses.createdAt)],
+            limit: 1,
+            with: {
+              categoryScores: true,
+              requirementMatches: {
+                with: {
+                  requirement: true,
+                  evidence: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!job) return null;
+
+      const [application, profileUpdatedAt, matchHistory] = await Promise.all([
+        getApplicationForJob(db, user.id, jobId),
+        getProfileUpdatedAt(db, user.id),
+        db.query.matchAnalyses.findMany({
+          where: eq(matchAnalyses.jobId, jobId),
+          orderBy: [desc(matchAnalyses.createdAt)],
+          limit: 3,
+          columns: {
+            id: true,
+            overallScore: true,
+            classification: true,
+            topConcern: true,
+            createdAt: true,
+          },
+        }),
+      ]);
+
+      const payload = {
+        job: job as JobWithRelations,
+        application,
+        profileUpdatedAt,
+        matchHistory,
+      };
+
+      return {
+        ...payload,
+        payloadBytes: estimatePayloadBytes(payload),
+      };
+    })
+  );
+}
+
+export async function getJobDetailTabData(
+  jobId: string,
+  tab: "tailoring" | "application"
+) {
+  const user = await requireUser();
+  return withUserDb(user.id, async (db) => {
+    await requireOwnedJob(db, user.id, jobId);
+    const profile = await getOrCreateProfileDb(db, user.id);
+
+    if (tab === "tailoring") {
+      const suggestions = await db.query.tailoringSuggestions.findMany({
+        where: and(
+          eq(tailoringSuggestions.jobId, jobId),
+          eq(tailoringSuggestions.profileId, profile.id)
+        ),
+        with: { evidence: true },
+        orderBy: [desc(tailoringSuggestions.createdAt)],
+      });
+      return { suggestions };
+    }
+
+    const application = await getApplicationForJob(db, user.id, jobId);
+    if (!application) return { answers: [] as Awaited<ReturnType<typeof getApplicationAnswers>> };
+
+    const answers = await db.query.applicationAnswers.findMany({
+      where: eq(applicationAnswers.applicationId, application.id),
+      orderBy: [desc(applicationAnswers.updatedAt)],
+    });
+
+    const evidenceIds = [
+      ...new Set(answers.flatMap((r) => r.evidenceIds ?? [])),
+    ];
+    const evidenceRows =
+      evidenceIds.length > 0
+        ? await db.query.profileEvidence.findMany({
+            where: and(
+              eq(profileEvidence.profileId, profile.id),
+              inArray(profileEvidence.id, evidenceIds)
+            ),
+          })
+        : [];
+    const evidenceById = new Map(evidenceRows.map((e) => [e.id, e.evidenceText]));
+
+    return {
+      answers: answers.map((row) => ({
+        ...row,
+        evidenceTexts: (row.evidenceIds ?? [])
+          .map((id) => evidenceById.get(id))
+          .filter(Boolean) as string[],
+        unsupportedClaims: row.unsupportedClaims ?? [],
+      })),
+    };
   });
 }
 
@@ -1171,30 +1191,114 @@ export async function detectBoardProviderAction(url: string) {
 
 export async function pollSavedBoardNow(boardId: string) {
   const user = await requireUser();
-  return withUserDb(user.id, async (db) => {
-    const board = await db.query.savedBoards.findFirst({
-      where: and(eq(savedBoards.id, boardId), eq(savedBoards.userId, user.id)),
+
+  return withMeasuredAction("action.pollSavedBoardNow", async () => {
+    const board = await withUserDb(user.id, async (db) => {
+      const row = await db.query.savedBoards.findFirst({
+        where: and(eq(savedBoards.id, boardId), eq(savedBoards.userId, user.id)),
+      });
+      if (!row) throw new Error("Board not found");
+
+      await db.insert(boardPollRuns).values({
+        userId: user.id,
+        boardId: row.id,
+        status: "pending",
+      });
+
+      return row;
     });
-    if (!board) throw new Error("Board not found");
 
-    const { pollSavedBoard } = await import("@/modules/discovery/poll-board");
-    const { CRON_MAX_NEW_JOBS_PER_RUN } = await import("@/lib/cron-discover");
+    const { after } = await import("next/server");
+    after(async () => {
+      await runWithPerfContextAsync(`poll-run:${boardId}`, async () => {
+        await withUserDb(user.id, async (db) => {
+          const [run] = await db.query.boardPollRuns.findMany({
+            where: and(
+              eq(boardPollRuns.userId, user.id),
+              eq(boardPollRuns.boardId, boardId)
+            ),
+            orderBy: [desc(boardPollRuns.createdAt)],
+            limit: 1,
+          });
 
-    const stats = await pollSavedBoard(
-      db,
-      user.id,
-      {
-        id: board.id,
-        boardUrl: board.boardUrl,
-        provider: board.provider,
-        companyName: board.companyName,
-      },
-      { remainingNewJobs: CRON_MAX_NEW_JOBS_PER_RUN }
-    );
+          if (!run || run.status !== "pending") return;
 
-    revalidatePath("/settings");
-    revalidatePath("/jobs");
-    return stats;
+          await db
+            .update(boardPollRuns)
+            .set({ status: "running", startedAt: new Date() })
+            .where(eq(boardPollRuns.id, run.id));
+
+          try {
+            const { pollSavedBoard } = await import("@/modules/discovery/poll-board");
+            const { CRON_MAX_NEW_JOBS_PER_RUN } = await import("@/lib/cron-discover");
+
+            const stats = await pollSavedBoard(
+              db,
+              user.id,
+              {
+                id: board.id,
+                boardUrl: board.boardUrl,
+                provider: board.provider,
+                companyName: board.companyName,
+              },
+              { remainingNewJobs: CRON_MAX_NEW_JOBS_PER_RUN }
+            );
+
+            const matchStats = await processMatchQueue(db, user.id, {
+              limit: stats.queuedForMatch || CRON_MAX_NEW_JOBS_PER_RUN,
+            });
+
+            await db
+              .update(boardPollRuns)
+              .set({
+                status: "completed",
+                statsJson: { ...stats, matched: matchStats.processed },
+                completedAt: new Date(),
+              })
+              .where(eq(boardPollRuns.id, run.id));
+          } catch (error) {
+            await db
+              .update(boardPollRuns)
+              .set({
+                status: "failed",
+                errorText: error instanceof Error ? error.message : String(error),
+                completedAt: new Date(),
+              })
+              .where(eq(boardPollRuns.id, run.id));
+          }
+        });
+
+        revalidatePath("/settings");
+        revalidatePath("/jobs");
+      });
+    });
+
+    return {
+      status: "pending" as const,
+      boardId: board.id,
+      message: "Poll started. Jobs will appear as matching completes.",
+    };
+  });
+}
+
+export async function getBoardPollRunStatus(boardId: string) {
+  const user = await requireUser();
+  return withUserDb(user.id, async (db) => {
+    const run = await db.query.boardPollRuns.findFirst({
+      where: and(
+        eq(boardPollRuns.userId, user.id),
+        eq(boardPollRuns.boardId, boardId)
+      ),
+      orderBy: [desc(boardPollRuns.createdAt)],
+    });
+    if (!run) return null;
+    return {
+      id: run.id,
+      status: run.status,
+      stats: run.statsJson as Record<string, number> | null,
+      errorText: run.errorText,
+      completedAt: run.completedAt,
+    };
   });
 }
 

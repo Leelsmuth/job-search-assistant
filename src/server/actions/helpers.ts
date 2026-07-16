@@ -84,3 +84,14 @@ export async function getOrCreateProfileDb(db: Db, userId: string) {
 
   return profile;
 }
+
+export async function getProfileUpdatedAt(
+  db: Db,
+  userId: string
+): Promise<Date | null> {
+  const row = await db.query.candidateProfiles.findFirst({
+    where: eq(candidateProfiles.userId, userId),
+    columns: { updatedAt: true },
+  });
+  return row?.updatedAt ?? null;
+}

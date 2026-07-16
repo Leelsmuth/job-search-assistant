@@ -18,25 +18,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useKeyedPending } from "@/components/layout/action-pending-provider";
 import { JobDeleteButton } from "./job-delete-button";
 import { ApplyLink } from "@/components/jobs/apply-link";
-
-type FeedJob = {
-  id: string;
-  title: string;
-  jobUrl: string | null;
-  location: string | null;
-  workplaceType: string | null;
-  salaryMin: number | null;
-  salaryMax: number | null;
-  salaryCurrency: string | null;
-  isSaved: boolean;
-  company: { name: string } | null;
-  matchAnalyses: Array<{
-    overallScore: number | null;
-    classification: string;
-    topConcern: string | null;
-    topMatchingSkills: unknown;
-  }>;
-};
+import type { JobListItem } from "@/modules/jobs/job-list-item";
 
 export function JobFeedRow({
   job,
@@ -45,7 +27,7 @@ export function JobFeedRow({
   lowExtraction,
   isNew,
 }: {
-  job: FeedJob;
+  job: JobListItem;
   classification?: MatchClassification;
   isStale: boolean;
   lowExtraction: boolean;
@@ -56,7 +38,7 @@ export function JobFeedRow({
   const { run, isKeyPending } = useKeyedPending();
   const [deleting, setDeleting] = useState(false);
   const [saved, setSaved] = useState(job.isSaved);
-  const match = job.matchAnalyses[0];
+  const match = job.match;
   const actionKey = `feed-${job.id}`;
 
   return (
@@ -107,7 +89,7 @@ export function JobFeedRow({
               {formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency ?? "CAD") ?? "—"}
             </div>
             <div className="text-xs">
-              {(match?.topMatchingSkills as string[] | undefined)?.slice(0, 2).join(", ")}
+              {match?.topMatchingSkills?.slice(0, 2).join(", ")}
             </div>
           </div>
         </Link>

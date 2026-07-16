@@ -21,6 +21,7 @@ import {
 } from "./resume-section-detector";
 import type { NormalizedDocument } from "@/modules/resumes/normalize/extracted-document-normalizer";
 import { computeConfidenceScores, mergeWarnings } from "./confidence";
+import { measureOpenAiCall } from "@/lib/performance/log-ai-run";
 
 function isOpenAiConfigured(): boolean {
   const key = process.env.OPENAI_API_KEY?.trim();
@@ -65,15 +66,20 @@ async function callOpenAiParse(
 ): Promise<{ content: string; model: string; usage?: { input: number; output: number } }> {
   if (!openai) throw new Error("OpenAI not configured");
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.1,
-  });
+  const response = await measureOpenAiCall(
+    "openai.resume.parse",
+    () =>
+      openai!.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.1,
+      }),
+    { inputChars: userPrompt.length, model: "gpt-4o-mini" }
+  );
 
   const content = response.choices[0]?.message?.content;
   if (!content) throw new Error("Empty AI response");

@@ -1,11 +1,5 @@
-import {
-  companySourcesSeedSchema,
-  type CompanyJobSource,
-} from "../../../data/company-sources.schema";
-import verifiedCatalog from "../../../data/company-sources.verified.json";
+import type { CompanyJobSource } from "../../../data/company-sources.schema";
 import { makeRegistryId } from "./registry/board-identity";
-
-let cachedSeed: CompanyJobSource[] | null = null;
 
 /** When Ashby/Lever boards share a slug with a Greenhouse board, legacy seeds reused the bare slug as id. */
 export function ensureUniqueCatalogIds(
@@ -28,25 +22,6 @@ export function ensureUniqueCatalogIds(
       id: makeRegistryId(company.atsProvider, company.boardSlug),
     };
   });
-}
-
-function loadCatalog(): CompanyJobSource[] {
-  const seed = companySourcesSeedSchema.parse(verifiedCatalog);
-  const verified = seed.companies.filter(
-    (c) => c.enabled && c.verificationStatus === "verified"
-  );
-  return ensureUniqueCatalogIds(verified);
-}
-
-export function getCompanySourceCatalog(): CompanyJobSource[] {
-  if (!cachedSeed) {
-    cachedSeed = loadCatalog();
-  }
-  return cachedSeed;
-}
-
-export function getCatalogEntryById(id: string): CompanyJobSource | undefined {
-  return getCompanySourceCatalog().find((c) => c.id === id);
 }
 
 export function filterCatalog(

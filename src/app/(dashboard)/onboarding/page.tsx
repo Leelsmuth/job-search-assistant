@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { uploadResume, approveParsedResume } from "@/server/actions";
+import { waitForResumeParse } from "@/lib/resume-parse-poll";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
@@ -27,8 +28,20 @@ export default function OnboardingPage() {
       const result = await uploadResume(formData);
       setParsedVersionId(result.parsedVersionId);
       setNormalizedText(result.extractedText);
-      setParsed(result.parsed);
       setStep("review");
+
+      if (result.processing) {
+        toast({
+          title: "Parsing resume",
+          description: "Structured extraction is running in the background.",
+        });
+        const review = await waitForResumeParse(result.parsedVersionId);
+        setParsed(review.parsed);
+        setNormalizedText(review.normalizedText);
+      } else {
+        setParsed(result.parsed);
+      }
+
       toast({
         title: "Resume uploaded",
         description: "Review the structured profile before saving.",

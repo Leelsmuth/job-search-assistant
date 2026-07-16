@@ -9,9 +9,9 @@ import {
 import type { JobSourceProvider } from "@/modules/ingestion/types";
 import { normalizeBoardJobs } from "@/modules/ingestion/board-normalize";
 import { persistDiscoveredJob } from "@/modules/ingestion/persist-job";
-import { runAndSaveMatchAnalysisDb } from "@/modules/matching/save-match-analysis";
 import { shouldImportDiscoveredJob } from "@/modules/discovery/pre-import-filter";
 import type { CandidateProfile } from "@/modules/matching/engine";
+import { measureOperation } from "@/lib/performance/measure-operation";
 import {
   CRON_BOARD_DELAY_MS,
   CRON_MAX_NEW_JOBS_PER_RUN,
@@ -22,7 +22,8 @@ import {
 export type BoardPollStats = {
   newJobs: number;
   skipped: number;
-  matched: number;
+  updated: number;
+  queuedForMatch: number;
   filtered: number;
 };
 
@@ -66,54 +67,79 @@ export async function pollSavedBoard(
   caps: { remainingNewJobs: number },
   profile?: CandidateProfile
 ): Promise<BoardPollStats> {
-  const stats: BoardPollStats = { newJobs: 0, skipped: 0, matched: 0, filtered: 0 };
+  return measureOperation(
+    "discovery.pollSavedBoard",
+    async () => {
+      const stats: BoardPollStats = {
+        newJobs: 0,
+        skipped: 0,
+        updated: 0,
+        queuedForMatch: 0,
+        filtered: 0,
+      };
 
-  const parsed = normalizeBoardUrl(board.boardUrl, board.provider);
-  const adapter =
-    getAdapterForProvider(board.provider) ?? (await detectBestAdapter(parsed.boardUrl));
-  const raw = await adapter.fetch(parsed.boardUrl);
-  const normalizedJobs = normalizeBoardJobs(raw);
+      const parsed = normalizeBoardUrl(board.boardUrl, board.provider);
+      const adapter =
+        getAdapterForProvider(board.provider) ?? (await detectBestAdapter(parsed.boardUrl));
 
-  for (const job of normalizedJobs) {
-    if (caps.remainingNewJobs <= 0) break;
+      const raw = await measureOperation(
+        "ats.adapter.fetch",
+        () => adapter.fetch(parsed.boardUrl),
+        { source: "ats", recordCount: 1 }
+      );
+      const normalizedJobs = normalizeBoardJobs(raw);
 
-    const filterResult = shouldImportDiscoveredJob(job, profile);
-    if (!filterResult.import) {
-      stats.filtered++;
-      continue;
-    }
+      for (const job of normalizedJobs) {
+        if (caps.remainingNewJobs <= 0) break;
 
-    const result = await persistDiscoveredJob(db, userId, job, {
-      provider: board.provider,
-      sourceUrl: job.jobUrl || parsed.boardUrl,
-      sourceJobId: job.sourceJobId,
-      boardUrl: parsed.boardUrl,
-    });
+        const filterResult = shouldImportDiscoveredJob(job, profile);
+        if (!filterResult.import) {
+          stats.filtered++;
+          continue;
+        }
 
-    if (!result.isNew) {
-      stats.skipped++;
-      continue;
-    }
+        const result = await measureOperation(
+          "ingestion.persistDiscoveredJob",
+          () =>
+            persistDiscoveredJob(db, userId, job, {
+              provider: board.provider,
+              sourceUrl: job.jobUrl || parsed.boardUrl,
+              sourceJobId: job.sourceJobId,
+              boardUrl: parsed.boardUrl,
+            }),
+          { source: "ingestion" }
+        );
 
-    stats.newJobs++;
-    caps.remainingNewJobs--;
+        if (!result.isNew) {
+          if (result.contentUnchanged) {
+            stats.skipped++;
+          } else {
+            stats.updated++;
+            stats.queuedForMatch++;
+          }
+          continue;
+        }
 
-    await runAndSaveMatchAnalysisDb(db, userId, result.jobId);
-    stats.matched++;
-  }
+        stats.newJobs++;
+        stats.queuedForMatch++;
+        caps.remainingNewJobs--;
+      }
 
-  await db
-    .update(savedBoards)
-    .set({
-      lastPolledAt: new Date(),
-      boardUrl: parsed.boardUrl,
-      lastPollNewJobs: stats.newJobs,
-      lastPollSkipped: stats.skipped,
-      lastPollFiltered: stats.filtered,
-    })
-    .where(eq(savedBoards.id, board.id));
+      await db
+        .update(savedBoards)
+        .set({
+          lastPolledAt: new Date(),
+          boardUrl: parsed.boardUrl,
+          lastPollNewJobs: stats.newJobs,
+          lastPollSkipped: stats.skipped,
+          lastPollFiltered: stats.filtered,
+        })
+        .where(eq(savedBoards.id, board.id));
 
-  return stats;
+      return stats;
+    },
+    { source: "discovery" }
+  );
 }
 
 export async function pollBoardsForUser(
@@ -130,7 +156,13 @@ export async function pollBoardsForUser(
   results: Array<{ boardId: string; status: "success" | "error" }>;
   stats: BoardPollStats;
 }> {
-  const stats: BoardPollStats = { newJobs: 0, skipped: 0, matched: 0, filtered: 0 };
+  const stats: BoardPollStats = {
+    newJobs: 0,
+    skipped: 0,
+    updated: 0,
+    queuedForMatch: 0,
+    filtered: 0,
+  };
   const results: Array<{ boardId: string; status: "success" | "error" }> = [];
   const profile = await loadProfileForFilter(db, userId);
 
@@ -140,7 +172,8 @@ export async function pollBoardsForUser(
       const boardStats = await pollSavedBoard(db, userId, board, globalCaps, profile);
       stats.newJobs += boardStats.newJobs;
       stats.skipped += boardStats.skipped;
-      stats.matched += boardStats.matched;
+      stats.updated += boardStats.updated;
+      stats.queuedForMatch += boardStats.queuedForMatch;
       stats.filtered += boardStats.filtered;
       results.push({ boardId: board.id, status: "success" });
     } catch (error) {
@@ -161,7 +194,7 @@ export async function pollBoardsForUser(
 
 export function aggregateDiscoverStats(
   boardResults: Array<{ status: "success" | "error" }>,
-  stats: BoardPollStats
+  stats: BoardPollStats & { matched?: number }
 ): CronDiscoverResult {
   const succeeded = boardResults.filter((r) => r.status === "success").length;
   return {
@@ -170,7 +203,7 @@ export function aggregateDiscoverStats(
     failed: boardResults.length - succeeded,
     newJobs: stats.newJobs,
     skipped: stats.skipped,
-    matched: stats.matched,
+    matched: stats.matched ?? 0,
     filtered: stats.filtered,
   };
 }

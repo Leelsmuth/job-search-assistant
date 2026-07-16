@@ -8,7 +8,9 @@ import {
   aggregateDiscoverStats,
   pollBoardsForUser,
 } from "@/modules/discovery/poll-board";
+import { processMatchQueue } from "@/modules/matching/match-queue";
 import type { JobSourceProvider } from "@/modules/ingestion/types";
+import { runWithPerfContextAsync } from "@/lib/performance/request-context";
 
 function groupBoardsByUser(
   boards: Array<{
@@ -29,32 +31,47 @@ function groupBoardsByUser(
 }
 
 export async function runCronDiscoverPoll() {
-  const db = getDb();
-  const boards = await db.query.savedBoards.findMany({
-    where: eq(savedBoards.isActive, true),
-    limit: CRON_MAX_BOARDS_PER_RUN,
+  return runWithPerfContextAsync("cron.discover", async () => {
+    const db = getDb();
+    const boards = await db.query.savedBoards.findMany({
+      where: eq(savedBoards.isActive, true),
+      limit: CRON_MAX_BOARDS_PER_RUN,
+    });
+
+    const byUser = groupBoardsByUser(boards);
+    const allResults: Array<{ status: "success" | "error" }> = [];
+    const totals = {
+      newJobs: 0,
+      skipped: 0,
+      updated: 0,
+      queuedForMatch: 0,
+      matched: 0,
+      filtered: 0,
+    };
+    const caps = { remainingNewJobs: CRON_MAX_NEW_JOBS_PER_RUN };
+
+    for (const [userId, userBoards] of byUser) {
+      if (caps.remainingNewJobs <= 0) break;
+
+      const { results, stats } = await withUserDb(userId, (userDb) =>
+        pollBoardsForUser(userDb, userId, userBoards, caps)
+      );
+
+      const matchStats = await withUserDb(userId, (userDb) =>
+        processMatchQueue(userDb, userId, {
+          limit: stats.queuedForMatch || CRON_MAX_NEW_JOBS_PER_RUN,
+        })
+      );
+
+      allResults.push(...results);
+      totals.newJobs += stats.newJobs;
+      totals.skipped += stats.skipped;
+      totals.matched += matchStats.processed;
+      totals.filtered += stats.filtered;
+    }
+
+    return aggregateDiscoverStats(allResults, totals);
   });
-
-  const byUser = groupBoardsByUser(boards);
-  const allResults: Array<{ status: "success" | "error" }> = [];
-  const totals = { newJobs: 0, skipped: 0, matched: 0, filtered: 0 };
-  const caps = { remainingNewJobs: CRON_MAX_NEW_JOBS_PER_RUN };
-
-  for (const [userId, userBoards] of byUser) {
-    if (caps.remainingNewJobs <= 0) break;
-
-    const { results, stats } = await withUserDb(userId, (userDb) =>
-      pollBoardsForUser(userDb, userId, userBoards, caps)
-    );
-
-    allResults.push(...results);
-    totals.newJobs += stats.newJobs;
-    totals.skipped += stats.skipped;
-    totals.matched += stats.matched;
-    totals.filtered += stats.filtered;
-  }
-
-  return aggregateDiscoverStats(allResults, totals);
 }
 
 export async function handleCronDiscoverRequest(

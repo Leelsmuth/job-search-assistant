@@ -23,7 +23,8 @@
     "audit:registry": "tsx scripts/audit-registry.ts",
     "discover:companies": "tsx scripts/discover-companies.ts",
     "verify:registry": "tsx scripts/verify-registry.ts",
-    "seed:company-registry": "tsx scripts/seed-company-registry-db.ts"
+    "seed:company-registry": "tsx scripts/seed-company-registry-db.ts",
+    "seed:performance-fixtures": "tsx scripts/seed-performance-fixtures.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.6",

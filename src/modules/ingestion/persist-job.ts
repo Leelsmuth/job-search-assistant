@@ -57,7 +57,7 @@ export async function persistDiscoveredJob(
   userId: string,
   normalized: NormalizedJob,
   meta: JobImportMeta
-): Promise<{ jobId: string; isNew: boolean }> {
+): Promise<{ jobId: string; isNew: boolean; contentUnchanged?: boolean }> {
   const validatedJob = confirmJobImportSchema.parse(normalized);
   const validatedMeta = jobImportMetaSchema.parse(meta);
 
@@ -72,8 +72,46 @@ export async function persistDiscoveredJob(
     sourceJobId: validatedJob.sourceJobId ?? validatedMeta.sourceJobId,
     jobUrl: validatedJob.jobUrl || validatedMeta.sourceUrl,
   });
+
+  const nextHash = hashJobDescription(validatedJob.description);
+
   if (existing) {
-    return { jobId: existing.id, isNew: false };
+    if (existing.descriptionHash === nextHash) {
+      return { jobId: existing.id, isNew: false, contentUnchanged: true };
+    }
+
+    await db
+      .update(jobs)
+      .set({
+        title: validatedJob.title,
+        location: validatedJob.location,
+        workplaceType: validatedJob.workplaceType,
+        salaryMin: validatedJob.salaryMin,
+        salaryMax: validatedJob.salaryMax,
+        salaryCurrency: validatedJob.salaryCurrency,
+        description: validatedJob.description,
+        descriptionHash: nextHash,
+        matchPipelineStatus: "match_pending",
+        updatedAt: new Date(),
+      })
+      .where(eq(jobs.id, existing.id));
+
+    await db.delete(jobRequirements).where(eq(jobRequirements.jobId, existing.id));
+    const structuredReqs = requirementsToStructured(validatedJob);
+    if (structuredReqs.length > 0) {
+      await db.insert(jobRequirements).values(
+        structuredReqs.map((req) => ({
+          jobId: existing.id,
+          requirementType: req.requirementType,
+          text: req.text,
+          normalizedSkill: req.normalizedSkill,
+          importance: req.importance,
+          isHardRequirement: req.isHardRequirement,
+        }))
+      );
+    }
+
+    return { jobId: existing.id, isNew: false, contentUnchanged: false };
   }
 
   const [source] = await db
@@ -116,20 +154,23 @@ export async function persistDiscoveredJob(
       educationRequirements: validatedJob.educationRequirements,
       dateDiscovered: new Date(),
       discoveredBoardUrl: validatedMeta.boardUrl,
-      descriptionHash: hashJobDescription(validatedJob.description),
+      descriptionHash: nextHash,
+      matchPipelineStatus: "match_pending",
     })
     .returning();
 
   const structuredReqs = requirementsToStructured(validatedJob);
-  for (const req of structuredReqs) {
-    await db.insert(jobRequirements).values({
-      jobId: job.id,
-      requirementType: req.requirementType,
-      text: req.text,
-      normalizedSkill: req.normalizedSkill,
-      importance: req.importance,
-      isHardRequirement: req.isHardRequirement,
-    });
+  if (structuredReqs.length > 0) {
+    await db.insert(jobRequirements).values(
+      structuredReqs.map((req) => ({
+        jobId: job.id,
+        requirementType: req.requirementType,
+        text: req.text,
+        normalizedSkill: req.normalizedSkill,
+        importance: req.importance,
+        isHardRequirement: req.isHardRequirement,
+      }))
+    );
   }
 
   return { jobId: job.id, isNew: true };
