@@ -1,15 +1,13 @@
 import Link from "next/link";
-import { getSavedBoards, getCompanySourceCatalog, getSuggestedBoards } from "@/server/actions";
+import { getDiscoveryPageData } from "@/server/actions";
 import { CompanyCatalogPanel } from "@/components/discovery/company-catalog-panel";
 import { SuggestedBoardsPanel } from "@/components/discovery/suggested-boards-panel";
 import { Button } from "@/components/ui/button";
 
 export default async function DiscoveryPage() {
-  const [boards, catalog, suggestions] = await Promise.all([
-    getSavedBoards(),
-    getCompanySourceCatalog(),
-    getSuggestedBoards(),
-  ]);
+  // One call: the catalog read must finish before the user transaction opens.
+  // Promise.all of those two checkouts deadlocks a small postgres.js pool.
+  const { boards, catalog, suggestions } = await getDiscoveryPageData();
 
   const followingUrls = new Set(boards.map((b) => b.boardUrl));
 

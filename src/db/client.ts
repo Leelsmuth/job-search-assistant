@@ -8,15 +8,32 @@ import * as schema from "./schema";
  * postgres-js defaults (max 10, idle timeout disabled) keep connections open forever
  * and exhaust Supabase when many isolates do that at once.
  *
- * idle_timeout and max_lifetime are seconds.
+ * max is 3, not 1. sql.begin reserves a connection for the whole withUserDb
+ * transaction. A root-client query started while that reservation is held (the
+ * discovery page did this with Promise.all) waits for a free slot. With one
+ * slot the transaction and the queued query wait on each other until the
+ * function hits the platform timeout. Three slots cover a user transaction
+ * plus a catalog read without opening a connection per request.
+ *
+ * idle_timeout, connect_timeout, and max_lifetime are seconds.
+ * statement_timeout and lock_timeout are milliseconds and are also applied
+ * inside each user transaction, because Supavisor transaction mode may not
+ * keep startup parameters on the backend.
  * prepare must stay false: Supavisor transaction mode rejects prepared statements.
  */
+export const DB_STATEMENT_TIMEOUT_MS = 20_000;
+export const DB_LOCK_TIMEOUT_MS = 10_000;
+
 export const RUNTIME_POSTGRES_OPTIONS = {
-  max: 1,
+  max: 3,
   idle_timeout: 20,
   connect_timeout: 10,
   max_lifetime: 60 * 5,
   prepare: false,
+  connection: {
+    statement_timeout: DB_STATEMENT_TIMEOUT_MS,
+    lock_timeout: DB_LOCK_TIMEOUT_MS,
+  },
 } as const;
 
 type PgCache = {

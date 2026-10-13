@@ -29,10 +29,8 @@ export default async function JobsPage({
 }) {
   const params = await searchParams;
   const sort = (params.sort as "match" | "recent" | "salary") ?? "match";
-  const [preferences, counts] = await Promise.all([
-    getSearchPreferences(),
-    getJobsFeedCounts(),
-  ]);
+  const preferences = await getSearchPreferences();
+  const counts = await getJobsFeedCounts();
   const locationView = {
     ...preferences,
     showRemoteOther: flagParam(params.showRemoteOther, preferences.showRemoteOther),

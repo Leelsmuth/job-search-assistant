@@ -81,4 +81,68 @@ describe("board-url", () => {
   it("parseBoardUrl returns null for unknown URLs", () => {
     expect(parseBoardUrl("https://example.com/careers")).toBeNull();
   });
+
+  it("reads the company from a Greenhouse embed URL", () => {
+    const result = normalizeBoardUrl(
+      "https://boards.greenhouse.io/embed/job_board?for=stripe"
+    );
+    expect(result.provider).toBe("greenhouse");
+    expect(result.boardSlug).toBe("stripe");
+    expect(result.boardUrl).toBe("https://boards.greenhouse.io/stripe");
+    expect(result.isSingleJob).toBe(false);
+  });
+
+  it("accepts a regional Greenhouse host and a missing scheme", () => {
+    const result = normalizeBoardUrl("job-boards.eu.greenhouse.io/notion/jobs");
+    expect(result.provider).toBe("greenhouse");
+    expect(result.boardSlug).toBe("notion");
+    expect(result.boardUrl).toBe("https://job-boards.eu.greenhouse.io/notion");
+  });
+
+  it("rejects a Greenhouse single-job embed", () => {
+    expect(() =>
+      normalizeBoardUrl("https://boards.greenhouse.io/embed/job_app?for=stripe&token=123")
+    ).toThrow(/single job/i);
+  });
+
+  it("rejects a Greenhouse embed that has no company token", () => {
+    expect(() => normalizeBoardUrl("https://boards.greenhouse.io/embed/job_board")).toThrow(
+      /Invalid board URL/i
+    );
+  });
+
+  it("accepts Lever and Ashby board links without a scheme", () => {
+    expect(normalizeBoardUrl("jobs.lever.co/netflix").boardUrl).toBe(
+      "https://jobs.lever.co/netflix"
+    );
+    expect(normalizeBoardUrl("https://jobs.eu.lever.co/netflix/").boardUrl).toBe(
+      "https://jobs.lever.co/netflix"
+    );
+    expect(normalizeBoardUrl("https://api.lever.co/v0/postings/netflix?mode=json").boardSlug).toBe(
+      "netflix"
+    );
+    expect(normalizeBoardUrl("jobs.ashbyhq.com/notion/embed").boardUrl).toBe(
+      "https://jobs.ashbyhq.com/notion"
+    );
+  });
+
+  it("accepts a Workday board pasted without a scheme", () => {
+    const result = normalizeBoardUrl(
+      "nvidia.wd5.myworkdayjobs.com/en-US/NVIDIAExternalCareerSite/"
+    );
+    expect(result.provider).toBe("workday");
+    expect(result.boardSlug).toBe("wd5/nvidia/NVIDIAExternalCareerSite");
+    expect(result.boardUrl).toBe(
+      "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite"
+    );
+  });
+
+  it("reads a Workday CXS board path", () => {
+    const result = normalizeBoardUrl(
+      "https://shopify.wd3.myworkdayjobs.com/wday/cxs/shopify/ExternalCareers/jobs"
+    );
+    expect(result.provider).toBe("workday");
+    expect(result.boardSlug).toBe("wd3/shopify/ExternalCareers");
+    expect(result.isSingleJob).toBe(false);
+  });
 });

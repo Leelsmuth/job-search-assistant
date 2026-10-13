@@ -26,33 +26,51 @@ export type ParsedWorkdayUrl = {
   externalPath?: string;
 };
 
-export function parseWorkdayUrl(input: string): ParsedWorkdayUrl | null {
-  const trimmed = stripTrailingSlash(input.trim());
-  if (!/^https?:\/\//i.test(trimmed)) return null;
-
-  let url: URL;
+function tryParseHttpUrl(input: string): URL | null {
+  let trimmed = input.trim().replace(/^['"]+|['"]+$/g, "").trim();
+  if (!trimmed) return null;
+  if (!/^https?:\/\//i.test(trimmed)) {
+    trimmed = `https://${trimmed.replace(/^\/+/, "")}`;
+  }
   try {
-    url = new URL(trimmed);
+    return new URL(stripTrailingSlash(trimmed));
   } catch {
     return null;
   }
+}
 
-  const host = url.hostname.match(/^([^.]+)\.(wd\d+)\.myworkdayjobs\.com$/i);
+function hostnameWithoutWww(url: URL): string {
+  return url.hostname.replace(/^www\./i, "");
+}
+
+export function parseWorkdayUrl(input: string): ParsedWorkdayUrl | null {
+  const url = tryParseHttpUrl(input);
+  if (!url) return null;
+
+  const host = hostnameWithoutWww(url).match(/^([^.]+)\.(wd\d+)\.myworkdayjobs\.com$/i);
   if (!host) return null;
 
   const tenant = host[1];
   const cluster = host[2].toLowerCase();
   const segments = url.pathname.split("/").filter(Boolean);
-  if (segments.length > 0 && WORKDAY_LOCALE_SEGMENT.test(segments[0])) {
+  while (segments.length > 0 && WORKDAY_LOCALE_SEGMENT.test(segments[0])) {
     segments.shift();
   }
 
-  const site = segments[0];
+  let site: string | undefined;
+  let rest: string[];
+  if (segments[0]?.toLowerCase() === "wday" && segments[1]?.toLowerCase() === "cxs") {
+    site = segments[3];
+    rest = segments.slice(4);
+  } else {
+    site = segments[0];
+    rest = segments.slice(1);
+  }
   if (!site || site.toLowerCase() === "job") return null;
 
-  const jobIndex = segments.findIndex((segment) => segment.toLowerCase() === "job");
-  const isSingleJob = jobIndex > 0;
-  const externalPath = isSingleJob ? `/${segments.slice(jobIndex).join("/")}` : undefined;
+  const jobIndex = rest.findIndex((segment) => segment.toLowerCase() === "job");
+  const isSingleJob = jobIndex >= 0;
+  const externalPath = isSingleJob ? `/${rest.slice(jobIndex).join("/")}` : undefined;
   const boardSlug = `${cluster}/${tenant}/${site}`;
   const canonicalBoardUrl = `https://${tenant}.${cluster}.myworkdayjobs.com/${site}`;
   const publicUrl = `${url.origin}${url.pathname}`.replace(/\/+$/, "");
@@ -81,13 +99,23 @@ function stripBoardListingSuffix(path: string): string {
   return path.replace(/\/jobs\/?$/i, "");
 }
 
-export function parseBoardUrl(input: string): ParsedBoardUrl | null {
-  const trimmed = stripTrailingSlash(input.trim());
-  if (!/^https?:\/\//i.test(trimmed)) return null;
+function decodeSlug(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
 
-  const ghApi = trimmed.match(/boards-api\.greenhouse\.io\/v1\/boards\/([^/?#]+)/i);
-  if (ghApi) {
-    const slug = ghApi[1];
+function isGreenhouseHost(hostname: string): boolean {
+  return /^(?:job-boards|boards)(?:\.[a-z0-9-]+)?\.greenhouse\.io$/i.test(hostname);
+}
+
+function parseGreenhouse(url: URL, hostname: string): ParsedBoardUrl | null {
+  if (/^boards-api(?:\.[a-z0-9-]+)?\.greenhouse\.io$/i.test(hostname)) {
+    const apiMatch = url.pathname.match(/\/v1\/boards\/([^/]+)/i);
+    if (!apiMatch) return null;
+    const slug = decodeSlug(apiMatch[1]);
     return {
       provider: "greenhouse",
       boardSlug: slug,
@@ -96,51 +124,78 @@ export function parseBoardUrl(input: string): ParsedBoardUrl | null {
     };
   }
 
-  const ghBoard = trimmed.match(/(?:boards|job-boards)\.greenhouse\.io\/([^/?#]+)/i);
-  if (ghBoard) {
-    const slug = ghBoard[1];
-    const isSingleJob = /\/jobs\/\d+/i.test(trimmed);
-    if (isSingleJob) {
-      return {
-        provider: "greenhouse",
-        boardSlug: slug,
-        boardUrl: trimmed,
-        isSingleJob: true,
-      };
-    }
-    const normalized = stripBoardListingSuffix(trimmed);
+  if (!isGreenhouseHost(hostname)) return null;
+
+  const segments = url.pathname.split("/").filter(Boolean);
+  const forToken = url.searchParams.get("for");
+  if (segments[0]?.toLowerCase() === "embed" || (segments.length === 0 && forToken)) {
+    if (!forToken) return null;
+    const slug = decodeSlug(forToken);
+    const isSingleJob = segments.some((segment) => segment.toLowerCase() === "job_app");
     return {
       provider: "greenhouse",
       boardSlug: slug,
-      boardUrl: normalized,
-      isSingleJob: false,
+      boardUrl: isSingleJob ? url.toString().replace(/\/+$/, "") : `https://${hostname}/${slug}`,
+      isSingleJob,
     };
   }
 
-  const leverPosting = trimmed.match(/jobs\.lever\.co\/([^/?#]+)\/([a-f0-9-]+)/i);
-  if (leverPosting) {
+  const slug = segments[0] ? decodeSlug(segments[0]) : "";
+  if (!slug || slug.toLowerCase() === "embed") return null;
+  const isSingleJob = /\/jobs\/\d+/i.test(url.pathname);
+  if (isSingleJob) {
     return {
-      provider: "lever",
-      boardSlug: leverPosting[1],
-      boardUrl: trimmed,
+      provider: "greenhouse",
+      boardSlug: slug,
+      boardUrl: `${url.origin}${url.pathname}`.replace(/\/+$/, ""),
       isSingleJob: true,
     };
   }
 
-  const leverBoard = trimmed.match(/jobs\.lever\.co\/([^/?#]+)/i);
-  if (leverBoard) {
-    const slug = leverBoard[1];
+  return {
+    provider: "greenhouse",
+    boardSlug: slug,
+    boardUrl: stripBoardListingSuffix(`https://${hostname}/${slug}`),
+    isSingleJob: false,
+  };
+}
+
+function parseLever(url: URL, hostname: string): ParsedBoardUrl | null {
+  if (/^api(?:\.[a-z0-9-]+)?\.lever\.co$/i.test(hostname)) {
+    const apiMatch = url.pathname.match(/\/v0\/postings\/([^/]+)(?:\/([^/]+))?/i);
+    if (!apiMatch) return null;
+    const slug = decodeSlug(apiMatch[1]);
+    const postingId = apiMatch[2];
+    const isSingleJob = Boolean(postingId && /^[a-f0-9-]{8,}$/i.test(postingId));
     return {
       provider: "lever",
       boardSlug: slug,
-      boardUrl: `https://jobs.lever.co/${slug}`,
-      isSingleJob: false,
+      boardUrl: isSingleJob ? `${url.origin}${url.pathname}`.replace(/\/+$/, "") : `https://jobs.lever.co/${slug}`,
+      isSingleJob,
     };
   }
 
-  const ashbyApi = trimmed.match(/api\.ashbyhq\.com\/posting-api\/job-board\/([^/?#]+)/i);
-  if (ashbyApi) {
-    const slug = ashbyApi[1];
+  if (!/^jobs(?:\.[a-z0-9-]+)?\.lever\.co$/i.test(hostname)) return null;
+  const segments = url.pathname.split("/").filter(Boolean);
+  const slug = segments[0] ? decodeSlug(segments[0]) : "";
+  if (!slug) return null;
+  const postingId = segments[1];
+  const isSingleJob = Boolean(postingId && /^[a-f0-9-]{8,}$/i.test(postingId));
+  return {
+    provider: "lever",
+    boardSlug: slug,
+    boardUrl: isSingleJob
+      ? `${url.origin}${url.pathname}`.replace(/\/+$/, "")
+      : `https://jobs.lever.co/${slug}`,
+    isSingleJob,
+  };
+}
+
+function parseAshby(url: URL, hostname: string): ParsedBoardUrl | null {
+  if (/^api\.ashbyhq\.com$/i.test(hostname)) {
+    const apiMatch = url.pathname.match(/\/posting-api\/job-board\/([^/]+)/i);
+    if (!apiMatch) return null;
+    const slug = decodeSlug(apiMatch[1]);
     return {
       provider: "ashby",
       boardSlug: slug,
@@ -149,38 +204,44 @@ export function parseBoardUrl(input: string): ParsedBoardUrl | null {
     };
   }
 
-  const ashbyJob = trimmed.match(/jobs\.ashbyhq\.com\/([^/?#]+)\/([a-f0-9-]+)/i);
-  if (ashbyJob) {
-    return {
-      provider: "ashby",
-      boardSlug: ashbyJob[1],
-      boardUrl: trimmed,
-      isSingleJob: true,
-    };
-  }
+  if (!/^jobs\.ashbyhq\.com$/i.test(hostname)) return null;
+  const segments = url.pathname.split("/").filter(Boolean);
+  const slug = segments[0] ? decodeSlug(segments[0]) : "";
+  if (!slug || slug.toLowerCase() === "embed") return null;
+  const postingId = segments[1];
+  const isSingleJob = Boolean(
+    postingId && postingId.toLowerCase() !== "embed" && /^[a-f0-9-]{8,}$/i.test(postingId)
+  );
+  return {
+    provider: "ashby",
+    boardSlug: slug,
+    boardUrl: isSingleJob
+      ? `${url.origin}${url.pathname}`.replace(/\/+$/, "")
+      : `https://jobs.ashbyhq.com/${slug}`,
+    isSingleJob,
+  };
+}
 
-  const ashbyBoard = trimmed.match(/jobs\.ashbyhq\.com\/([^/?#]+)/i);
-  if (ashbyBoard) {
-    const slug = ashbyBoard[1];
-    return {
-      provider: "ashby",
-      boardSlug: slug,
-      boardUrl: `https://jobs.ashbyhq.com/${slug}`,
-      isSingleJob: false,
-    };
-  }
+export function parseBoardUrl(input: string): ParsedBoardUrl | null {
+  const url = tryParseHttpUrl(input);
+  if (!url) return null;
+  const hostname = hostnameWithoutWww(url);
 
-  const workday = parseWorkdayUrl(trimmed);
-  if (workday) {
-    return {
-      provider: "workday",
-      boardSlug: workday.boardSlug,
-      boardUrl: workday.boardUrl,
-      isSingleJob: workday.isSingleJob,
-    };
-  }
-
-  return null;
+  return (
+    parseGreenhouse(url, hostname) ??
+    parseLever(url, hostname) ??
+    parseAshby(url, hostname) ??
+    (() => {
+      const workday = parseWorkdayUrl(url.toString());
+      if (!workday) return null;
+      return {
+        provider: "workday" as const,
+        boardSlug: workday.boardSlug,
+        boardUrl: workday.boardUrl,
+        isSingleJob: workday.isSingleJob,
+      };
+    })()
+  );
 }
 
 export function normalizeBoardUrl(

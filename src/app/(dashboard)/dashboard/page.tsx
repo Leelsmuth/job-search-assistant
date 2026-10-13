@@ -4,10 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GettingStartedCard } from "@/components/dashboard/getting-started-card";
 
 export default async function DashboardPage() {
-  const [stats, progress] = await Promise.all([
-    getDashboardStats(),
-    getGettingStartedProgress(),
-  ]);
+  const stats = await getDashboardStats();
+  const progress = await getGettingStartedProgress();
 
   const cards = [
     {

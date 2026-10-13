@@ -9,6 +9,7 @@ import {
 } from "./types";
 import { requirementsToStructured } from "./extract-requirements";
 import { hashJobDescription } from "./description-hash";
+import { clampJobForImport } from "./clamp-import-job";
 import { classifyLocationEligibility } from "@/modules/location/eligibility";
 import { scoreFrontendFit } from "@/modules/matching/frontend-fit";
 
@@ -60,7 +61,7 @@ export async function persistDiscoveredJob(
   normalized: NormalizedJob,
   meta: JobImportMeta
 ): Promise<{ jobId: string; isNew: boolean; contentUnchanged?: boolean }> {
-  const validatedJob = confirmJobImportSchema.parse(normalized);
+  const validatedJob = confirmJobImportSchema.parse(clampJobForImport(normalized));
   const validatedMeta = jobImportMetaSchema.parse(meta);
 
   if (
