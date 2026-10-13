@@ -19,6 +19,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { useKeyedPending } from "@/components/layout/action-pending-provider";
+import { SearchPreferencesForm } from "./search-preferences-form";
+import type { SearchPreferences } from "@/modules/matching/search-preferences";
 
 type BoardProvider = "greenhouse" | "lever" | "ashby" | "workday";
 
@@ -48,7 +50,13 @@ function formatLastPolled(lastPolledAt: Date | null) {
   return `${days}d ago`;
 }
 
-export function SettingsClient({ initialBoards }: { initialBoards: Board[] }) {
+export function SettingsClient({
+  initialBoards,
+  preferences,
+}: {
+  initialBoards: Board[];
+  preferences: SearchPreferences;
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const { run, isKeyPending } = useKeyedPending();
@@ -88,6 +96,8 @@ export function SettingsClient({ initialBoards }: { initialBoards: Board[] }) {
           <Link href="/discovery">Browse company catalog</Link>
         </Button>
       </div>
+
+      <SearchPreferencesForm initial={preferences} />
 
       <Card>
         <CardHeader>

@@ -31,6 +31,7 @@ import {
   aiRuns,
   savedBoards,
   boardPollRuns,
+  searchPreferences,
 } from "@/db/schema";
 import { getUser } from "@/lib/supabase/server";
 import { previewJobImport, persistDiscoveredJob, normalizeBoardUrl } from "@/modules/ingestion";
@@ -51,6 +52,15 @@ import { mapParsedResumeToProfile } from "@/modules/resumes/map/candidate-profil
 import * as resumeActions from "@/server/actions/resume-actions";
 import type { ParsedResume } from "@/modules/resumes/schema/resume-schema";
 import { fetchJobsFeed, countAllUserJobs, type JobsFeedFilters } from "@/modules/jobs/jobs-feed-service";
+import { classifyLocationEligibility } from "@/modules/location/eligibility";
+import { scoreFrontendFit } from "@/modules/matching/frontend-fit";
+import { maybeEnhanceFrontendFit } from "@/modules/matching/frontend-fit-llm";
+import { loadSearchPreferences } from "@/modules/matching/load-search-preferences";
+import {
+  normalizeSearchPreferences,
+  type SearchPreferenceInput,
+  type SearchPreferences,
+} from "@/modules/matching/search-preferences";
 import type { JobsFeedCursor } from "@/modules/jobs/job-list-item";
 import { measureOperation, estimatePayloadBytes } from "@/lib/performance/measure-operation";
 import { runWithPerfContextAsync } from "@/lib/performance/request-context";
@@ -295,6 +305,115 @@ export async function getJobsFeedCounts() {
   }));
 }
 
+export async function getSearchPreferences(): Promise<SearchPreferences> {
+  const user = await requireUser();
+  return withUserDb(user.id, (db) => loadSearchPreferences(db, user.id));
+}
+
+export async function saveSearchPreferences(input: SearchPreferenceInput): Promise<SearchPreferences> {
+  const user = await requireUser();
+  const prefs = normalizeSearchPreferences(input);
+  await withUserDb(user.id, async (db) => {
+    const values = {
+      targetTitles: prefs.targetTitles,
+      preferredSeniority: prefs.preferredSeniority,
+      minimumSalaryCad: prefs.minimumSalaryCad,
+      includeHybridGta: prefs.includeHybridGta,
+      includeOnsiteGta: prefs.includeOnsiteGta,
+      showRemoteOther: prefs.showRemoteOther,
+      showOutOfArea: prefs.showOutOfArea,
+      discoverCuratedBoards: prefs.discoverCuratedBoards,
+      gtaCities: prefs.gtaCities,
+      updatedAt: new Date(),
+    };
+    await db
+      .insert(searchPreferences)
+      .values({ userId: user.id, ...values })
+      .onConflictDoUpdate({
+        target: searchPreferences.userId,
+        set: values,
+      });
+    await reclassifyUserJobs(db, user.id, prefs);
+  });
+  revalidatePath("/settings");
+  revalidatePath("/jobs");
+  return prefs;
+}
+
+async function reclassifyUserJobs(db: Db, userId: string, prefs: SearchPreferences) {
+  const rows = await db.query.jobs.findMany({
+    where: eq(jobs.userId, userId),
+    columns: {
+      id: true,
+      title: true,
+      location: true,
+      workplaceType: true,
+      description: true,
+      technologies: true,
+      salaryMin: true,
+      salaryMax: true,
+      salaryCurrency: true,
+    },
+  });
+
+  for (const row of rows) {
+    const eligibility = classifyLocationEligibility(row, { gtaCities: prefs.gtaCities });
+    const fit = scoreFrontendFit(
+      {
+        title: row.title,
+        description: row.description,
+        technologies: row.technologies,
+        salaryMin: row.salaryMin,
+        salaryMax: row.salaryMax,
+        salaryCurrency: row.salaryCurrency,
+      },
+      {
+        targetTitles: prefs.targetTitles,
+        preferredSeniority: prefs.preferredSeniority,
+        minimumSalaryCad: prefs.minimumSalaryCad,
+      }
+    );
+    await db
+      .update(jobs)
+      .set({
+        locationEligibility: eligibility.class,
+        locationFlags: eligibility.flags,
+        frontendFitScore: fit.score,
+        frontendFitReasons: fit.reasons,
+        updatedAt: new Date(),
+      })
+      .where(eq(jobs.id, row.id));
+  }
+}
+
+export async function enhanceFrontendFitAction(jobId: string) {
+  const user = await requireUser();
+  return withUserDb(user.id, async (db) => {
+    const job = await requireOwnedJob(db, user.id, jobId);
+    const prefs = await loadSearchPreferences(db, user.id);
+    const profile = await db.query.candidateProfiles.findFirst({
+      where: eq(candidateProfiles.userId, user.id),
+      with: { skills: true },
+    });
+    return maybeEnhanceFrontendFit(
+      {
+        title: job.title,
+        description: job.description,
+        technologies: job.technologies,
+        salaryMin: job.salaryMin,
+        salaryMax: job.salaryMax,
+        salaryCurrency: job.salaryCurrency,
+      },
+      {
+        skills: profile?.skills.map((skill) => skill.name) ?? [],
+        targetTitles: prefs.targetTitles,
+        preferredSeniority: prefs.preferredSeniority,
+        minimumSalaryCad: prefs.minimumSalaryCad,
+      }
+    );
+  });
+}
+
 import type { JobWithRelations } from "@/modules/jobs/types";
 
 export async function getJobDetail(jobId: string): Promise<JobWithRelations | undefined> {
@@ -352,6 +471,30 @@ export async function getJobDetailPageData(jobId: string) {
 
       if (!job) return null;
 
+      const prefs = await loadSearchPreferences(db, user.id);
+      const profile = await db.query.candidateProfiles.findFirst({
+        where: eq(candidateProfiles.userId, user.id),
+        with: { skills: true },
+      });
+      const frontendFit = scoreFrontendFit(
+        {
+          title: job.title,
+          description: job.description,
+          technologies: job.technologies,
+          requirements: job.requirements,
+          salaryMin: job.salaryMin,
+          salaryMax: job.salaryMax,
+          salaryCurrency: job.salaryCurrency,
+        },
+        {
+          skills: profile?.skills.map((skill) => skill.name) ?? [],
+          targetTitles: prefs.targetTitles,
+          preferredSeniority: prefs.preferredSeniority,
+          minimumSalaryCad: prefs.minimumSalaryCad ?? profile?.minimumSalary,
+        }
+      );
+      const location = classifyLocationEligibility(job, { gtaCities: prefs.gtaCities });
+
       const [application, profileUpdatedAt, matchHistory] = await Promise.all([
         getApplicationForJob(db, user.id, jobId),
         getProfileUpdatedAt(db, user.id),
@@ -374,6 +517,8 @@ export async function getJobDetailPageData(jobId: string) {
         application,
         profileUpdatedAt,
         matchHistory,
+        frontendFit,
+        location,
       };
 
       return {

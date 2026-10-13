@@ -47,6 +47,42 @@ describe("shouldImportDiscoveredJob", () => {
     ).toBe(false);
   });
 
+  it("blocks US-only remote roles unless the view opts in", () => {
+    const job = {
+      ...baseJob,
+      location: "Remote (US only)",
+      description: "Must be authorized to work in the United States.",
+    };
+    expect(shouldImportDiscoveredJob(job).import).toBe(false);
+    expect(
+      shouldImportDiscoveredJob(job, undefined, {
+        includeHybridGta: true,
+        includeOnsiteGta: true,
+        showRemoteOther: true,
+        showOutOfArea: false,
+      }).import
+    ).toBe(true);
+  });
+
+  it("allows GTA hybrid roles and blocks hybrid roles outside the GTA", () => {
+    expect(
+      shouldImportDiscoveredJob({
+        ...baseJob,
+        location: "Toronto, ON",
+        workplaceType: "hybrid",
+        description: "Hybrid in Toronto.",
+      }).import
+    ).toBe(true);
+    expect(
+      shouldImportDiscoveredJob({
+        ...baseJob,
+        location: "Vancouver, BC",
+        workplaceType: "hybrid",
+        description: "Hybrid in Vancouver.",
+      }).import
+    ).toBe(false);
+  });
+
   it("allows staff frontend engineer titles", () => {
     expect(
       shouldImportDiscoveredJob({

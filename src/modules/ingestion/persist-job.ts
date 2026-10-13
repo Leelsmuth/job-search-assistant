@@ -9,6 +9,8 @@ import {
 } from "./types";
 import { requirementsToStructured } from "./extract-requirements";
 import { hashJobDescription } from "./description-hash";
+import { classifyLocationEligibility } from "@/modules/location/eligibility";
+import { scoreFrontendFit } from "@/modules/matching/frontend-fit";
 
 export type JobImportMeta = {
   provider: string;
@@ -74,6 +76,25 @@ export async function persistDiscoveredJob(
   });
 
   const nextHash = hashJobDescription(validatedJob.description);
+  const eligibility = classifyLocationEligibility({
+    location: validatedJob.location,
+    workplaceType: validatedJob.workplaceType,
+    description: validatedJob.description,
+  });
+  const fit = scoreFrontendFit({
+    title: validatedJob.title,
+    description: validatedJob.description,
+    technologies: validatedJob.technologies,
+    salaryMin: validatedJob.salaryMin,
+    salaryMax: validatedJob.salaryMax,
+    salaryCurrency: validatedJob.salaryCurrency,
+  });
+  const fitSnapshot = {
+    locationEligibility: eligibility.class,
+    locationFlags: eligibility.flags,
+    frontendFitScore: fit.score,
+    frontendFitReasons: fit.reasons,
+  };
 
   if (existing) {
     if (existing.descriptionHash === nextHash) {
@@ -92,6 +113,7 @@ export async function persistDiscoveredJob(
         description: validatedJob.description,
         descriptionHash: nextHash,
         matchPipelineStatus: "match_pending",
+        ...fitSnapshot,
         updatedAt: new Date(),
       })
       .where(eq(jobs.id, existing.id));
@@ -156,6 +178,7 @@ export async function persistDiscoveredJob(
       discoveredBoardUrl: validatedMeta.boardUrl,
       descriptionHash: nextHash,
       matchPipelineStatus: "match_pending",
+      ...fitSnapshot,
     })
     .returning();
 

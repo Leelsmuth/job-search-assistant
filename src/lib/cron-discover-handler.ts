@@ -6,11 +6,13 @@ import {
 } from "@/lib/cron-discover";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { getDb } from "@/db/client";
-import { savedBoards } from "@/db/schema";
+import { savedBoards, searchPreferences } from "@/db/schema";
 import { withUserDb } from "@/db/user-context";
+import { pickCuratedBoards } from "@/modules/discovery/curated-boards";
 import {
   aggregateDiscoverStats,
   pollBoardsForUser,
+  pollCuratedBoardsForUser,
 } from "@/modules/discovery/poll-board";
 import { processMatchQueue } from "@/modules/matching/match-queue";
 import type { JobSourceProvider } from "@/modules/ingestion/types";
@@ -43,6 +45,18 @@ export async function runCronDiscoverPoll() {
     const boards = pickLeastRecentlyPolledBoards(activeBoards, CRON_MAX_BOARDS_PER_RUN);
 
     const byUser = groupBoardsByUser(boards);
+    let curatedUserIds: string[] = [];
+    try {
+      const optedIn = await db.query.searchPreferences.findMany({
+        where: eq(searchPreferences.discoverCuratedBoards, true),
+        columns: { userId: true },
+      });
+      curatedUserIds = optedIn.map((row) => row.userId);
+    } catch (error) {
+      console.error("[cron] curated discovery skipped; search preferences unavailable", error);
+    }
+
+    const userIds = new Set<string>([...byUser.keys(), ...curatedUserIds]);
     const allResults: Array<{ status: "success" | "error" }> = [];
     const totals = {
       newJobs: 0,
@@ -54,24 +68,50 @@ export async function runCronDiscoverPoll() {
     };
     const caps = { remainingNewJobs: CRON_MAX_NEW_JOBS_PER_RUN };
 
-    for (const [userId, userBoards] of byUser) {
+    for (const userId of userIds) {
       if (caps.remainingNewJobs <= 0) break;
 
-      const { results, stats } = await withUserDb(userId, (userDb) =>
-        pollBoardsForUser(userDb, userId, userBoards, caps)
-      );
+      const userBoards = byUser.get(userId) ?? [];
+      let queuedForMatch = 0;
 
-      const matchStats = await withUserDb(userId, (userDb) =>
-        processMatchQueue(userDb, userId, {
-          limit: stats.queuedForMatch || CRON_MAX_NEW_JOBS_PER_RUN,
-        })
-      );
+      if (userBoards.length > 0) {
+        const { results, stats } = await withUserDb(userId, (userDb) =>
+          pollBoardsForUser(userDb, userId, userBoards, caps)
+        );
+        allResults.push(...results);
+        totals.newJobs += stats.newJobs;
+        totals.skipped += stats.skipped;
+        totals.filtered += stats.filtered;
+        queuedForMatch += stats.queuedForMatch;
+      }
 
-      allResults.push(...results);
-      totals.newJobs += stats.newJobs;
-      totals.skipped += stats.skipped;
-      totals.matched += matchStats.processed;
-      totals.filtered += stats.filtered;
+      if (curatedUserIds.includes(userId) && caps.remainingNewJobs > 0) {
+        const curated = await withUserDb(userId, async (userDb) => {
+          const saved = await userDb.query.savedBoards.findMany({
+            where: eq(savedBoards.userId, userId),
+            columns: { boardUrl: true },
+          });
+          const picks = pickCuratedBoards(saved.map((row) => row.boardUrl));
+          if (picks.length === 0) {
+            return { results: [], stats: { newJobs: 0, skipped: 0, updated: 0, queuedForMatch: 0, filtered: 0 } };
+          }
+          return pollCuratedBoardsForUser(userDb, userId, picks, caps);
+        });
+        allResults.push(...curated.results);
+        totals.newJobs += curated.stats.newJobs;
+        totals.skipped += curated.stats.skipped;
+        totals.filtered += curated.stats.filtered;
+        queuedForMatch += curated.stats.queuedForMatch;
+      }
+
+      if (queuedForMatch > 0) {
+        const matchStats = await withUserDb(userId, (userDb) =>
+          processMatchQueue(userDb, userId, {
+            limit: queuedForMatch || CRON_MAX_NEW_JOBS_PER_RUN,
+          })
+        );
+        totals.matched += matchStats.processed;
+      }
     }
 
     return aggregateDiscoverStats(allResults, totals);

@@ -1,5 +1,10 @@
 import type { NormalizedJob } from "@/modules/ingestion/types";
 import type { CandidateProfile } from "@/modules/matching/engine";
+import {
+  classifyLocationEligibility,
+  isLocationVisible,
+  type LocationVisibility,
+} from "@/modules/location/eligibility";
 
 const BLOCKED_TITLE_PATTERNS = [
   /\b(sales|account executive|business development|recruiter|talent acquisition)\b/i,
@@ -18,17 +23,6 @@ const ALLOWED_TITLE_PATTERNS = [
   /\b(react|typescript|javascript|node)\b/i,
 ];
 
-const CANADA_LOCATION_PATTERNS = [
-  /\bcanada\b/i,
-  /\btoronto\b/i,
-  /\bvancouver\b/i,
-  /\bmontreal\b/i,
-  /\bottawa\b/i,
-  /\bcalgary\b/i,
-  /\bremote\b.*\bcanada\b/i,
-  /\bcanada\b.*\bremote\b/i,
-];
-
 function titleMatchesProfile(title: string, profile?: CandidateProfile): boolean {
   const lower = title.toLowerCase();
   if (BLOCKED_TITLE_PATTERNS.some((p) => p.test(lower))) return false;
@@ -40,39 +34,25 @@ function titleMatchesProfile(title: string, profile?: CandidateProfile): boolean
   return ALLOWED_TITLE_PATTERNS.some((p) => p.test(lower));
 }
 
-function locationMatchesProfile(
-  job: NormalizedJob,
-  profile?: CandidateProfile
-): boolean {
-  const locationText = `${job.location ?? ""} ${job.description.slice(0, 500)}`.toLowerCase();
-  const isRemote =
-    job.workplaceType === "remote" || /\bremote\b/i.test(locationText);
-  const isCanada = CANADA_LOCATION_PATTERNS.some((p) => p.test(locationText));
-
-  if (profile?.remotePreference === "remote" && isRemote) return true;
-  if (profile?.preferredLocations?.length) {
-    const preferred = profile.preferredLocations.map((l) => l.toLowerCase());
-    if (preferred.some((p) => locationText.includes(p))) return true;
-  }
-  if (profile?.location?.toLowerCase().includes("canada") && (isCanada || isRemote)) {
-    return true;
-  }
-
-  if (isCanada || isRemote) return true;
-
-  if (job.workplaceType === "hybrid" && isCanada) return true;
-
-  return false;
-}
+const DEFAULT_VISIBILITY: LocationVisibility = {
+  includeHybridGta: true,
+  includeOnsiteGta: true,
+  showRemoteOther: false,
+  showOutOfArea: false,
+};
 
 export function shouldImportDiscoveredJob(
   job: NormalizedJob,
-  profile?: CandidateProfile
+  profile?: CandidateProfile,
+  visibility: LocationVisibility = DEFAULT_VISIBILITY,
+  gtaCities?: string[]
 ): { import: boolean; reason?: string } {
   if (!titleMatchesProfile(job.title, profile)) {
     return { import: false, reason: "title_mismatch" };
   }
-  if (!locationMatchesProfile(job, profile)) {
+
+  const eligibility = classifyLocationEligibility(job, { gtaCities });
+  if (!isLocationVisible(eligibility.class, visibility)) {
     return { import: false, reason: "location_mismatch" };
   }
   return { import: true };

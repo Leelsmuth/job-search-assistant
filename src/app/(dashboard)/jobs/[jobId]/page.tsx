@@ -18,6 +18,8 @@ import { LazyTailoringPanel } from "./lazy-tailoring-panel";
 import { LazyApplicationQAPanel } from "./lazy-application-qa-panel";
 import { MatchTabActions } from "./match-tab-actions";
 import { MatchHistoryPanel } from "@/components/jobs/match-history-panel";
+import { FrontendFitCard } from "@/components/jobs/frontend-fit-card";
+import { isOpenAiConfigured } from "@/lib/env";
 
 function MatchGroupSection({
   title,
@@ -60,7 +62,7 @@ export default async function JobDetailPage({
   const pageData = await getJobDetailPageData(jobId);
   if (!pageData) notFound();
 
-  const { job, application, profileUpdatedAt, matchHistory } = pageData;
+  const { job, application, profileUpdatedAt, matchHistory, frontendFit, location } = pageData;
 
   const match = job.matchAnalyses[0];
   const classification = match?.classification as MatchClassification | undefined;
@@ -117,6 +119,13 @@ export default async function JobDetailPage({
           ) : null}
         </div>
       </div>
+
+      <FrontendFitCard
+        jobId={job.id}
+        fit={frontendFit}
+        location={location}
+        aiAvailable={isOpenAiConfigured()}
+      />
 
       <JobActions
         jobId={job.id}
