@@ -40,6 +40,7 @@ export const jobSourceProviderEnum = pgEnum("job_source_provider", [
   "greenhouse",
   "lever",
   "ashby",
+  "workday",
   "generic_web",
 ]);
 

@@ -274,7 +274,7 @@ export async function rematchJobAction(jobId: string) {
   const user = await requireUser();
   const result = await withUserDb(user.id, async (db) => {
     await requireOwnedJob(db, user.id, jobId);
-    return runAndSaveMatchAnalysisDb(db, user.id, jobId);
+    return runAndSaveMatchAnalysisDb(db, user.id, jobId, undefined, { force: true });
   });
   revalidatePath(`/jobs/${jobId}`);
   revalidatePath("/jobs");
@@ -1124,7 +1124,7 @@ export async function getSavedBoardsWithHealth() {
 export async function addSavedBoard(data: {
   companyName: string;
   boardUrl: string;
-  provider: "greenhouse" | "lever" | "ashby";
+  provider: "greenhouse" | "lever" | "ashby" | "workday";
 }) {
   const user = await requireUser();
   const parsed = normalizeBoardUrl(data.boardUrl.trim(), data.provider);
@@ -1156,7 +1156,7 @@ export async function deleteSavedBoard(boardId: string) {
 
 export async function updateSavedBoard(
   boardId: string,
-  data: { isActive?: boolean; companyName?: string; boardUrl?: string; provider?: "greenhouse" | "lever" | "ashby" }
+  data: { isActive?: boolean; companyName?: string; boardUrl?: string; provider?: "greenhouse" | "lever" | "ashby" | "workday" }
 ) {
   const user = await requireUser();
   return withUserDb(user.id, async (db) => {

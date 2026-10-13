@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { useKeyedPending } from "@/components/layout/action-pending-provider";
 
-type BoardProvider = "greenhouse" | "lever" | "ashby";
+type BoardProvider = "greenhouse" | "lever" | "ashby" | "workday";
 
 type Board = {
   id: string;
@@ -67,7 +67,7 @@ export function SettingsClient({ initialBoards }: { initialBoards: Board[] }) {
     const timer = setTimeout(() => {
       detectBoardProviderAction(trimmed)
         .then((result) => {
-          if (["greenhouse", "lever", "ashby"].includes(result.provider)) {
+          if (["greenhouse", "lever", "ashby", "workday"].includes(result.provider)) {
             setProvider(result.provider as BoardProvider);
             setDetectHint(result.reason);
           } else {
@@ -262,6 +262,7 @@ export function SettingsClient({ initialBoards }: { initialBoards: Board[] }) {
               <option value="greenhouse">Greenhouse</option>
               <option value="lever">Lever</option>
               <option value="ashby">Ashby</option>
+              <option value="workday">Workday</option>
             </select>
           </div>
           <Button

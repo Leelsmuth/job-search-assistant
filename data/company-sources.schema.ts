@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const atsProviderSchema = z.enum(["greenhouse", "lever", "ashby"]);
+export const atsProviderSchema = z.enum(["greenhouse", "lever", "ashby", "workday"]);
 
 export const verificationStatusSchema = z.enum([
   "verified",

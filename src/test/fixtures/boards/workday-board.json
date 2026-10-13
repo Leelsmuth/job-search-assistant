@@ -1,0 +1,18 @@
+{
+  "jobs": [
+    {
+      "title": "Senior Frontend Engineer",
+      "externalPath": "/job/Toronto/Senior-Frontend-Engineer_JR111",
+      "locationsText": "Toronto, Canada",
+      "postedOn": "Posted Today",
+      "bulletFields": ["JR111"]
+    },
+    {
+      "title": "DevOps Engineer",
+      "externalPath": "/job/Remote/DevOps-Engineer_JR222",
+      "locationsText": "Remote",
+      "postedOn": "Posted Yesterday",
+      "bulletFields": ["JR222"]
+    }
+  ]
+}

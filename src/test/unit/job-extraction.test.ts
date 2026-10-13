@@ -46,6 +46,26 @@ describe("job requirement extraction spike", () => {
     });
   });
 
+  it("does not treat trust, JavaScript, or going as Rust, Java, or Go", () => {
+    const techs = extractTechnologies(
+      "We are a trusted team. Strong JavaScript skills. We are going to ship Next.js."
+    );
+    expect(techs).not.toContain("rust");
+    expect(techs).not.toContain("java");
+    expect(techs).not.toContain("go");
+    expect(techs).toContain("javascript");
+    expect(techs).toContain("next.js");
+  });
+
+  it("recognizes Rust, Java, Go, and Golang as their own words", () => {
+    expect(extractTechnologies("Experience with Rust, Java, and Go.")).toEqual(
+      expect.arrayContaining(["rust", "java", "go"])
+    );
+    expect(extractTechnologies("Backend work in Golang and k8s.")).toEqual(
+      expect.arrayContaining(["go", "kubernetes"])
+    );
+  });
+
   it("identifies Java/K8s/AWS in fullstack fixture", () => {
     const fixture = fixtures.find((f) => f.id === "fullstack-java-kubernetes");
     const description = [

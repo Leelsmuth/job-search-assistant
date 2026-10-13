@@ -9,6 +9,7 @@ import { htmlToPlainText, extractTitleFromHtml, decodeHtmlEntities, sanitizeJobT
 import { greenhouseAdapter } from "./greenhouse";
 import { leverAdapter } from "./lever";
 import { ashbyAdapter } from "./ashby";
+import { workdayAdapter } from "./workday";
 import type { JobSourceProvider } from "./types";
 
 export const manualDescriptionAdapter: JobSourceAdapter = {
@@ -153,6 +154,7 @@ export const allAdapters: JobSourceAdapter[] = [
   greenhouseAdapter,
   leverAdapter,
   ashbyAdapter,
+  workdayAdapter,
   manualDescriptionAdapter,
   genericUrlAdapter,
 ];

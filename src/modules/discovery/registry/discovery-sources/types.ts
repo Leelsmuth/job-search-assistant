@@ -1,6 +1,8 @@
+import type { AtsProvider } from "../../../../../data/company-sources.schema";
+
 export type DiscoveredCompanyCandidate = {
   companyName?: string;
-  atsProvider: "greenhouse" | "lever" | "ashby";
+  atsProvider: AtsProvider;
   boardSlug: string;
   boardUrl?: string;
   companyWebsite?: string;

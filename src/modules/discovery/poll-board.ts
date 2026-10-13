@@ -8,6 +8,7 @@ import {
 } from "@/modules/ingestion/adapters";
 import type { JobSourceProvider } from "@/modules/ingestion/types";
 import { normalizeBoardJobs } from "@/modules/ingestion/board-normalize";
+import { fetchWorkdayJobDetail } from "@/modules/ingestion/workday";
 import { persistDiscoveredJob } from "@/modules/ingestion/persist-job";
 import { shouldImportDiscoveredJob } from "@/modules/discovery/pre-import-filter";
 import type { CandidateProfile } from "@/modules/matching/engine";
@@ -98,13 +99,16 @@ export async function pollSavedBoard(
           continue;
         }
 
+        const jobToPersist =
+          board.provider === "workday" ? await fetchWorkdayJobDetail(job) : job;
+
         const result = await measureOperation(
           "ingestion.persistDiscoveredJob",
           () =>
-            persistDiscoveredJob(db, userId, job, {
+            persistDiscoveredJob(db, userId, jobToPersist, {
               provider: board.provider,
-              sourceUrl: job.jobUrl || parsed.boardUrl,
-              sourceJobId: job.sourceJobId,
+              sourceUrl: jobToPersist.jobUrl || parsed.boardUrl,
+              sourceJobId: jobToPersist.sourceJobId,
               boardUrl: parsed.boardUrl,
             }),
           { source: "ingestion" }

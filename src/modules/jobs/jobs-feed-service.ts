@@ -13,7 +13,7 @@ import {
 import { estimatePayloadBytes } from "@/lib/performance/measure-operation";
 import { measureOperation } from "@/lib/performance/measure-operation";
 
-const DISCOVERY_PROVIDERS = new Set(["greenhouse", "lever", "ashby"]);
+const DISCOVERY_PROVIDERS = new Set(["greenhouse", "lever", "ashby", "workday"]);
 
 export type JobsFeedFilters = {
   minScore?: number;

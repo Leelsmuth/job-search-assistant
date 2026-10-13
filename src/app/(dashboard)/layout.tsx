@@ -1,12 +1,21 @@
+import { Suspense } from "react";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
-import { getUser } from "@/lib/supabase/server";
+import { DashboardUserEmail } from "@/components/layout/dashboard-user-email";
 
-export default async function DashboardLayout({
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getUser();
-
-  return <DashboardShell email={user?.email}>{children}</DashboardShell>;
+  return (
+    <DashboardShell
+      email={
+        <Suspense fallback={null}>
+          <DashboardUserEmail />
+        </Suspense>
+      }
+    >
+      {children}
+    </DashboardShell>
+  );
 }

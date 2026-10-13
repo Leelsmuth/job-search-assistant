@@ -24,15 +24,17 @@ export function JobActions({
   const { isPending, run } = usePendingTransition();
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-2 [&_button]:min-h-10">
       <ApplyLink
         jobId={jobId}
         jobUrl={jobUrl}
         size="default"
+        className="min-h-10 flex-1 sm:flex-none"
         isAlreadyApplied={isAlreadyApplied}
       />
       <Button
         variant={isSaved ? "secondary" : "outline"}
+        className="min-h-10 flex-1 sm:flex-none"
         loading={isPending}
         onClick={() =>
           run(async () => {
@@ -57,6 +59,7 @@ export function JobActions({
         redirectTo="/jobs"
         size="default"
         showLabel
+        className="min-h-10 flex-1 sm:flex-none"
       />
     </div>
   );

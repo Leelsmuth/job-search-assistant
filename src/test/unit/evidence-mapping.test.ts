@@ -78,6 +78,45 @@ describe("evidence mapping spike — gaps must stay gaps", () => {
     expect(result.classification).toBe("poor");
   });
 
+  it("does not report a Rust gap when the posting only says trust", () => {
+    const result = runMatchAnalysis(profile, {
+      title: "Frontend Engineer",
+      description: "Join a trusted team building React products.",
+      requirements: [
+        {
+          id: "false-rust",
+          requirementType: "skill",
+          text: "Experience with rust",
+          normalizedSkill: "rust",
+          importance: "required",
+          isHardRequirement: false,
+        },
+      ],
+    });
+
+    expect(result.gaps.join(" ").toLowerCase()).not.toContain("rust");
+    expect(result.requirementMatches).toHaveLength(0);
+  });
+
+  it("still reports a Rust gap when the posting names Rust", () => {
+    const result = runMatchAnalysis(profile, {
+      title: "Systems Engineer",
+      description: "Build services in Rust.",
+      requirements: [
+        {
+          id: "real-rust",
+          requirementType: "skill",
+          text: "Experience with rust",
+          normalizedSkill: "rust",
+          importance: "required",
+          isHardRequirement: false,
+        },
+      ],
+    });
+
+    expect(result.gaps.join(" ").toLowerCase()).toContain("no evidence of rust");
+  });
+
   it("shows AWS as gap or missing_evidence, not confirmed", () => {
     const fixture = fixtures.find((f) => f.id === "senior-frontend-possible-aws-gap")!;
     const result = matchFixture(fixture);

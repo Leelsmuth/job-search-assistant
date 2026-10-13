@@ -11,6 +11,7 @@ export {
 export { greenhouseAdapter } from "./greenhouse";
 export { leverAdapter } from "./lever";
 export { ashbyAdapter } from "./ashby";
+export { workdayAdapter, fetchWorkdayJobDetail } from "./workday";
 export * from "./board-normalize";
 export * from "./board-url";
 export * from "./persist-job";

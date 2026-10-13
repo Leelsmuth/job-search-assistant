@@ -38,10 +38,44 @@ describe("board-url", () => {
     expect(result.boardSlug).toBe("notion");
   });
 
+  it("normalizes a Workday board and drops the locale prefix", () => {
+    const result = normalizeBoardUrl(
+      "https://nvidia.wd5.myworkdayjobs.com/en-US/NVIDIAExternalCareerSite/"
+    );
+    expect(result.provider).toBe("workday");
+    expect(result.boardSlug).toBe("wd5/nvidia/NVIDIAExternalCareerSite");
+    expect(result.boardUrl).toBe(
+      "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite"
+    );
+    expect(result.isSingleJob).toBe(false);
+  });
+
+  it("lowercases the Workday cluster in the slug", () => {
+    const result = normalizeBoardUrl("https://acme.WD5.myworkdayjobs.com/External");
+    expect(result.boardSlug).toBe("wd5/acme/External");
+    expect(result.boardUrl).toBe("https://acme.wd5.myworkdayjobs.com/External");
+  });
+
+  it("rejects a Workday single job URL for board polling", () => {
+    expect(() =>
+      normalizeBoardUrl(
+        "https://nvidia.wd5.myworkdayjobs.com/en-US/NVIDIAExternalCareerSite/job/Toronto/Software-Engineer_JR123"
+      )
+    ).toThrow(/single job/i);
+  });
+
   it("detects single job URLs", () => {
     expect(isSingleJobBoardUrl("https://jobs.lever.co/acme/abc-123-def")).toBe(true);
     expect(isSingleJobBoardUrl("https://boards.greenhouse.io/acme/jobs/99")).toBe(true);
     expect(isSingleJobBoardUrl("https://boards.greenhouse.io/acme")).toBe(false);
+    expect(
+      isSingleJobBoardUrl(
+        "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite/job/Toronto/Engineer_JR1"
+      )
+    ).toBe(true);
+    expect(
+      isSingleJobBoardUrl("https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite")
+    ).toBe(false);
   });
 
   it("parseBoardUrl returns null for unknown URLs", () => {

@@ -43,6 +43,7 @@ describe("confirmJobImportSchema", () => {
 describe("jobImportMetaSchema", () => {
   it("accepts known providers", () => {
     expect(jobImportMetaSchema.parse({ provider: "greenhouse" }).provider).toBe("greenhouse");
+    expect(jobImportMetaSchema.parse({ provider: "workday" }).provider).toBe("workday");
   });
 
   it("rejects unknown providers", () => {

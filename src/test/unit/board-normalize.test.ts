@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import greenhouseBoard from "@/test/fixtures/boards/greenhouse-board.json";
 import leverBoard from "@/test/fixtures/boards/lever-board.json";
 import ashbyBoard from "@/test/fixtures/boards/ashby-board.json";
+import workdayBoard from "@/test/fixtures/boards/workday-board.json";
 import { normalizeBoardJobs } from "@/modules/ingestion/board-normalize";
 
 describe("normalizeBoardJobs", () => {
@@ -42,6 +43,28 @@ describe("normalizeBoardJobs", () => {
 
     expect(jobs).toHaveLength(2);
     expect(jobs.map((j) => j.sourceJobId)).toEqual(["ashby-111", "ashby-222"]);
+    expect(jobs[1].workplaceType).toBe("remote");
+  });
+
+  it("splits a Workday board into distinct jobs", () => {
+    const jobs = normalizeBoardJobs({
+      provider: "workday",
+      sourceUrl: "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite",
+      rawText: "",
+      rawPayload: {
+        ...workdayBoard,
+        companyName: "Nvidia",
+        boardUrl: "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite",
+      },
+    });
+
+    expect(jobs).toHaveLength(2);
+    expect(jobs.map((job) => job.sourceJobId)).toEqual(["JR111", "JR222"]);
+    expect(jobs[0].title).toBe("Senior Frontend Engineer");
+    expect(jobs[0].jobUrl).toBe(
+      "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite/job/Toronto/Senior-Frontend-Engineer_JR111"
+    );
+    expect(jobs[0].description).toContain("Toronto");
     expect(jobs[1].workplaceType).toBe("remote");
   });
 });

@@ -14,12 +14,14 @@ const PROVIDER_CONCURRENCY: Record<AtsProvider, number> = {
   greenhouse: 20,
   lever: 15,
   ashby: 5,
+  workday: 3,
 };
 
 const PROVIDER_DELAY_MS: Record<AtsProvider, number> = {
   greenhouse: 150,
   lever: 200,
   ashby: 400,
+  workday: 500,
 };
 
 function parseArgs() {

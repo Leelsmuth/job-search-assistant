@@ -14,7 +14,7 @@ import { useKeyedPending } from "@/components/layout/action-pending-provider";
 export type CatalogEntry = {
   id: string;
   companyName: string;
-  atsProvider: "greenhouse" | "lever" | "ashby";
+  atsProvider: "greenhouse" | "lever" | "ashby" | "workday";
   boardUrl: string;
   headquartersCountry?: string;
   industries: string[];
@@ -93,6 +93,7 @@ export function CompanyCatalogPanel({
               <option value="greenhouse">Greenhouse</option>
               <option value="lever">Lever</option>
               <option value="ashby">Ashby</option>
+              <option value="workday">Workday</option>
             </select>
           </div>
           <div>

@@ -6,6 +6,7 @@ import { deleteJob } from "@/server/actions";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { usePendingTransition } from "@/components/layout/action-pending-provider";
+import { cn } from "@/lib/utils";
 
 export function JobDeleteButton({
   jobId,
@@ -14,6 +15,7 @@ export function JobDeleteButton({
   size = "sm",
   showLabel = false,
   onDeletingChange,
+  className,
 }: {
   jobId: string;
   jobTitle: string;
@@ -21,6 +23,7 @@ export function JobDeleteButton({
   size?: "sm" | "default";
   showLabel?: boolean;
   onDeletingChange?: (deleting: boolean) => void;
+  className?: string;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -32,7 +35,7 @@ export function JobDeleteButton({
       variant="ghost"
       size={size}
       loading={isPending}
-      className="shrink-0 text-muted-foreground hover:text-destructive"
+      className={cn("shrink-0 text-muted-foreground hover:text-destructive", className)}
       aria-label={isPending ? `Deleting ${jobTitle}` : `Delete ${jobTitle}`}
       onClick={(e) => {
         e.preventDefault();

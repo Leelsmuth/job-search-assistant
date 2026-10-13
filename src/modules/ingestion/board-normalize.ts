@@ -2,6 +2,7 @@ import { normalizedJobSchema, type NormalizedJob, type RawJobSource } from "./ty
 import { extractRequirementsFromText } from "./extract-requirements";
 import { htmlToPlainText, sanitizeJobTitle } from "./html-text";
 import { normalizeAshbyJob, type AshbyJob } from "./ashby";
+import { normalizeWorkdayListJob, type WorkdayListJob } from "./workday";
 
 type GreenhouseJob = {
   id: number;
@@ -115,6 +116,17 @@ export function normalizeAshbyBoardJobs(raw: RawJobSource): NormalizedJob[] {
   return jobs.map((job) => normalizeAshbyJob(job, companyName));
 }
 
+export function normalizeWorkdayBoardJobs(raw: RawJobSource): NormalizedJob[] {
+  const payload = raw.rawPayload as
+    | { jobs?: WorkdayListJob[]; companyName?: string; boardUrl?: string }
+    | undefined;
+  const jobs = payload?.jobs ?? [];
+  const companyName = payload?.companyName ?? "Company";
+  const boardUrl = payload?.boardUrl ?? raw.sourceUrl ?? "";
+
+  return jobs.map((job) => normalizeWorkdayListJob(job, companyName, boardUrl));
+}
+
 export function normalizeBoardJobs(raw: RawJobSource): NormalizedJob[] {
   switch (raw.provider) {
     case "greenhouse":
@@ -123,6 +135,8 @@ export function normalizeBoardJobs(raw: RawJobSource): NormalizedJob[] {
       return normalizeLeverBoardJobs(raw);
     case "ashby":
       return normalizeAshbyBoardJobs(raw);
+    case "workday":
+      return normalizeWorkdayBoardJobs(raw);
     default:
       return [];
   }

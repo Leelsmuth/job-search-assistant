@@ -85,37 +85,36 @@ export default async function JobDetailPage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <Button variant="ghost" size="sm" asChild className="-ml-2">
-            <Link href="/jobs">← Back to feed</Link>
-          </Button>
-          <h1 className="mt-2 text-xl font-bold leading-tight sm:text-2xl">{displayTitle}</h1>
-          <p className="text-sm text-muted-foreground">
-            {job.company?.name} · {job.location} · {job.workplaceType}
-          </p>
-          {job.jobUrl && (
-            <a
-              href={job.jobUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-1 inline-block text-sm text-blue-600 hover:underline"
-            >
-              View original posting
-            </a>
-          )}
-        </div>
-        <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end sm:text-right">
-          {match && (
-            <>
-              <div className="text-3xl font-bold">{Math.round(match.overallScore)}%</div>
-              {classification && (
-                <Badge className={classificationColor(classification)}>
-                  {classification}
-                </Badge>
-              )}
-            </>
-          )}
+      <div className="space-y-4">
+        <Button variant="ghost" size="sm" asChild className="-ml-2 min-h-10">
+          <Link href="/jobs">← Back to feed</Link>
+        </Button>
+
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl font-bold leading-tight sm:text-2xl">{displayTitle}</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {job.company?.name} · {job.location} · {job.workplaceType}
+            </p>
+            {job.jobUrl && (
+              <a
+                href={job.jobUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-block min-h-10 py-2 text-sm text-blue-600 hover:underline"
+              >
+                View original posting
+              </a>
+            )}
+          </div>
+          {match ? (
+            <div className="flex shrink-0 flex-col items-end gap-2 text-right">
+              <div className="text-3xl font-bold leading-none">{Math.round(match.overallScore)}%</div>
+              {classification ? (
+                <Badge className={classificationColor(classification)}>{classification}</Badge>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -128,12 +127,12 @@ export default async function JobDetailPage({
       />
 
       <Tabs defaultValue="match">
-        <TabsList className="mb-2">
+        <TabsList className="mb-2 w-full sm:w-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="match">Match</TabsTrigger>
           <TabsTrigger value="evidence">Evidence</TabsTrigger>
-          <TabsTrigger value="tailoring">Tailoring</TabsTrigger>
-          <TabsTrigger value="application">Q&A</TabsTrigger>
+          <TabsTrigger value="tailoring">Tailor</TabsTrigger>
+          <TabsTrigger value="application">Q&amp;A</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -244,7 +243,7 @@ export default async function JobDetailPage({
                     )}
                   </div>
                 </div>
-                <div className="space-y-2 text-sm">
+                <div className="space-y-2 border-t border-border pt-4 text-sm md:border-0 md:pt-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-xs font-medium uppercase text-muted-foreground">
                       Your evidence

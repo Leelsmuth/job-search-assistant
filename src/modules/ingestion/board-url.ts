@@ -11,7 +11,62 @@ const SINGLE_JOB_PATTERNS = [
   /greenhouse\.io\/[^/]+\/jobs\/\d+/i,
   /jobs\.lever\.co\/[^/]+\/[a-f0-9-]{8,}/i,
   /jobs\.ashbyhq\.com\/[^/]+\/[a-f0-9-]{8,}/i,
+  /myworkdayjobs\.com\/.+\/job\//i,
 ];
+
+const WORKDAY_LOCALE_SEGMENT = /^[a-z]{2}-[a-z]{2}$/i;
+
+export type ParsedWorkdayUrl = {
+  tenant: string;
+  cluster: string;
+  site: string;
+  boardSlug: string;
+  boardUrl: string;
+  isSingleJob: boolean;
+  externalPath?: string;
+};
+
+export function parseWorkdayUrl(input: string): ParsedWorkdayUrl | null {
+  const trimmed = stripTrailingSlash(input.trim());
+  if (!/^https?:\/\//i.test(trimmed)) return null;
+
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    return null;
+  }
+
+  const host = url.hostname.match(/^([^.]+)\.(wd\d+)\.myworkdayjobs\.com$/i);
+  if (!host) return null;
+
+  const tenant = host[1];
+  const cluster = host[2].toLowerCase();
+  const segments = url.pathname.split("/").filter(Boolean);
+  if (segments.length > 0 && WORKDAY_LOCALE_SEGMENT.test(segments[0])) {
+    segments.shift();
+  }
+
+  const site = segments[0];
+  if (!site || site.toLowerCase() === "job") return null;
+
+  const jobIndex = segments.findIndex((segment) => segment.toLowerCase() === "job");
+  const isSingleJob = jobIndex > 0;
+  const externalPath = isSingleJob ? `/${segments.slice(jobIndex).join("/")}` : undefined;
+  const boardSlug = `${cluster}/${tenant}/${site}`;
+  const canonicalBoardUrl = `https://${tenant}.${cluster}.myworkdayjobs.com/${site}`;
+  const publicUrl = `${url.origin}${url.pathname}`.replace(/\/+$/, "");
+
+  return {
+    tenant,
+    cluster,
+    site,
+    boardSlug,
+    boardUrl: isSingleJob ? publicUrl : canonicalBoardUrl,
+    isSingleJob,
+    externalPath,
+  };
+}
 
 export function isSingleJobBoardUrl(url: string): boolean {
   const trimmed = url.trim();
@@ -115,6 +170,16 @@ export function parseBoardUrl(input: string): ParsedBoardUrl | null {
     };
   }
 
+  const workday = parseWorkdayUrl(trimmed);
+  if (workday) {
+    return {
+      provider: "workday",
+      boardSlug: workday.boardSlug,
+      boardUrl: workday.boardUrl,
+      isSingleJob: workday.isSingleJob,
+    };
+  }
+
   return null;
 }
 
@@ -124,7 +189,9 @@ export function normalizeBoardUrl(
 ): ParsedBoardUrl {
   const parsed = parseBoardUrl(input);
   if (!parsed) {
-    throw new Error("Invalid board URL. Use a Greenhouse, Lever, or Ashby careers board link.");
+    throw new Error(
+      "Invalid board URL. Use a Greenhouse, Lever, Ashby, or Workday careers board link."
+    );
   }
   if (parsed.isSingleJob) {
     throw new Error(

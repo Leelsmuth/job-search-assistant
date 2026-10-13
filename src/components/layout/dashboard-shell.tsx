@@ -15,7 +15,7 @@ export function DashboardShell({
   email,
 }: {
   children: React.ReactNode;
-  email?: string | null;
+  email?: React.ReactNode;
 }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const pathname = usePathname();
@@ -38,11 +38,9 @@ export function DashboardShell({
           {/* Desktop sidebar */}
           <aside className="hidden w-56 shrink-0 flex-col border-r border-border bg-card lg:flex">
             <DashboardNav />
-            {email && (
-              <div className="mt-auto border-t border-border p-4">
-                <p className="truncate text-xs text-muted-foreground">{email}</p>
-              </div>
-            )}
+            {email ? (
+              <div className="mt-auto border-t border-border p-4">{email}</div>
+            ) : null}
           </aside>
 
           {/* Mobile drawer */}
@@ -80,11 +78,7 @@ export function DashboardShell({
             <div className="flex-1 overflow-y-auto">
               <DashboardNav onNavigate={() => setMobileNavOpen(false)} compact />
             </div>
-            {email ? (
-              <div className="border-t border-border p-4">
-                <p className="truncate text-xs text-muted-foreground">{email}</p>
-              </div>
-            ) : null}
+            {email ? <div className="border-t border-border p-4">{email}</div> : null}
           </aside>
 
           <div className="flex min-h-screen min-w-0 flex-1 flex-col">
@@ -102,9 +96,7 @@ export function DashboardShell({
               </Button>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">Job Search Assistant</p>
-                {email ? (
-                  <p className="truncate text-xs text-muted-foreground">{email}</p>
-                ) : null}
+                {email ? <div className="truncate">{email}</div> : null}
               </div>
             </header>
 

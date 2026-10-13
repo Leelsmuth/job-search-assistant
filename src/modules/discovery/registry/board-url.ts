@@ -9,5 +9,12 @@ export function boardUrlForProvider(provider: AtsProvider, boardSlug: string): s
       return `https://jobs.lever.co/${slug}`;
     case "ashby":
       return `https://jobs.ashbyhq.com/${slug}`;
+    case "workday": {
+      const [cluster, tenant, site] = slug.split("/");
+      if (!cluster || !tenant || !site || slug.split("/").length !== 3) {
+        throw new Error(`Invalid Workday board slug: ${slug}`);
+      }
+      return `https://${tenant}.${cluster}.myworkdayjobs.com/${site}`;
+    }
   }
 }

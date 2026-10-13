@@ -38,6 +38,7 @@ export const jobImportMetaSchema = z.object({
     "greenhouse",
     "lever",
     "ashby",
+    "workday",
     "generic_web",
   ]),
   sourceUrl: z.string().url().optional(),
@@ -79,6 +80,7 @@ export type JobSourceProvider =
   | "greenhouse"
   | "lever"
   | "ashby"
+  | "workday"
   | "generic_web";
 
 export type RawJobSource = {

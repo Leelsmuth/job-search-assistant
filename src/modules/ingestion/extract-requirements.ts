@@ -2,7 +2,7 @@ const TECH_KEYWORDS = [
   "react", "typescript", "javascript", "next.js", "nextjs", "node.js", "nodejs",
   "graphql", "apollo", "tailwind", "playwright", "vitest", "redux", "zustand",
   "vue", "angular", "java", "kubernetes", "k8s", "aws", "docker", "python",
-  "go", "rust", "c#", ".net", "spring", "postgresql", "mongodb", "firebase",
+  "go", "golang", "rust", "c#", ".net", "spring", "postgresql", "mongodb", "firebase",
   "accessibility", "wcag", "figma", "mui", "shadcn",
 ];
 
@@ -15,7 +15,29 @@ const SKILL_SYNONYMS: Record<string, string[]> = {
   playwright: ["e2e testing", "end-to-end testing"],
   kubernetes: ["k8s"],
   accessibility: ["a11y", "wcag"],
+  go: ["golang"],
 };
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function termPattern(term: string): RegExp {
+  const body = escapeRegExp(term);
+  if (term.startsWith(".")) {
+    return new RegExp(`${body}(?![a-z0-9])`, "i");
+  }
+  return new RegExp(`(?<![a-z0-9])${body}(?![a-z0-9])`, "i");
+}
+
+export function textContainsTechTerm(text: string, tech: string): boolean {
+  const canonical = normalizeSkill(tech);
+  const terms = new Set<string>([canonical, tech.toLowerCase().trim()]);
+  for (const keyword of TECH_KEYWORDS) {
+    if (normalizeSkill(keyword) === canonical) terms.add(keyword);
+  }
+  return Array.from(terms).some((term) => termPattern(term).test(text));
+}
 
 type Section = "none" | "required" | "preferred" | "responsibilities" | "bonus";
 
@@ -34,10 +56,9 @@ export function normalizeSkill(skill: string): string {
 }
 
 export function extractTechnologies(text: string): string[] {
-  const lower = text.toLowerCase();
   const found = new Set<string>();
   for (const tech of TECH_KEYWORDS) {
-    if (lower.includes(tech)) {
+    if (termPattern(tech).test(text)) {
       found.add(normalizeSkill(tech));
     }
   }

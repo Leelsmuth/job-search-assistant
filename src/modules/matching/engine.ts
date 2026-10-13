@@ -1,4 +1,4 @@
-import { normalizeSkill } from "@/modules/ingestion/extract-requirements";
+import { normalizeSkill, textContainsTechTerm } from "@/modules/ingestion/extract-requirements";
 import type { MatchClassification } from "@/lib/utils";
 
 export type CandidateProfile = {
@@ -371,23 +371,44 @@ export function classifyScore(
   return "poor";
 }
 
+function requirementIsSupportedByJob(
+  requirement: JobForMatching["requirements"][0],
+  job: JobForMatching
+): boolean {
+  if (!requirement.normalizedSkill) return true;
+
+  const haystack = `${job.title}\n${job.description ?? ""}`;
+  if (textContainsTechTerm(haystack, requirement.normalizedSkill)) return true;
+
+  const synthetic = `experience with ${normalizeSkill(requirement.normalizedSkill)}`;
+  if (requirement.text.trim().toLowerCase() === synthetic) return false;
+
+  return textContainsTechTerm(requirement.text, requirement.normalizedSkill);
+}
+
 export function runMatchAnalysis(
   profile: CandidateProfile,
   job: JobForMatching
 ) {
   const hardFilter = applyHardFilters(profile, job);
   const candidateSkills = getCandidateSkillSet(profile);
+  const supportedJob: JobForMatching = {
+    ...job,
+    requirements: job.requirements.filter((requirement) =>
+      requirementIsSupportedByJob(requirement, job)
+    ),
+  };
 
-  const requirementMatches = job.requirements.map((req) =>
+  const requirementMatches = supportedJob.requirements.map((req) =>
     mapRequirementToEvidence(req, profile, candidateSkills)
   );
 
-  const categoryScores = scoreCategories(profile, job, requirementMatches);
+  const categoryScores = scoreCategories(profile, supportedJob, requirementMatches);
   let overallScore = Math.round(
     categoryScores.reduce((sum, c) => sum + c.score, 0)
   );
 
-  const sparseExtraction = isSparseExtraction(job.requirements);
+  const sparseExtraction = isSparseExtraction(supportedJob.requirements);
   if (sparseExtraction) {
     overallScore = Math.min(overallScore, SPARSE_EXTRACTION_SCORE_CAP);
   }
@@ -395,7 +416,7 @@ export function runMatchAnalysis(
   const criticalGaps = requirementMatches.filter(
     (m) =>
       m.matchStatus === "gap" &&
-      job.requirements.find((r) => r.id === m.jobRequirementId)?.importance === "required"
+      supportedJob.requirements.find((r) => r.id === m.jobRequirementId)?.importance === "required"
   );
   if (criticalGaps.length >= 2) {
     overallScore = Math.min(overallScore, 40);
@@ -412,7 +433,7 @@ export function runMatchAnalysis(
 
   const topMatchingSkills = confirmed
     .map((m) => {
-      const req = job.requirements.find((r) => r.id === m.jobRequirementId);
+      const req = supportedJob.requirements.find((r) => r.id === m.jobRequirementId);
       return req?.normalizedSkill;
     })
     .filter(Boolean) as string[];
