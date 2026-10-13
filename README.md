@@ -149,13 +149,21 @@ On a job page, use **Tailor resume** or the **Documents** tab. The app ranks exp
 
 Before using this, apply [`drizzle/migrations/0012_tailored_documents.sql`](drizzle/migrations/0012_tailored_documents.sql) in the Supabase SQL editor. Do not run it from CI.
 
+## Assisted apply
+
+On a job page, **Prepare application** loads the employer questions when a public API allows it (Greenhouse `questions=true`, Lever posting fields, Ashby posting form). Workday and unknown boards use a standard question set. Questions are cached per job for seven days. Contact fields, work authorization, sponsorship, relocation, start date, salary, pronouns, “how did you hear,” and voluntary self-ID come from **Settings → Application profile**. Open-ended questions are drafted with `draftApplicationAnswer` (`OPENAI_MODEL`, default `gpt-4o-mini`) and fall back to the deterministic drafter when `OPENAI_API_KEY` is missing. Unsupported claims stay visible. **Open application** only links to the employer URL. **Mark as applied** records the application and stores the answers on an event. The app never submits the employer form.
+
+A bookmarklet at `/settings/apply-assist` can fill known Greenhouse, Lever, and Ashby fields from a copied payload. It skips file uploads and does not click Submit.
+
+Before using this, apply [`drizzle/migrations/0013_assisted_apply.sql`](drizzle/migrations/0013_assisted_apply.sql) in the Supabase SQL editor. Do not run it from CI. No new environment variables are required.
+
 ## Daily workflow
 
 1. **Profile** — confirm skills, experience, preferences at `/profile`
 2. **Discovery** — browse the catalog and add boards at `/discovery`
-3. **Settings** — poll saved boards, review board health (`/settings`)
+3. **Settings** — poll saved boards, review board health, and save the application profile (`/settings`)
 4. **Review feed** — search, filter, save/dismiss from `/jobs`
-5. **Prepare** — tailoring, per-job resume and cover letter, and Q&A on job detail pages
+5. **Prepare** — tailoring, per-job resume and cover letter, and Prepare application on the job page
 6. **Track** — table or Kanban at `/applications`
 
 ## Automated discovery (V1)
