@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import {
+  CRON_MATCH_CONCURRENCY,
   CRON_MAX_BOARDS_PER_RUN,
   CRON_MAX_NEW_JOBS_PER_RUN,
   pickLeastRecentlyPolledBoards,
@@ -58,6 +59,8 @@ export async function runCronDiscoverPoll() {
 
     const userIds = new Set<string>([...byUser.keys(), ...curatedUserIds]);
     const allResults: Array<{ status: "success" | "error" }> = [];
+    // Sequential on purpose: each user opens one transaction on the shared pool.
+    // Parallel users would check out one connection per user.
     const totals = {
       newJobs: 0,
       skipped: 0,
@@ -108,6 +111,7 @@ export async function runCronDiscoverPoll() {
         const matchStats = await withUserDb(userId, (userDb) =>
           processMatchQueue(userDb, userId, {
             limit: queuedForMatch || CRON_MAX_NEW_JOBS_PER_RUN,
+            concurrency: CRON_MATCH_CONCURRENCY,
           })
         );
         totals.matched += matchStats.processed;

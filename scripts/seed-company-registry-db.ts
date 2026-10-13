@@ -4,22 +4,33 @@
  * Run after applying 0006_board_health_and_registry.sql:
  *   pnpm seed:company-registry
  */
-import { readFileSync } from "fs";
-import { join } from "path";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { companyJobSources } from "../src/db/schema";
 import { getJsonCatalogForSeed } from "../src/modules/discovery/company-registry-db";
+import { resolveDatabaseUrl, resolveDirectDatabaseUrl } from "../src/lib/env";
 
-const DATABASE_URL = process.env.DATABASE_URL;
+const directUrl = resolveDirectDatabaseUrl();
+const DATABASE_URL = directUrl ?? resolveDatabaseUrl();
 if (!DATABASE_URL) {
-  console.error("DATABASE_URL is required");
+  console.error(
+    "Set POSTGRES_URL_NON_POOLING or a direct DATABASE_URL (port 5432)."
+  );
   process.exit(1);
+}
+if (!directUrl) {
+  console.warn(
+    "No direct Postgres URL set; seeding through the runtime pooler. Prefer POSTGRES_URL_NON_POOLING."
+  );
 }
 
 async function main() {
   const catalog = getJsonCatalogForSeed();
-  const client = postgres(DATABASE_URL!, { max: 1 });
+  const client = postgres(DATABASE_URL!, {
+    max: 1,
+    idle_timeout: 20,
+    prepare: false,
+  });
   const db = drizzle(client);
 
   console.log(`Seeding ${catalog.length} company job sources...`);

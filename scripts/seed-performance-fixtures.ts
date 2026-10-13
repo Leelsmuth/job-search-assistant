@@ -6,7 +6,7 @@
  * Env: PERF_SEED_USER_ID (required), PERF_SEED_JOB_COUNT (default 200)
  */
 import { eq } from "drizzle-orm";
-import { getDb } from "@/db/client";
+import { closeDb, getDb } from "@/db/client";
 import { candidateProfiles, companies, jobSources, jobs } from "@/db/schema";
 import { hashJobDescription } from "@/modules/ingestion/description-hash";
 
@@ -79,7 +79,9 @@ async function main() {
   console.log(`Done. Profile ${profile.id}, company ${company.id}`);
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+main()
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  })
+  .finally(() => closeDb());

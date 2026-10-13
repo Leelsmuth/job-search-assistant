@@ -19,11 +19,11 @@ In **Project Settings → API**:
 | `NEXT_PUBLIC_SUPABASE_URL` | Project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `anon` `public` key |
 
-In **Project Settings → Database → Connection string → URI** (use **Session pooler** for serverless/Vercel, or **Direct** for local dev):
+In **Project Settings → Database → Connection string → URI**, use the **direct** connection (port 5432) for local `DATABASE_URL`. On Vercel, the app runtime uses the **transaction pooler** (`POSTGRES_URL`, port 6543), not the session pooler.
 
 | Variable | Example |
 |----------|---------|
-| `DATABASE_URL` | `postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres` |
+| `DATABASE_URL` | `postgresql://postgres:[password]@db.[ref].supabase.co:5432/postgres` |
 
 Optional in **API** tab:
 
@@ -107,9 +107,9 @@ If you connected Supabase via **Vercel Marketplace → Supabase**, env vars are 
 |----------------|----------------------------------|
 | `NEXT_PUBLIC_SUPABASE_URL` | `NEXT_PUBLIC_SUPABASE_URL` ✓ |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` |
-| `DATABASE_URL` | `POSTGRES_URL` |
+| `DATABASE_URL` | `POSTGRES_URL` (transaction pooler, port 6543) |
 
-The app accepts **either** name for each row. After connecting:
+The app accepts **either** name for Supabase URL and anon key. For Postgres, runtime prefers the transaction pooler when both are set. After connecting:
 
 1. In Vercel → **Environment Variables**, confirm vars exist for **Production** and **Preview** (edit each → check both boxes)
 2. **Redeploy** (env changes do not apply to existing deployments)
@@ -122,11 +122,23 @@ The app accepts **either** name for each row. After connecting:
 |----------|----------|-------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase Project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase `anon` public key |
-| `DATABASE_URL` | Yes | Supabase **Session pooler** URI (port 6543) for serverless |
+| `POSTGRES_URL` | Yes on Vercel | Supabase **transaction pooler** URI (host `*.pooler.supabase.com`, port **6543**) |
+| `DATABASE_URL` | Yes for local dev | Direct Postgres (port 5432). Used at runtime only when no transaction-pooler URL is set |
 
-Optional: `OPENAI_API_KEY`, `CRON_SECRET`
+Optional: `OPENAI_API_KEY`, `CRON_SECRET`, `POSTGRES_URL_NON_POOLING` (drizzle-kit against Supabase)
 
 If env vars are missing, `/jobs` redirects to `/login` with a configuration notice instead of a 500 error.
+
+### Which database URL is used
+
+| Env var | Used by |
+|---------|---------|
+| `POSTGRES_URL` | App runtime on Vercel. Supabase transaction pooler (port 6543). Preferred when it is a pooler URL. |
+| `POSTGRES_PRISMA_URL` | Runtime fallback. Prisma-only params (`pgbouncer`, `connection_limit`) are stripped before postgres.js connects. |
+| `DATABASE_URL` | Local runtime when no pooler URL is set. Also used by drizzle-kit when it is a direct connection (port 5432). |
+| `POSTGRES_URL_NON_POOLING` | `pnpm db:push`, `db:migrate`, and `db:studio`. Direct connection. Not used by the Next.js runtime. |
+
+Serverless code keeps one postgres.js client per process (`max: 1`, `idle_timeout`, `prepare: false`). `SET LOCAL ROLE` runs inside `withUserDb()` transactions so it works in transaction pooling. No Vercel variable needs to be renamed if the Supabase integration already set `POSTGRES_URL` to port 6543. Confirm that port — session mode and the direct host use 5432 and will exhaust connection slots. Redeploy after changing any variable.
 
 ---
 

@@ -2,7 +2,7 @@
  * Database seed script — run with: pnpm db:seed
  * Requires DATABASE_URL and an existing auth user id passed as SEED_USER_ID
  */
-import { getDb } from "./client";
+import { closeDb, getDb } from "./client";
 import {
   candidateProfiles,
   candidateSkills,
@@ -83,7 +83,9 @@ async function seed() {
   console.log(`Seeded profile ${profile.id} for user ${userId}`);
 }
 
-seed().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+seed()
+  .catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  })
+  .finally(() => closeDb());
