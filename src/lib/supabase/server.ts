@@ -26,6 +26,9 @@ export async function createClient() {
 }
 
 async function getUserUncached() {
+  // Always read cookies so auth-gated pages bail out of static prerender.
+  // A plain Unauthorized throw during `next build` fails the deployment.
+  await cookies();
   if (!isSupabaseConfigured()) return null;
 
   const supabase = await createClient();
