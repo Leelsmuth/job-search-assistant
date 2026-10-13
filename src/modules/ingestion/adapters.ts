@@ -10,6 +10,7 @@ import { greenhouseAdapter } from "./greenhouse";
 import { leverAdapter } from "./lever";
 import { ashbyAdapter } from "./ashby";
 import type { JobSourceProvider } from "./types";
+import { fetchPublicHttpUrl } from "./ssrf";
 
 export const manualDescriptionAdapter: JobSourceAdapter = {
   provider: "pasted_description",
@@ -111,9 +112,9 @@ export const genericUrlAdapter: JobSourceAdapter = {
   async fetch(input: string): Promise<RawJobSource> {
     const url = input.trim();
     try {
-      const response = await fetch(url, {
+      const response = await fetchPublicHttpUrl(url, {
         headers: { "User-Agent": "JobSearchAssistant/1.0" },
-        signal: AbortSignal.timeout(10000),
+        timeoutMs: 10000,
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const html = await response.text();

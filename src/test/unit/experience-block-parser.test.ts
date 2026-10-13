@@ -7,7 +7,12 @@ import {
 import type { GroupedLine } from "@/modules/resumes/normalize/line-grouper";
 
 function linesFromText(text: string): GroupedLine[] {
-  return text.split("\n").map((t, i) => ({ text: t, page: 1, lineIndex: i }));
+  return text.split("\n").map((line) => ({
+    text: line,
+    page: 1,
+    items: [],
+    isBullet: /^[-•*–—]\s+/.test(line.trim()),
+  }));
 }
 
 describe("experience-block-parser", () => {

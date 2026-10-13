@@ -31,3 +31,25 @@ export function summarizeCronPollResults(
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+function pollRecency(value: Date | null | undefined): number {
+  if (!value) return Number.NEGATIVE_INFINITY;
+  const time = value.getTime();
+  return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time;
+}
+
+/** Never-polled boards come first, then the oldest lastPolledAt. */
+export function pickLeastRecentlyPolledBoards<T extends { lastPolledAt: Date | null }>(
+  boards: readonly T[],
+  limit: number
+): T[] {
+  return boards
+    .map((board, index) => ({ board, index }))
+    .sort((a, b) => {
+      const delta = pollRecency(a.board.lastPolledAt) - pollRecency(b.board.lastPolledAt);
+      if (delta !== 0) return delta;
+      return a.index - b.index;
+    })
+    .slice(0, Math.max(0, limit))
+    .map((entry) => entry.board);
+}

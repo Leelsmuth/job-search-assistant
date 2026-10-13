@@ -1,11 +1,15 @@
 import type { CompanyJobSource } from "../../../data/company-sources.schema";
-import type { candidateProfiles } from "@/db/schema";
 
-type ProfileRow = typeof candidateProfiles.$inferSelect;
+export type BoardSuggestionProfile = {
+  targetTitles?: string[] | null;
+  remotePreference?: string | null;
+  location?: string | null;
+  preferredLocations?: string[] | null;
+};
 
 export function suggestBoardsForProfile(
   catalog: CompanyJobSource[],
-  profile: ProfileRow,
+  profile: BoardSuggestionProfile,
   followingUrls: Set<string>,
   limit = 8
 ): CompanyJobSource[] {

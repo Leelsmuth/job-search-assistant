@@ -31,6 +31,7 @@ describe("persistDiscoveredJob", () => {
         requiredQualifications: [],
         preferredQualifications: [],
         technologies: [],
+        salaryCurrency: "CAD",
         sourceJobId: "123",
         jobUrl: "https://example.com/j/123",
       },

@@ -181,6 +181,17 @@ export async function pollBoardsForUser(
         `[discovery] board poll failed userId=${userId} boardId=${board.id}`,
         error
       );
+      try {
+        await db
+          .update(savedBoards)
+          .set({ lastPolledAt: new Date() })
+          .where(eq(savedBoards.id, board.id));
+      } catch (stampError) {
+        console.error(
+          `[discovery] failed to record poll time boardId=${board.id}`,
+          stampError
+        );
+      }
       results.push({ boardId: board.id, status: "error" });
     }
 
@@ -194,7 +205,12 @@ export async function pollBoardsForUser(
 
 export function aggregateDiscoverStats(
   boardResults: Array<{ status: "success" | "error" }>,
-  stats: BoardPollStats & { matched?: number }
+  stats: {
+    newJobs: number;
+    skipped: number;
+    matched?: number;
+    filtered: number;
+  }
 ): CronDiscoverResult {
   const succeeded = boardResults.filter((r) => r.status === "success").length;
   return {

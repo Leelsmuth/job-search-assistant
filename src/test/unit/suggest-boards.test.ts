@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { suggestBoardsForProfile } from "@/modules/discovery/suggest-boards";
+import {
+  suggestBoardsForProfile,
+  type BoardSuggestionProfile,
+} from "@/modules/discovery/suggest-boards";
 import type { CompanyJobSource } from "../../../data/company-sources.schema";
 
 const catalog: CompanyJobSource[] = [
@@ -45,12 +48,12 @@ const catalog: CompanyJobSource[] = [
 
 describe("suggestBoardsForProfile", () => {
   it("ranks boards with frontend and remote CA signals", () => {
-    const profile = {
+    const profile: BoardSuggestionProfile = {
       targetTitles: ["Frontend Engineer"],
       remotePreference: "remote",
       location: "Toronto, Canada",
       preferredLocations: ["Canada"],
-    } as Parameters<typeof suggestBoardsForProfile>[1];
+    };
 
     const suggestions = suggestBoardsForProfile(catalog, profile, new Set(), 5);
     expect(suggestions).toHaveLength(1);
@@ -58,12 +61,12 @@ describe("suggestBoardsForProfile", () => {
   });
 
   it("excludes already followed boards", () => {
-    const profile = {
+    const profile: BoardSuggestionProfile = {
       targetTitles: [],
       remotePreference: "remote",
       location: "Canada",
       preferredLocations: [],
-    } as Parameters<typeof suggestBoardsForProfile>[1];
+    };
 
     const suggestions = suggestBoardsForProfile(
       catalog,

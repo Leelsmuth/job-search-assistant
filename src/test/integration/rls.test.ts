@@ -39,7 +39,6 @@ describe.runIf(runRls)("RLS integration", () => {
           companyId: company.id,
           title: "RLS isolation test job",
           description: "Private job for RLS test",
-          sourceType: "manual",
         })
         .returning();
       return job;
