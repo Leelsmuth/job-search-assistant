@@ -8,6 +8,7 @@ import {
   jsonb,
   real,
   pgEnum,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -333,6 +334,38 @@ export const searchPreferences = pgTable("search_preferences", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export type SavedApplicationAnswer = {
+  id: string;
+  question: string;
+  answer: string;
+};
+
+export const applicationProfiles = pgTable("application_profiles", {
+  userId: uuid("user_id").primaryKey(),
+  legalName: text("legal_name"),
+  email: text("email"),
+  phone: text("phone"),
+  city: text("city"),
+  province: text("province"),
+  linkedinUrl: text("linkedin_url"),
+  githubUrl: text("github_url"),
+  portfolioUrl: text("portfolio_url"),
+  workAuthorization: text("work_authorization").notNull().default("Canadian citizen"),
+  requiresSponsorship: boolean("requires_sponsorship").notNull().default(false),
+  willingToRelocate: boolean("willing_to_relocate").notNull().default(false),
+  earliestStartDate: text("earliest_start_date"),
+  salaryExpectationCad: integer("salary_expectation_cad"),
+  pronouns: text("pronouns"),
+  howDidYouHear: text("how_did_you_hear"),
+  eeoGender: text("eeo_gender").notNull().default("Prefer not to say"),
+  eeoRace: text("eeo_race").notNull().default("Prefer not to say"),
+  eeoVeteran: text("eeo_veteran").notNull().default("Prefer not to say"),
+  eeoDisability: text("eeo_disability").notNull().default("Prefer not to say"),
+  savedAnswers: jsonb("saved_answers").$type<SavedApplicationAnswer[]>().notNull().default([]),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const savedBoards = pgTable("saved_boards", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").notNull(),
@@ -425,6 +458,29 @@ export const jobs = pgTable("jobs", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const jobApplicationForms = pgTable(
+  "job_application_forms",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(),
+    questions: jsonb("questions").notNull().default([]),
+    source: text("source").notNull(),
+    applyUrl: text("apply_url"),
+    note: text("note"),
+    fetchError: text("fetch_error"),
+    fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("job_application_forms_user_job_unique").on(table.userId, table.jobId),
+  ]
+);
+
 export const jobRequirements = pgTable("job_requirements", {
   id: uuid("id").primaryKey().defaultRandom(),
   jobId: uuid("job_id")
@@ -513,6 +569,19 @@ export const applicationEvents = pgTable("application_events", {
   eventType: text("event_type").notNull(),
   eventDate: timestamp("event_date"),
   notes: text("notes"),
+  payload: jsonb("payload").$type<{
+    kind: "assisted_apply";
+    provider: string;
+    applyUrl: string | null;
+    resumeVersionId: string | null;
+    coverLetterId: string | null;
+    answers: Array<{
+      question: string;
+      answer: string;
+      source: string;
+      unsupportedClaims: string[];
+    }>;
+  } | null>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -139,9 +139,14 @@ export default async function JobDetailPage({
         isAlreadyApplied={application?.status === "applied"}
       />
 
-      <Button variant="outline" asChild>
-        <Link href={`/jobs/${job.id}?tab=documents`}>Tailor resume</Link>
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" asChild>
+          <Link href={`/jobs/${job.id}?tab=documents`}>Tailor resume</Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <Link href={`/jobs/${job.id}/apply`}>Prepare application</Link>
+        </Button>
+      </div>
 
       <Tabs defaultValue={tab === "documents" ? "documents" : "match"}>
         <TabsList className="mb-2 w-full sm:w-auto">

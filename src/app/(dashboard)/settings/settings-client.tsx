@@ -20,7 +20,9 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { useKeyedPending } from "@/components/layout/action-pending-provider";
 import { SearchPreferencesForm } from "./search-preferences-form";
+import { ApplicationProfileForm } from "./application-profile-form";
 import type { SearchPreferences } from "@/modules/matching/search-preferences";
+import type { ApplicationProfile } from "@/modules/apply/types";
 
 type BoardProvider = "greenhouse" | "lever" | "ashby" | "workday";
 
@@ -53,9 +55,13 @@ function formatLastPolled(lastPolledAt: Date | null) {
 export function SettingsClient({
   initialBoards,
   preferences,
+  applicationProfile,
+  applicationProfileReady,
 }: {
   initialBoards: Board[];
   preferences: SearchPreferences;
+  applicationProfile: ApplicationProfile;
+  applicationProfileReady: boolean;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -99,6 +105,8 @@ export function SettingsClient({
       </div>
 
       <SearchPreferencesForm initial={preferences} />
+
+      <ApplicationProfileForm initial={applicationProfile} schemaReady={applicationProfileReady} />
 
       <Card>
         <CardHeader>
