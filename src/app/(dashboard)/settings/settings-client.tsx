@@ -62,6 +62,7 @@ export function SettingsClient({
   const { run, isKeyPending } = useKeyedPending();
   const [companyName, setCompanyName] = useState("");
   const [boardUrl, setBoardUrl] = useState("");
+  const [boardError, setBoardError] = useState<string | null>(null);
   const [provider, setProvider] = useState<BoardProvider>("greenhouse");
   const [detectHint, setDetectHint] = useState<string | null>(null);
 
@@ -255,9 +256,19 @@ export function SettingsClient({
             <Label>Board URL</Label>
             <Input
               value={boardUrl}
-              onChange={(e) => setBoardUrl(e.target.value)}
+              onChange={(e) => {
+                setBoardUrl(e.target.value);
+                setBoardError(null);
+              }}
               placeholder="https://boards.greenhouse.io/company"
+              aria-invalid={boardError ? true : undefined}
+              aria-describedby={boardError ? "board-url-error" : undefined}
             />
+            {boardError ? (
+              <p id="board-url-error" role="alert" className="mt-1 text-sm text-destructive">
+                {boardError}
+              </p>
+            ) : null}
             {detectHint && (
               <p className="mt-1 text-xs text-muted-foreground">{detectHint}</p>
             )}
@@ -281,9 +292,14 @@ export function SettingsClient({
             onClick={() =>
               run("add-board", async () => {
                 try {
-                  await addSavedBoard({ companyName, boardUrl, provider });
+                  const result = await addSavedBoard({ companyName, boardUrl, provider });
+                  if (!result.ok) {
+                    setBoardError(result.error);
+                    return;
+                  }
                   setCompanyName("");
                   setBoardUrl("");
+                  setBoardError(null);
                   setDetectHint(null);
                   router.refresh();
                   toast({ title: "Board saved" });

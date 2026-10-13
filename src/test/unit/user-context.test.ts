@@ -12,6 +12,8 @@ const { tx, root } = vi.hoisted(() => {
 
 vi.mock("@/db/client", () => ({
   getDb: () => root,
+  DB_STATEMENT_TIMEOUT_MS: 20_000,
+  DB_LOCK_TIMEOUT_MS: 10_000,
 }));
 
 import { withUserDb } from "@/db/user-context";
@@ -30,6 +32,8 @@ describe("withUserDb", () => {
       const sqlText = JSON.stringify(tx.execute.mock.calls);
       sawRole = sqlText.includes("SET LOCAL ROLE");
       expect(sqlText).toContain("set_config");
+      expect(sqlText).toContain("statement_timeout");
+      expect(sqlText.indexOf("statement_timeout")).toBeLessThan(sqlText.indexOf("SET LOCAL ROLE"));
       expect(sqlText).not.toContain("SET ROLE authenticated");
       return "ok";
     });
@@ -37,6 +41,6 @@ describe("withUserDb", () => {
     expect(result).toBe("ok");
     expect(root.transaction).toHaveBeenCalledTimes(1);
     expect(sawRole).toBe(true);
-    expect(tx.execute).toHaveBeenCalledTimes(2);
+    expect(tx.execute).toHaveBeenCalledTimes(3);
   });
 });

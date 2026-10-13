@@ -27,10 +27,7 @@ export const greenhouseAdapter: JobSourceAdapter = {
   provider: "greenhouse",
 
   async detect(input: string) {
-    const isGreenhouse =
-      /greenhouse\.io/i.test(input) ||
-      /boards-api\.greenhouse\.io/i.test(input) ||
-      /job-boards\.greenhouse\.io/i.test(input);
+    const isGreenhouse = /greenhouse\.io/i.test(input);
     return {
       confidence: isGreenhouse ? 0.95 : 0,
       reason: isGreenhouse ? "Greenhouse URL detected" : "Not Greenhouse",

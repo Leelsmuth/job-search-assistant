@@ -1,5 +1,5 @@
 import { sql, eq, and } from "drizzle-orm";
-import { getDb } from "@/db/client";
+import { DB_STATEMENT_TIMEOUT_MS, getDb } from "@/db/client";
 import { companyJobSources } from "@/db/schema";
 import type { CompanyJobSource } from "../../../data/company-sources.schema";
 import { ensureUniqueCatalogIds } from "./company-catalog";
@@ -27,22 +27,29 @@ function rowToCompanyJobSource(row: typeof companyJobSources.$inferSelect): Comp
 
 async function loadCatalogFromDb(): Promise<CompanyJobSource[] | null> {
   const db = getDb();
-  const countResult = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(companyJobSources);
-  const count = countResult[0]?.count ?? 0;
+  // Own transaction on the owner role. Do not call this from inside withUserDb:
+  // that callback already holds a pooled connection, and this checkout needs another.
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`SELECT set_config('statement_timeout', ${String(DB_STATEMENT_TIMEOUT_MS)}, true)`
+    );
+    const countResult = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(companyJobSources);
+    const count = countResult[0]?.count ?? 0;
 
-  if (count === 0) return null;
+    if (count === 0) return null;
 
-  const rows = await db.query.companyJobSources.findMany({
-    where: and(
-      eq(companyJobSources.enabled, true),
-      eq(companyJobSources.verificationStatus, "verified")
-    ),
+    const rows = await tx.query.companyJobSources.findMany({
+      where: and(
+        eq(companyJobSources.enabled, true),
+        eq(companyJobSources.verificationStatus, "verified")
+      ),
+    });
+
+    if (rows.length === 0) return null;
+    return ensureUniqueCatalogIds(rows.map(rowToCompanyJobSource));
   });
-
-  if (rows.length === 0) return null;
-  return ensureUniqueCatalogIds(rows.map(rowToCompanyJobSource));
 }
 
 function loadCatalogFromBundle(): CompanyJobSource[] {

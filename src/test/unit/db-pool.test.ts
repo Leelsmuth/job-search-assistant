@@ -32,9 +32,12 @@ describe("runtime postgres pool", () => {
   });
 
   it("keeps a small pool, releases idle connections, and disables prepared statements", () => {
-    expect(RUNTIME_POSTGRES_OPTIONS.max).toBeGreaterThanOrEqual(1);
-    expect(RUNTIME_POSTGRES_OPTIONS.max).toBeLessThanOrEqual(3);
+    expect(RUNTIME_POSTGRES_OPTIONS.max).toBe(3);
     expect(RUNTIME_POSTGRES_OPTIONS.idle_timeout).toBeGreaterThan(0);
+    expect(RUNTIME_POSTGRES_OPTIONS.connect_timeout).toBeGreaterThan(0);
+    expect(RUNTIME_POSTGRES_OPTIONS.connect_timeout).toBeLessThanOrEqual(10);
+    expect(RUNTIME_POSTGRES_OPTIONS.connection.statement_timeout).toBe(20_000);
+    expect(RUNTIME_POSTGRES_OPTIONS.connection.lock_timeout).toBe(10_000);
     expect(RUNTIME_POSTGRES_OPTIONS.prepare).toBe(false);
   });
 
@@ -84,5 +87,32 @@ describe("runtime postgres pool", () => {
     const fn = source.slice(start, end);
     expect(fn.indexOf("loadCompanyRegistry()")).toBeGreaterThan(-1);
     expect(fn.indexOf("loadCompanyRegistry()")).toBeLessThan(fn.indexOf("withUserDb("));
+  });
+
+  it("loads discovery data in one call so the catalog read is not concurrent with a user transaction", () => {
+    const page = readFileSync(
+      resolve(process.cwd(), "src/app/(dashboard)/discovery/page.tsx"),
+      "utf8"
+    );
+    expect(page).not.toContain("await Promise.all");
+    expect(page).toContain("getDiscoveryPageData");
+
+    const source = readFileSync(resolve(process.cwd(), "src/server/actions/index.ts"), "utf8");
+    const start = source.indexOf("export async function getDiscoveryPageData");
+    const end = source.indexOf("export async function getSavedBoardsWithHealth");
+    const fn = source.slice(start, end);
+    expect(fn.indexOf("loadCompanyRegistry()")).toBeGreaterThan(-1);
+    expect(fn.indexOf("loadCompanyRegistry()")).toBeLessThan(fn.indexOf("withUserDb("));
+  });
+
+  it("does not Promise.all separate database calls on other dashboard pages", () => {
+    for (const page of [
+      "src/app/(dashboard)/dashboard/page.tsx",
+      "src/app/(dashboard)/settings/page.tsx",
+      "src/app/(dashboard)/jobs/page.tsx",
+    ]) {
+      const source = readFileSync(resolve(process.cwd(), page), "utf8");
+      expect(source, page).not.toContain("await Promise.all");
+    }
   });
 });

@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { clampJobForImport } from "@/modules/ingestion/clamp-import-job";
 import {
   confirmJobImportSchema,
   jobImportMetaSchema,
@@ -37,6 +38,28 @@ describe("confirmJobImportSchema", () => {
         technologies: Array.from({ length: 51 }, (_, i) => `tech-${i}`),
       })
     ).toThrow();
+  });
+
+  it("splits oversized qualifications instead of rejecting the job", () => {
+    const long = `Must have experience with ${"React ".repeat(800)}`;
+    expect(long.length).toBeGreaterThan(2000);
+
+    const parsed = confirmJobImportSchema.parse(
+      clampJobForImport({
+        ...validJob,
+        requiredQualifications: [long],
+        preferredQualifications: ["x".repeat(5000)],
+      })
+    );
+
+    expect(parsed.requiredQualifications.length).toBeGreaterThan(1);
+    expect(parsed.requiredQualifications.join(" ")).toContain("React");
+    for (const item of [
+      ...parsed.requiredQualifications,
+      ...parsed.preferredQualifications,
+    ]) {
+      expect(item.length).toBeLessThanOrEqual(2000);
+    }
   });
 });
 

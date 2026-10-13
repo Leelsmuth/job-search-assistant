@@ -1228,6 +1228,26 @@ export async function getSavedBoards() {
   );
 }
 
+export async function getDiscoveryPageData() {
+  const user = await requireUser();
+  const { loadCompanyRegistry } = await import("@/modules/discovery/company-registry-db");
+  const { filterCatalog } = await import("@/modules/discovery/company-catalog");
+  const { suggestBoardsForProfile } = await import("@/modules/discovery/suggest-boards");
+
+  // Catalog uses the owner connection. Finish it before withUserDb reserves a slot.
+  const catalog = filterCatalog(await loadCompanyRegistry());
+
+  return withUserDb(user.id, async (db) => {
+    const boards = await db.query.savedBoards.findMany({
+      where: eq(savedBoards.userId, user.id),
+    });
+    const profile = await getOrCreateProfileDb(db, user.id);
+    const followingUrls = new Set(boards.map((board) => board.boardUrl));
+    const suggestions = suggestBoardsForProfile(catalog, profile, followingUrls, 8);
+    return { boards, catalog, suggestions };
+  });
+}
+
 export async function getSavedBoardsWithHealth() {
   const user = await requireUser();
   return withUserDb(user.id, async (db) => {
@@ -1270,11 +1290,19 @@ export async function addSavedBoard(data: {
   companyName: string;
   boardUrl: string;
   provider: "greenhouse" | "lever" | "ashby" | "workday";
-}) {
+}): Promise<{ ok: true } | { ok: false; error: string }> {
   const user = await requireUser();
-  const parsed = normalizeBoardUrl(data.boardUrl.trim(), data.provider);
+  let parsed: ReturnType<typeof normalizeBoardUrl>;
+  try {
+    parsed = normalizeBoardUrl(data.boardUrl.trim(), data.provider);
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Invalid board URL.",
+    };
+  }
 
-  return withUserDb(user.id, async (db) => {
+  await withUserDb(user.id, async (db) => {
     await db.insert(savedBoards).values({
       userId: user.id,
       companyName: data.companyName.trim(),
@@ -1284,6 +1312,8 @@ export async function addSavedBoard(data: {
 
     revalidatePath("/settings");
   });
+
+  return { ok: true };
 }
 
 export async function deleteSavedBoard(boardId: string) {

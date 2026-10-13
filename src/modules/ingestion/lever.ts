@@ -25,7 +25,7 @@ export const leverAdapter: JobSourceAdapter = {
   provider: "lever",
 
   async detect(input: string) {
-    const isLever = /jobs\.lever\.co/i.test(input) || /api\.lever\.co/i.test(input);
+    const isLever = /\b(?:jobs|api)(?:\.[a-z0-9-]+)?\.lever\.co/i.test(input);
     return {
       confidence: isLever ? 0.95 : 0,
       reason: isLever ? "Lever URL detected" : "Not Lever",
