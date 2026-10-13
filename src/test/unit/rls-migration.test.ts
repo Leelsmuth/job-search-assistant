@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const migration = readFileSync(
-  resolve(process.cwd(), "drizzle/migrations/0010_rls_reference_tables.sql"),
+  resolve(process.cwd(), "drizzle/migrations/0011_rls_reference_tables.sql"),
   "utf8"
 );
 

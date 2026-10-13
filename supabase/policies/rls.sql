@@ -1,6 +1,6 @@
 -- Row Level Security policies for multi-tenant isolation
 -- Apply after migrations: psql $DATABASE_URL -f supabase/policies/rls.sql
--- 0010_rls_reference_tables.sql is the later policy set. Apply that after this file.
+-- 0011_rls_reference_tables.sql is the later policy set. Apply that after this file.
 
 -- Enable RLS on all user-owned tables
 ALTER TABLE candidate_profiles ENABLE ROW LEVEL SECURITY;
@@ -143,4 +143,4 @@ CREATE POLICY "Users own their saved boards" ON saved_boards
   FOR ALL USING ((select auth.uid()) = user_id);
 
 -- companies, job_sources, and company_job_sources are locked down in
--- drizzle/migrations/0010_rls_reference_tables.sql
+-- drizzle/migrations/0011_rls_reference_tables.sql
