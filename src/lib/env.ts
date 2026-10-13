@@ -9,14 +9,92 @@ function firstEnv(...keys: string[]): string | undefined {
   return undefined;
 }
 
-/** Supabase ↔ Vercel integration uses POSTGRES_URL, not DATABASE_URL. */
+/**
+ * Runtime candidates, most preferred first.
+ * POSTGRES_URL from the Supabase ↔ Vercel integration is the transaction pooler
+ * (port 6543). POSTGRES_URL_NON_POOLING is intentionally absent: a direct
+ * connection from serverless exhausts Postgres slots.
+ */
+const RUNTIME_DATABASE_URL_KEYS = [
+  "POSTGRES_URL",
+  "POSTGRES_PRISMA_URL",
+  "DATABASE_URL",
+  "SUPABASE_DB_URL",
+] as const;
+
+/** drizzle-kit and other one-shot admin commands. Never the transaction pooler. */
+const DIRECT_DATABASE_URL_KEYS = [
+  "POSTGRES_URL_NON_POOLING",
+  "DIRECT_URL",
+  "DATABASE_URL_UNPOOLED",
+] as const;
+
+const PRISMA_ONLY_QUERY_PARAMS = ["pgbouncer", "connection_limit", "pool_timeout"];
+
+/** Supavisor / PgBouncer transaction mode. Session mode and direct connections use 5432. */
+export function isTransactionPoolerUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.port === "6543") return true;
+    return parsed.searchParams.get("pgbouncer") === "true";
+  } catch {
+    return /:6543(?:\/|\?|$)/.test(url) || /[?&]pgbouncer=true(?:&|$)/.test(url);
+  }
+}
+
+/**
+ * postgres.js does not understand Prisma's pooler query params. Leaving
+ * `pgbouncer=true` on the URL can fail the startup handshake.
+ */
+export function normalizeRuntimeDatabaseUrl(url: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return url;
+  }
+
+  let changed = false;
+  for (const key of PRISMA_ONLY_QUERY_PARAMS) {
+    if (parsed.searchParams.has(key)) {
+      parsed.searchParams.delete(key);
+      changed = true;
+    }
+  }
+  return changed ? parsed.toString() : url;
+}
+
+function configuredUrls(keys: readonly string[]): string[] {
+  const urls: string[] = [];
+  for (const key of keys) {
+    const value = process.env[key]?.trim();
+    if (value) urls.push(value);
+  }
+  return urls;
+}
+
+/**
+ * URL for the Next.js runtime. Prefers a transaction-pooler URL (port 6543)
+ * even when DATABASE_URL is also set to a direct or session-mode string.
+ */
 export function resolveDatabaseUrl(): string | undefined {
-  return firstEnv(
-    "DATABASE_URL",
-    "POSTGRES_URL",
-    "POSTGRES_PRISMA_URL",
-    "SUPABASE_DB_URL"
-  );
+  const candidates = configuredUrls(RUNTIME_DATABASE_URL_KEYS);
+  const pooled = candidates.find(isTransactionPoolerUrl);
+  const selected = pooled ?? candidates[0];
+  return selected ? normalizeRuntimeDatabaseUrl(selected) : undefined;
+}
+
+/**
+ * URL for drizzle-kit (generate is offline; push/migrate/studio connect).
+ * Transaction-mode pooler sessions cannot hold migration locks.
+ */
+export function resolveDirectDatabaseUrl(): string | undefined {
+  for (const url of configuredUrls(DIRECT_DATABASE_URL_KEYS)) {
+    if (!isTransactionPoolerUrl(url)) return url;
+  }
+  const databaseUrl = process.env.DATABASE_URL?.trim();
+  if (databaseUrl && !isTransactionPoolerUrl(databaseUrl)) return databaseUrl;
+  return undefined;
 }
 
 /** Integration may sync NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY instead of ANON_KEY. */
@@ -70,7 +148,7 @@ export function getDatabaseUrl(): string {
   const url = resolveDatabaseUrl();
   if (!url) {
     throw new Error(
-      `Database URL is not set. Expected DATABASE_URL or POSTGRES_URL from Supabase integration. ${VERCEL_ENV_HINT}`
+      `Database URL is not set. Expected POSTGRES_URL (Supabase transaction pooler, port 6543) or DATABASE_URL for local Postgres. ${VERCEL_ENV_HINT}`
     );
   }
   return url;
@@ -85,7 +163,7 @@ export function getMissingEnvVars(): string[] {
     missing.push("NEXT_PUBLIC_SUPABASE_ANON_KEY (or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)");
   }
   if (!resolveDatabaseUrl()) {
-    missing.push("DATABASE_URL (or POSTGRES_URL)");
+    missing.push("POSTGRES_URL (transaction pooler) or DATABASE_URL");
   }
   return missing;
 }

@@ -1,6 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   summarizeCronPollResults,
+  CRON_MATCH_CONCURRENCY,
   CRON_MAX_BOARDS_PER_RUN,
   CRON_MAX_NEW_JOBS_PER_RUN,
   pickLeastRecentlyPolledBoards,
@@ -24,6 +27,21 @@ describe("cron discover helpers", () => {
 
   it("exports new jobs cap constant", () => {
     expect(CRON_MAX_NEW_JOBS_PER_RUN).toBeGreaterThan(0);
+  });
+
+  it("matches one job at a time so cron stays on one pooled connection", () => {
+    expect(CRON_MATCH_CONCURRENCY).toBe(1);
+  });
+
+  it("polls boards one after another", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "src/modules/discovery/poll-board.ts"),
+      "utf8"
+    );
+    const start = source.indexOf("export async function pollBoardsForUser");
+    const fn = source.slice(start, source.indexOf("export function aggregateDiscoverStats"));
+    expect(fn).toContain("for (");
+    expect(fn).not.toContain("Promise.all");
   });
 
   it("aggregates discovery stats", () => {

@@ -54,7 +54,12 @@ function loadCatalogFromBundle(): CompanyJobSource[] {
   }
 }
 
-/** Loads catalog from DB when seeded; falls back to bundled verified JSON (never disk I/O). */
+/**
+ * Loads catalog from DB when seeded; falls back to bundled verified JSON (never disk I/O).
+ * Uses the owner connection (getDb), not withUserDb. company_job_sources has no RLS,
+ * and this must run outside a user transaction so it does not need a second pool slot
+ * while SET LOCAL ROLE authenticated is in effect.
+ */
 export async function loadCompanyRegistry(): Promise<CompanyJobSource[]> {
   try {
     const fromDb = await loadCatalogFromDb();

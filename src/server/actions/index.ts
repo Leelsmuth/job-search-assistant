@@ -1463,6 +1463,9 @@ export async function getCompanySourceCatalog(filters?: {
 
 export async function getSuggestedBoards(limit = 8) {
   const user = await requireUser();
+  const { loadCompanyRegistry } = await import("@/modules/discovery/company-registry-db");
+  const catalog = await loadCompanyRegistry();
+
   return withUserDb(user.id, async (db) => {
     const profile = await getOrCreateProfileDb(db, user.id);
     const saved = await db.query.savedBoards.findMany({
@@ -1472,9 +1475,6 @@ export async function getSuggestedBoards(limit = 8) {
     const followingUrls = new Set(saved.map((b) => b.boardUrl));
 
     const { suggestBoardsForProfile } = await import("@/modules/discovery/suggest-boards");
-    const { loadCompanyRegistry } = await import("@/modules/discovery/company-registry-db");
-    const catalog = await loadCompanyRegistry();
-
     return suggestBoardsForProfile(catalog, profile, followingUrls, limit);
   });
 }

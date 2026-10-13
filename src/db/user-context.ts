@@ -10,6 +10,9 @@ export async function withUserDb<T>(userId: string, fn: (db: Db) => Promise<T>):
     async () => {
       incrementDbQueryCount();
       const db = getDb();
+      // SET LOCAL is transaction-scoped, which is required for Supavisor
+      // transaction pooling (port 6543). A session-level SET ROLE would not
+      // stick to the next statement, and would leak across clients in session mode.
       return db.transaction(async (tx) => {
         await tx.execute(
           sql`SELECT set_config('request.jwt.claims', ${JSON.stringify({ sub: userId, role: "authenticated" })}, true)`

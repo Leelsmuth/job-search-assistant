@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import {
   resolveDatabaseUrl,
+  resolveDirectDatabaseUrl,
   resolveSupabaseAnonKey,
   resolveSupabaseUrl,
   isAppConfigured,
@@ -19,6 +20,51 @@ describe("env resolution", () => {
     delete process.env.DATABASE_URL;
     process.env.POSTGRES_URL = "postgresql://pooler.example/db";
     expect(resolveDatabaseUrl()).toBe("postgresql://pooler.example/db");
+  });
+
+  it("prefers a transaction pooler URL over a direct DATABASE_URL", () => {
+    process.env.DATABASE_URL = "postgresql://postgres:pw@db.example.supabase.co:5432/postgres";
+    process.env.POSTGRES_URL =
+      "postgresql://postgres.ref:pw@aws-0-us-east-1.pooler.supabase.com:6543/postgres";
+    expect(resolveDatabaseUrl()).toBe(process.env.POSTGRES_URL);
+  });
+
+  it("prefers port 6543 when POSTGRES_URL is session mode", () => {
+    process.env.POSTGRES_URL =
+      "postgresql://postgres.ref:pw@aws-0-us-east-1.pooler.supabase.com:5432/postgres";
+    process.env.POSTGRES_PRISMA_URL =
+      "postgresql://postgres.ref:pw@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1";
+    expect(resolveDatabaseUrl()).toBe(
+      "postgresql://postgres.ref:pw@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+    );
+  });
+
+  it("does not use POSTGRES_URL_NON_POOLING for runtime", () => {
+    delete process.env.DATABASE_URL;
+    delete process.env.POSTGRES_URL;
+    delete process.env.POSTGRES_PRISMA_URL;
+    delete process.env.SUPABASE_DB_URL;
+    process.env.POSTGRES_URL_NON_POOLING =
+      "postgresql://postgres:pw@db.example.supabase.co:5432/postgres";
+    expect(resolveDatabaseUrl()).toBeUndefined();
+    expect(resolveDirectDatabaseUrl()).toBe(process.env.POSTGRES_URL_NON_POOLING);
+  });
+
+  it("uses a direct DATABASE_URL for drizzle when no non-pooling var is set", () => {
+    delete process.env.POSTGRES_URL_NON_POOLING;
+    delete process.env.DIRECT_URL;
+    delete process.env.DATABASE_URL_UNPOOLED;
+    process.env.POSTGRES_URL = "postgresql://pooler.example:6543/postgres";
+    process.env.DATABASE_URL = "postgresql://localhost:5432/postgres";
+    expect(resolveDirectDatabaseUrl()).toBe("postgresql://localhost:5432/postgres");
+  });
+
+  it("does not give drizzle-kit a transaction pooler URL", () => {
+    delete process.env.POSTGRES_URL_NON_POOLING;
+    delete process.env.DIRECT_URL;
+    delete process.env.DATABASE_URL_UNPOOLED;
+    process.env.DATABASE_URL = "postgresql://pooler.example:6543/postgres";
+    expect(resolveDirectDatabaseUrl()).toBeUndefined();
   });
 
   it("resolves publishable key alias for anon key", () => {

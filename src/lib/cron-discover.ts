@@ -1,4 +1,6 @@
 export const CRON_MAX_BOARDS_PER_RUN = 20;
+/** One match at a time. The cron runs inside a single pooled connection. */
+export const CRON_MATCH_CONCURRENCY = 1;
 export const CRON_BOARD_DELAY_MS = 500;
 export const CRON_MAX_NEW_JOBS_PER_RUN = Number(
   process.env.CRON_MAX_NEW_JOBS_PER_RUN ?? 50

@@ -10,7 +10,13 @@ const envPath = join(process.cwd(), ".env.local");
 const required = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+] as const;
+
+const databaseKeys = [
+  "POSTGRES_URL",
+  "POSTGRES_PRISMA_URL",
   "DATABASE_URL",
+  "POSTGRES_URL_NON_POOLING",
 ] as const;
 
 const optional = [
@@ -19,6 +25,15 @@ const optional = [
   "SEED_USER_ID",
   "SUPABASE_SERVICE_ROLE_KEY",
 ] as const;
+
+function isPlaceholder(value: string | undefined): boolean {
+  if (!value) return true;
+  return (
+    value.includes("[YOUR-PASSWORD]") ||
+    value.includes("your-") ||
+    value.includes("password@localhost")
+  );
+}
 
 function loadEnvFile(path: string): Record<string, string> {
   if (!existsSync(path)) return {};
@@ -69,14 +84,19 @@ async function main() {
   console.log("Required variables:");
   for (const key of required) {
     const value = env[key];
-    const hasPlaceholder =
-      value?.includes("[YOUR-PASSWORD]") ||
-      value?.includes("your-") ||
-      value?.includes("password@localhost");
-    const set = value && !hasPlaceholder;
+    const hasPlaceholder = Boolean(value) && isPlaceholder(value);
+    const set = Boolean(value) && !hasPlaceholder;
     console.log(`  ${set ? "✓" : "✗"} ${key}${hasPlaceholder ? " (still has placeholder)" : ""}`);
     if (!set) ok = false;
   }
+
+  const databaseUrl = databaseKeys
+    .map((key) => env[key])
+    .find((value) => value && !isPlaceholder(value));
+  console.log(
+    `  ${databaseUrl ? "✓" : "✗"} Postgres URL (${databaseKeys.join(" or ")})`
+  );
+  if (!databaseUrl) ok = false;
 
   console.log("\nOptional variables:");
   for (const key of optional) {
@@ -85,11 +105,21 @@ async function main() {
     console.log(`  ${set ? "✓" : "○"} ${key}${set ? "" : " (not set)"}`);
   }
 
-  if (env.DATABASE_URL && ok) {
+  if (databaseUrl && ok) {
+    Object.assign(process.env, env);
+    const { resolveDatabaseUrl, isTransactionPoolerUrl } = await import("../src/lib/env");
+    const runtimeUrl = resolveDatabaseUrl();
     console.log("\nDatabase connectivity:");
-    const dbOk = await checkDatabase(env.DATABASE_URL);
-    console.log(`  ${dbOk ? "✓" : "✗"} Postgres reachable`);
-    if (!dbOk) ok = false;
+    if (!runtimeUrl) {
+      console.log("  ✗ No runtime database URL");
+      ok = false;
+    } else {
+      const mode = isTransactionPoolerUrl(runtimeUrl) ? "transaction pooler" : "direct/session";
+      console.log(`  · Runtime connection (${mode})`);
+      const dbOk = await checkDatabase(runtimeUrl);
+      console.log(`  ${dbOk ? "✓" : "✗"} Postgres reachable`);
+      if (!dbOk) ok = false;
+    }
   }
 
   console.log("\nNext steps:");
