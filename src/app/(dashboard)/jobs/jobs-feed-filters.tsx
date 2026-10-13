@@ -5,7 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function JobsFeedFilters() {
+export function JobsFeedFilters({
+  view,
+}: {
+  view: {
+    showRemoteOther: boolean;
+    showOutOfArea: boolean;
+    includeHybridGta: boolean;
+    includeOnsiteGta: boolean;
+  };
+}) {
   const router = useRouter();
   const params = useSearchParams();
 
@@ -117,6 +126,34 @@ export function JobsFeedFilters() {
           }
         >
           Remote Only
+        </Button>
+        <Button
+          variant={view.showRemoteOther ? "default" : "outline"}
+          size="sm"
+          onClick={() => update("showRemoteOther", view.showRemoteOther ? "false" : "true")}
+        >
+          US-only / other remote
+        </Button>
+        <Button
+          variant={view.showOutOfArea ? "default" : "outline"}
+          size="sm"
+          onClick={() => update("showOutOfArea", view.showOutOfArea ? "false" : "true")}
+        >
+          Out of area
+        </Button>
+        <Button
+          variant={view.includeHybridGta ? "default" : "outline"}
+          size="sm"
+          onClick={() => update("includeHybrid", view.includeHybridGta ? "false" : "true")}
+        >
+          Hybrid GTA
+        </Button>
+        <Button
+          variant={view.includeOnsiteGta ? "default" : "outline"}
+          size="sm"
+          onClick={() => update("includeOnsite", view.includeOnsiteGta ? "false" : "true")}
+        >
+          On-site GTA
         </Button>
         <Button
           variant={params.get("canada") === "true" ? "default" : "outline"}

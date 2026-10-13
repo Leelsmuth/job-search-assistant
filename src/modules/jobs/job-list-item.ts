@@ -18,6 +18,13 @@ export type JobListItem = {
     normalizedSkill: string | null;
     text: string;
   }>;
+  technologies: string[];
+  locationClass: string | null;
+  locationFlags: string[];
+  frontendFit: {
+    score: number;
+    reasons: string[];
+  } | null;
   match: {
     overallScore: number;
     classification: string;
@@ -59,6 +66,9 @@ export function mapRowToJobListItem(row: {
   dateDiscovered: Date;
   company: { name: string } | null;
   source: { provider: string } | null;
+  technologies?: string[] | null;
+  locationEligibility?: string | null;
+  locationFlags?: string[] | null;
   requirements: Array<{
     id: string;
     requirementType: string;
@@ -89,6 +99,10 @@ export function mapRowToJobListItem(row: {
     company: row.company,
     sourceProvider: row.source?.provider ?? null,
     requirements: row.requirements,
+    technologies: row.technologies ?? [],
+    locationClass: row.locationEligibility ?? null,
+    locationFlags: row.locationFlags ?? [],
+    frontendFit: null,
     match: latest
       ? {
           overallScore: latest.overallScore,

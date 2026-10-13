@@ -299,6 +299,20 @@ export const companies = pgTable("companies", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const searchPreferences = pgTable("search_preferences", {
+  userId: uuid("user_id").primaryKey(),
+  targetTitles: jsonb("target_titles").$type<string[]>().notNull().default([]),
+  preferredSeniority: text("preferred_seniority").notNull().default("senior"),
+  minimumSalaryCad: integer("minimum_salary_cad"),
+  includeHybridGta: boolean("include_hybrid_gta").notNull().default(true),
+  includeOnsiteGta: boolean("include_onsite_gta").notNull().default(true),
+  showRemoteOther: boolean("show_remote_other").notNull().default(false),
+  showOutOfArea: boolean("show_out_of_area").notNull().default(false),
+  discoverCuratedBoards: boolean("discover_curated_boards").notNull().default(false),
+  gtaCities: jsonb("gta_cities").$type<string[]>().notNull().default([]),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const savedBoards = pgTable("saved_boards", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").notNull(),
@@ -382,6 +396,10 @@ export const jobs = pgTable("jobs", {
   discoveredBoardUrl: text("discovered_board_url"),
   descriptionHash: text("description_hash"),
   matchPipelineStatus: text("match_pipeline_status").default("match_pending"),
+  locationEligibility: text("location_eligibility"),
+  locationFlags: jsonb("location_flags").$type<string[]>().default([]),
+  frontendFitScore: real("frontend_fit_score"),
+  frontendFitReasons: jsonb("frontend_fit_reasons").$type<string[]>().default([]),
   isSaved: boolean("is_saved").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

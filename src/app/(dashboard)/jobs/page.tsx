@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getJobsFeed, getJobsFeedCounts } from "@/server/actions";
+import { getJobsFeed, getJobsFeedCounts, getSearchPreferences } from "@/server/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { MatchClassification } from "@/lib/utils";
@@ -21,10 +21,25 @@ export default async function JobsPage({
     search?: string;
     discoveredSince?: "24h" | "7d";
     strongUnseen?: string;
+    showRemoteOther?: string;
+    showOutOfArea?: string;
+    includeHybrid?: string;
+    includeOnsite?: string;
   }>;
 }) {
   const params = await searchParams;
   const sort = (params.sort as "match" | "recent" | "salary") ?? "match";
+  const [preferences, counts] = await Promise.all([
+    getSearchPreferences(),
+    getJobsFeedCounts(),
+  ]);
+  const locationView = {
+    ...preferences,
+    showRemoteOther: flagParam(params.showRemoteOther, preferences.showRemoteOther),
+    showOutOfArea: flagParam(params.showOutOfArea, preferences.showOutOfArea),
+    includeHybridGta: flagParam(params.includeHybrid, preferences.includeHybridGta),
+    includeOnsiteGta: flagParam(params.includeOnsite, preferences.includeOnsiteGta),
+  };
 
   const feedFilters = {
     minScore: params.minScore ? Number(params.minScore) : undefined,
@@ -36,12 +51,10 @@ export default async function JobsPage({
     search: params.search,
     discoveredSince: params.discoveredSince,
     strongUnseenOnly: params.strongUnseen === "true",
+    locationView,
   };
 
-  const [feed, counts] = await Promise.all([
-    getJobsFeed(feedFilters),
-    getJobsFeedCounts(),
-  ]);
+  const feed = await getJobsFeed(feedFilters);
 
   const jobs = feed.jobs;
   const profileUpdatedAt = feed.profileUpdatedAt;
@@ -61,7 +74,14 @@ export default async function JobsPage({
         </Button>
       </div>
 
-      <JobsFeedFilters />
+      <JobsFeedFilters
+        view={{
+          showRemoteOther: locationView.showRemoteOther,
+          showOutOfArea: locationView.showOutOfArea,
+          includeHybridGta: locationView.includeHybridGta,
+          includeOnsiteGta: locationView.includeOnsiteGta,
+        }}
+      />
 
       {jobs.length === 0 ? (
         <Card>
@@ -80,7 +100,10 @@ export default async function JobsPage({
               </>
             ) : (
               <>
-                <p className="text-muted-foreground">No jobs match your filters.</p>
+                <p className="text-muted-foreground">
+                  No jobs match your filters. US-only and out-of-area roles stay hidden until
+                  you turn them on here or in Settings.
+                </p>
                 <Button asChild variant="outline" className="mt-4">
                   <Link href="/jobs">Clear filters</Link>
                 </Button>
@@ -117,4 +140,10 @@ export default async function JobsPage({
       )}
     </div>
   );
+}
+
+function flagParam(value: string | undefined, fallback: boolean): boolean {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return fallback;
 }

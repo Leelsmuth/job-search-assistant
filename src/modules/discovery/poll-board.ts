@@ -12,6 +12,9 @@ import { fetchWorkdayJobDetail } from "@/modules/ingestion/workday";
 import { persistDiscoveredJob } from "@/modules/ingestion/persist-job";
 import { shouldImportDiscoveredJob } from "@/modules/discovery/pre-import-filter";
 import type { CandidateProfile } from "@/modules/matching/engine";
+import { loadSearchPreferences } from "@/modules/matching/load-search-preferences";
+import type { SearchPreferences } from "@/modules/matching/search-preferences";
+import type { CuratedBoard } from "@/modules/discovery/curated-boards";
 import { measureOperation } from "@/lib/performance/measure-operation";
 import {
   CRON_BOARD_DELAY_MS,
@@ -66,7 +69,9 @@ export async function pollSavedBoard(
     companyName: string;
   },
   caps: { remainingNewJobs: number },
-  profile?: CandidateProfile
+  profile?: CandidateProfile,
+  preferences?: SearchPreferences,
+  options?: { trackSavedBoard?: boolean }
 ): Promise<BoardPollStats> {
   return measureOperation(
     "discovery.pollSavedBoard",
@@ -93,7 +98,12 @@ export async function pollSavedBoard(
       for (const job of normalizedJobs) {
         if (caps.remainingNewJobs <= 0) break;
 
-        const filterResult = shouldImportDiscoveredJob(job, profile);
+        const filterResult = shouldImportDiscoveredJob(
+          job,
+          profile,
+          preferences,
+          preferences?.gtaCities
+        );
         if (!filterResult.import) {
           stats.filtered++;
           continue;
@@ -129,16 +139,18 @@ export async function pollSavedBoard(
         caps.remainingNewJobs--;
       }
 
-      await db
-        .update(savedBoards)
-        .set({
-          lastPolledAt: new Date(),
-          boardUrl: parsed.boardUrl,
-          lastPollNewJobs: stats.newJobs,
-          lastPollSkipped: stats.skipped,
-          lastPollFiltered: stats.filtered,
-        })
-        .where(eq(savedBoards.id, board.id));
+      if (options?.trackSavedBoard !== false) {
+        await db
+          .update(savedBoards)
+          .set({
+            lastPolledAt: new Date(),
+            boardUrl: parsed.boardUrl,
+            lastPollNewJobs: stats.newJobs,
+            lastPollSkipped: stats.skipped,
+            lastPollFiltered: stats.filtered,
+          })
+          .where(eq(savedBoards.id, board.id));
+      }
 
       return stats;
     },
@@ -155,7 +167,8 @@ export async function pollBoardsForUser(
     provider: JobSourceProvider;
     companyName: string;
   }>,
-  globalCaps: { remainingNewJobs: number }
+  globalCaps: { remainingNewJobs: number },
+  options?: { trackSavedBoard?: boolean }
 ): Promise<{
   results: Array<{ boardId: string; status: "success" | "error" }>;
   stats: BoardPollStats;
@@ -169,11 +182,20 @@ export async function pollBoardsForUser(
   };
   const results: Array<{ boardId: string; status: "success" | "error" }> = [];
   const profile = await loadProfileForFilter(db, userId);
+  const preferences = await loadSearchPreferences(db, userId);
 
   for (let i = 0; i < boards.length; i++) {
     const board = boards[i];
     try {
-      const boardStats = await pollSavedBoard(db, userId, board, globalCaps, profile);
+      const boardStats = await pollSavedBoard(
+        db,
+        userId,
+        board,
+        globalCaps,
+        profile,
+        preferences,
+        options
+      );
       stats.newJobs += boardStats.newJobs;
       stats.skipped += boardStats.skipped;
       stats.updated += boardStats.updated;
@@ -185,16 +207,18 @@ export async function pollBoardsForUser(
         `[discovery] board poll failed userId=${userId} boardId=${board.id}`,
         error
       );
-      try {
-        await db
-          .update(savedBoards)
-          .set({ lastPolledAt: new Date() })
-          .where(eq(savedBoards.id, board.id));
-      } catch (stampError) {
-        console.error(
-          `[discovery] failed to record poll time boardId=${board.id}`,
-          stampError
-        );
+      if (options?.trackSavedBoard !== false) {
+        try {
+          await db
+            .update(savedBoards)
+            .set({ lastPolledAt: new Date() })
+            .where(eq(savedBoards.id, board.id));
+        } catch (stampError) {
+          console.error(
+            `[discovery] failed to record poll time boardId=${board.id}`,
+            stampError
+          );
+        }
       }
       results.push({ boardId: board.id, status: "error" });
     }
@@ -205,6 +229,24 @@ export async function pollBoardsForUser(
   }
 
   return { results, stats };
+}
+
+export async function pollCuratedBoardsForUser(
+  db: Db,
+  userId: string,
+  boards: CuratedBoard[],
+  globalCaps: { remainingNewJobs: number }
+): Promise<{
+  results: Array<{ boardId: string; status: "success" | "error" }>;
+  stats: BoardPollStats;
+}> {
+  const asSaved = boards.map((board) => ({
+    id: `curated:${board.boardUrl}`,
+    boardUrl: board.boardUrl,
+    provider: board.provider,
+    companyName: board.companyName,
+  }));
+  return pollBoardsForUser(db, userId, asSaved, globalCaps, { trackSavedBoard: false });
 }
 
 export function aggregateDiscoverStats(

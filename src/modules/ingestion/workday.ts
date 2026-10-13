@@ -10,6 +10,11 @@ import { parseWorkdayUrl, type ParsedWorkdayUrl } from "./board-url";
 
 const PAGE_SIZE = 20;
 const MAX_PAGES = 20;
+const WORKDAY_PAGE_DELAY_MS = 250;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 const WORKDAY_HEADERS = {
   Accept: "application/json",
@@ -85,6 +90,9 @@ async function fetchWorkdayJson(url: string, init: RequestInit): Promise<unknown
     headers: { ...WORKDAY_HEADERS, ...init.headers },
     signal: AbortSignal.timeout(15000),
   });
+  if (response.status === 429) {
+    throw new Error("Workday rate limit: HTTP 429");
+  }
   if (!response.ok) {
     throw new Error(`Workday fetch failed: HTTP ${response.status}`);
   }
@@ -97,6 +105,7 @@ async function fetchWorkdayBoardList(parsed: ParsedWorkdayUrl): Promise<WorkdayL
   let total = Number.POSITIVE_INFINITY;
 
   for (let page = 0; page < MAX_PAGES && offset < total; page++) {
+    if (page > 0) await sleep(WORKDAY_PAGE_DELAY_MS);
     const data = (await fetchWorkdayJson(`${cxsBase(parsed)}/jobs`, {
       method: "POST",
       body: JSON.stringify({

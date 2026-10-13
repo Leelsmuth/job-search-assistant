@@ -50,6 +50,14 @@ export function getSupabaseEnv(): { url: string; anonKey: string } {
   return { url, anonKey };
 }
 
+/** True when a real OpenAI key is set. Placeholder values do not count. */
+export function isOpenAiConfigured(): boolean {
+  const key = process.env.OPENAI_API_KEY?.trim();
+  if (!key) return false;
+  if (/your-key|placeholder|changeme|xxx/i.test(key)) return false;
+  return key.startsWith("sk-");
+}
+
 export function isDatabaseConfigured(): boolean {
   return Boolean(resolveDatabaseUrl());
 }

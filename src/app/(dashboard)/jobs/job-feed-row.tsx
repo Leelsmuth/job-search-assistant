@@ -11,7 +11,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { classificationColor, formatSalary, formatMatchScore } from "@/lib/utils";
+import { classificationColor, formatSalary } from "@/lib/utils";
+import { LOCATION_CLASS_LABELS, isLocationClass } from "@/modules/location/eligibility";
 import type { MatchClassification } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
@@ -53,13 +54,26 @@ export function JobFeedRow({
         <Link href={`/jobs/${job.id}`} className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4">
           <div className="w-12 shrink-0 text-center sm:w-14">
             <div className="text-lg font-bold sm:text-xl">
-              {formatMatchScore(match?.overallScore ?? null)}
+              {job.frontendFit ? job.frontendFit.score : "—"}
             </div>
-            <div className="text-[10px] text-muted-foreground sm:text-xs">match</div>
+            <div className="text-[10px] text-muted-foreground sm:text-xs">fit</div>
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <h3 className="line-clamp-2 font-semibold leading-snug sm:truncate">{job.title}</h3>
+              {isLocationClass(job.locationClass) ? (
+                <Badge className="border border-border bg-transparent">
+                  {LOCATION_CLASS_LABELS[job.locationClass]}
+                </Badge>
+              ) : null}
+              {job.locationFlags.includes("us_only") ||
+              job.locationFlags.includes("us_work_authorization") ? (
+                <Badge className="bg-amber-100 text-amber-900">US auth</Badge>
+              ) : null}
+              {job.locationFlags.includes("visa_sponsorship_ambiguous") ||
+              job.locationFlags.includes("eligibility_ambiguous") ? (
+                <Badge className="bg-amber-100 text-amber-900">Eligibility unclear</Badge>
+              ) : null}
               {classification && (
                 <Badge className={classificationColor(classification)}>{classification}</Badge>
               )}
@@ -83,6 +97,11 @@ export function JobFeedRow({
             <p className="mt-1 text-xs text-muted-foreground sm:hidden">
               {formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency ?? "CAD") ?? "—"}
             </p>
+            {job.frontendFit?.reasons[0] ? (
+              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground sm:truncate">
+                {job.frontendFit.reasons.slice(0, 2).join(" · ")}
+              </p>
+            ) : null}
             {match?.topConcern && (
               <p className="mt-1 line-clamp-2 text-xs text-orange-700 sm:truncate">
                 Gap: {match.topConcern}

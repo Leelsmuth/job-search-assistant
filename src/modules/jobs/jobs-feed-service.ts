@@ -1,7 +1,17 @@
 import { and, desc, eq, gte, ilike, lt, ne, or, sql } from "drizzle-orm";
 import type { Db } from "@/server/actions/helpers";
 import { getProfileUpdatedAt } from "@/server/actions/helpers";
-import { jobs, matchAnalyses } from "@/db/schema";
+import { candidateProfiles, jobs, matchAnalyses } from "@/db/schema";
+import {
+  classifyLocationEligibility,
+  isLocationClass,
+  isLocationVisible,
+  LOCATION_FEED_RANK,
+  type LocationClass,
+} from "@/modules/location/eligibility";
+import { scoreFrontendFit } from "@/modules/matching/frontend-fit";
+import { loadSearchPreferences } from "@/modules/matching/load-search-preferences";
+import type { SearchPreferences } from "@/modules/matching/search-preferences";
 import {
   DEFAULT_JOBS_FEED_LIMIT,
   MAX_JOBS_FEED_LIMIT,
@@ -28,6 +38,8 @@ export type JobsFeedFilters = {
   strongUnseenOnly?: boolean;
   limit?: number;
   cursor?: JobsFeedCursor;
+  /** When set, hide locations the user has not opted into and rank Remote-Canada first. */
+  locationView?: SearchPreferences;
 };
 
 function applyInMemoryFilters(
@@ -46,10 +58,15 @@ function applyInMemoryFilters(
     );
   }
 
-  if (filters?.minScore) {
-    filtered = filtered.filter(
-      (j) => (j.match?.overallScore ?? 0) >= filters.minScore!
+  if (filters?.locationView) {
+    const view = filters.locationView;
+    filtered = filtered.filter((job) =>
+      isLocationVisible(resolveLocationClass(job, view), view)
     );
+  }
+
+  if (filters?.minScore) {
+    filtered = filtered.filter((j) => feedScore(j) >= filters.minScore!);
   }
 
   if (filters?.classification) {
@@ -81,10 +98,13 @@ function applyInMemoryFilters(
     );
   }
 
-  if (filters?.sort === "match") {
-    filtered = [...filtered].sort(
-      (a, b) => (b.match?.overallScore ?? 0) - (a.match?.overallScore ?? 0)
-    );
+  if (filters?.sort === "match" || !filters?.sort) {
+    filtered = [...filtered].sort((a, b) => {
+      const rankA = LOCATION_FEED_RANK[resolveLocationClass(a, filters?.locationView)];
+      const rankB = LOCATION_FEED_RANK[resolveLocationClass(b, filters?.locationView)];
+      if (rankA !== rankB) return rankA - rankB;
+      return feedScore(b) - feedScore(a);
+    });
   } else if (filters?.sort === "salary") {
     filtered = [...filtered].sort(
       (a, b) => (b.salaryMax ?? 0) - (a.salaryMax ?? 0)
@@ -113,8 +133,9 @@ export async function fetchJobsFeed(
         filters?.classification ||
         filters?.strongUnseenOnly ||
         filters?.canadaOnly ||
-        filters?.source
-          ? Math.min(limit * 3, MAX_JOBS_FEED_LIMIT * 2)
+        filters?.source ||
+        filters?.locationView
+          ? Math.min(limit * 4, MAX_JOBS_FEED_LIMIT * 2)
           : limit + 1;
 
       const conditions = [eq(jobs.userId, userId)];
@@ -165,6 +186,9 @@ export async function fetchJobsFeed(
           salaryMin: true,
           salaryMax: true,
           salaryCurrency: true,
+          technologies: true,
+          locationEligibility: true,
+          locationFlags: true,
           isSaved: true,
           status: true,
           dateDiscovered: true,
@@ -198,7 +222,40 @@ export async function fetchJobsFeed(
         },
       });
 
-      let mapped = rows.map(mapRowToJobListItem);
+      const preferences =
+        filters?.locationView ?? (await loadSearchPreferences(db, userId));
+      const profile = await loadFitProfile(db, userId);
+      let mapped: JobListItem[] = rows.map((row) => {
+        const item = mapRowToJobListItem(row);
+        const location = isLocationClass(item.locationClass)
+          ? { class: item.locationClass, flags: item.locationFlags }
+          : classifyLocationEligibility(
+              { location: item.location, workplaceType: item.workplaceType },
+              { gtaCities: preferences.gtaCities }
+            );
+        const fit = scoreFrontendFit(
+          {
+            title: item.title,
+            technologies: item.technologies,
+            requirements: item.requirements,
+            salaryMin: item.salaryMin,
+            salaryMax: item.salaryMax,
+            salaryCurrency: item.salaryCurrency,
+          },
+          {
+            skills: profile.skills,
+            targetTitles: preferences.targetTitles,
+            preferredSeniority: preferences.preferredSeniority ?? profile.preferredSeniority,
+            minimumSalaryCad: preferences.minimumSalaryCad ?? profile.minimumSalary,
+          }
+        );
+        return {
+          ...item,
+          locationClass: location.class,
+          locationFlags: location.flags,
+          frontendFit: { score: fit.score, reasons: fit.reasons },
+        };
+      });
       mapped = applyInMemoryFilters(mapped, filters);
 
       const hasMore = mapped.length > limit;
@@ -209,7 +266,7 @@ export async function fetchJobsFeed(
           ? {
               id: last.id,
               dateDiscovered: last.dateDiscovered.toISOString(),
-              sortScore: last.match?.overallScore,
+              sortScore: last.frontendFit?.score ?? last.match?.overallScore,
             }
           : null;
 
@@ -231,6 +288,36 @@ export async function fetchJobsFeed(
       payloadBytes: undefined,
     }
   );
+}
+
+function feedScore(job: JobListItem): number {
+  return job.frontendFit?.score ?? job.match?.overallScore ?? 0;
+}
+
+function resolveLocationClass(job: JobListItem, prefs?: SearchPreferences): LocationClass {
+  if (isLocationClass(job.locationClass)) return job.locationClass;
+  return classifyLocationEligibility(
+    { location: job.location, workplaceType: job.workplaceType },
+    { gtaCities: prefs?.gtaCities }
+  ).class;
+}
+
+async function loadFitProfile(db: Db, userId: string): Promise<{
+  skills: string[];
+  preferredSeniority: string | null;
+  minimumSalary: number | null;
+}> {
+  const row = await db.query.candidateProfiles.findFirst({
+    where: eq(candidateProfiles.userId, userId),
+    columns: { preferredSeniority: true, minimumSalary: true },
+    with: { skills: { columns: { name: true } } },
+  });
+  const skills = row?.skills?.map((skill) => skill.name) ?? [];
+  return {
+    skills,
+    preferredSeniority: row?.preferredSeniority ?? null,
+    minimumSalary: row?.minimumSalary ?? null,
+  };
 }
 
 export async function countAllUserJobs(db: Db, userId: string): Promise<number> {

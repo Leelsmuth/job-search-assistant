@@ -73,6 +73,17 @@ describe("workdayAdapter", () => {
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
+  it("reports a Workday rate limit instead of paging further", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: false,
+      status: 429,
+      json: async () => ({}),
+    } as Response);
+
+    await expect(workdayAdapter.fetch(BOARD_URL)).rejects.toThrow(/rate limit/i);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
   it("fetches a single posting from the detail endpoint", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
       jsonResponse({ jobPostingInfo: workdayJob })
