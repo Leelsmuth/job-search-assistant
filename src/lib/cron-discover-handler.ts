@@ -1,5 +1,9 @@
 import { eq } from "drizzle-orm";
-import { CRON_MAX_BOARDS_PER_RUN, CRON_MAX_NEW_JOBS_PER_RUN } from "@/lib/cron-discover";
+import {
+  CRON_MAX_BOARDS_PER_RUN,
+  CRON_MAX_NEW_JOBS_PER_RUN,
+  pickLeastRecentlyPolledBoards,
+} from "@/lib/cron-discover";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { getDb } from "@/db/client";
 import { savedBoards } from "@/db/schema";
@@ -33,10 +37,10 @@ function groupBoardsByUser(
 export async function runCronDiscoverPoll() {
   return runWithPerfContextAsync("cron.discover", async () => {
     const db = getDb();
-    const boards = await db.query.savedBoards.findMany({
+    const activeBoards = await db.query.savedBoards.findMany({
       where: eq(savedBoards.isActive, true),
-      limit: CRON_MAX_BOARDS_PER_RUN,
     });
+    const boards = pickLeastRecentlyPolledBoards(activeBoards, CRON_MAX_BOARDS_PER_RUN);
 
     const byUser = groupBoardsByUser(boards);
     const allResults: Array<{ status: "success" | "error" }> = [];

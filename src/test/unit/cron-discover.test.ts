@@ -1,10 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   summarizeCronPollResults,
   CRON_MAX_BOARDS_PER_RUN,
   CRON_MAX_NEW_JOBS_PER_RUN,
+  pickLeastRecentlyPolledBoards,
 } from "@/lib/cron-discover";
-import { aggregateDiscoverStats } from "@/modules/discovery/poll-board";
+import { aggregateDiscoverStats, pollBoardsForUser } from "@/modules/discovery/poll-board";
 
 describe("cron discover helpers", () => {
   it("summarizes poll results", () => {
@@ -40,5 +41,76 @@ describe("cron discover helpers", () => {
       matched: 5,
       filtered: 20,
     });
+  });
+
+  it("polls never-checked boards before recently polled ones", () => {
+    const boards = [
+      ...Array.from({ length: 20 }, (_, index) => ({
+        id: `recent-${index}`,
+        lastPolledAt: new Date("2026-02-01T00:00:00.000Z"),
+      })),
+      ...Array.from({ length: 5 }, (_, index) => ({
+        id: `new-${index}`,
+        lastPolledAt: null,
+      })),
+    ];
+
+    const picked = pickLeastRecentlyPolledBoards(boards, CRON_MAX_BOARDS_PER_RUN);
+    expect(picked.slice(0, 5).map((board) => board.id)).toEqual([
+      "new-0",
+      "new-1",
+      "new-2",
+      "new-3",
+      "new-4",
+    ]);
+    expect(picked).toHaveLength(CRON_MAX_BOARDS_PER_RUN);
+    expect(picked.some((board) => board.id === "recent-19")).toBe(false);
+  });
+
+  it("orders polled boards by oldest lastPolledAt", () => {
+    const picked = pickLeastRecentlyPolledBoards(
+      [
+        { id: "newest", lastPolledAt: new Date("2026-03-01T00:00:00.000Z") },
+        { id: "never", lastPolledAt: null },
+        { id: "oldest", lastPolledAt: new Date("2026-01-01T00:00:00.000Z") },
+        { id: "middle", lastPolledAt: new Date("2026-02-01T00:00:00.000Z") },
+      ],
+      3
+    );
+    expect(picked.map((board) => board.id)).toEqual(["never", "oldest", "middle"]);
+  });
+
+  it("stamps lastPolledAt when a board poll fails", async () => {
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    const where = vi.fn().mockResolvedValue(undefined);
+    const set = vi.fn().mockReturnValue({ where });
+    const db = {
+      query: {
+        candidateProfiles: {
+          findFirst: vi.fn().mockResolvedValue(undefined),
+        },
+      },
+      update: vi.fn().mockReturnValue({ set }),
+    };
+
+    const { results } = await pollBoardsForUser(
+      db as never,
+      "user-1",
+      [
+        {
+          id: "board-1",
+          boardUrl: "not-a-board",
+          provider: "greenhouse",
+          companyName: "Acme",
+        },
+      ],
+      { remainingNewJobs: 5 }
+    );
+
+    expect(results).toEqual([{ boardId: "board-1", status: "error" }]);
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({ lastPolledAt: expect.any(Date) })
+    );
+    errorLog.mockRestore();
   });
 });

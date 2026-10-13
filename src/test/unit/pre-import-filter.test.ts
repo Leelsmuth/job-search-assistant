@@ -12,6 +12,7 @@ describe("shouldImportDiscoveredJob", () => {
     requiredQualifications: [],
     preferredQualifications: [],
     technologies: [],
+    salaryCurrency: "CAD",
     jobUrl: "https://example.com/job",
   };
 
