@@ -30,7 +30,8 @@ Optional in **API** tab:
 | Variable | Purpose |
 |----------|---------|
 | `SUPABASE_SERVICE_ROLE_KEY` | Admin tasks (not needed for MVP) |
-| `OPENAI_API_KEY` | AI extraction/drafting (heuristics work without it) |
+| `OPENAI_API_KEY` | AI extraction, bullet rewrites, and cover letters (selection and templates work without it) |
+| `OPENAI_MODEL` | Chat model for every OpenAI call. Defaults to `gpt-4o-mini` |
 | `CRON_SECRET` | Protect `/api/cron/discover` in production |
 
 ### 3. Configure environment
@@ -125,7 +126,7 @@ The app accepts **either** name for Supabase URL and anon key. For Postgres, run
 | `POSTGRES_URL` | Yes on Vercel | Supabase **transaction pooler** URI (host `*.pooler.supabase.com`, port **6543**) |
 | `DATABASE_URL` | Yes for local dev | Direct Postgres (port 5432). Used at runtime only when no transaction-pooler URL is set |
 
-Optional: `OPENAI_API_KEY`, `CRON_SECRET`, `POSTGRES_URL_NON_POOLING` (drizzle-kit against Supabase)
+Optional: `OPENAI_API_KEY`, `OPENAI_MODEL` (default `gpt-4o-mini`), `CRON_SECRET`, `POSTGRES_URL_NON_POOLING` (drizzle-kit against Supabase)
 
 If env vars are missing, `/jobs` redirects to `/login` with a configuration notice instead of a 500 error.
 
@@ -142,13 +143,19 @@ Serverless code keeps one postgres.js client per process (`max: 1`, `idle_timeou
 
 ---
 
+## Tailored resume and cover letter
+
+On a job page, use **Tailor resume** or the **Documents** tab. The app ranks experiences, bullets, projects, and skills from requirement matches and frontend fit. That selection works with no API key. Set `OPENAI_API_KEY` to rewrite bullets and draft a 250–350 word cover letter with `OPENAI_MODEL` (default `gpt-4o-mini`). Rewrites are checked against profile facts. Each model call is stored in `ai_runs` with the model name, including a row with a null model when the key is missing.
+
+Before using this, apply [`drizzle/migrations/0012_tailored_documents.sql`](drizzle/migrations/0012_tailored_documents.sql) in the Supabase SQL editor. Do not run it from CI.
+
 ## Daily workflow
 
 1. **Profile** — confirm skills, experience, preferences at `/profile`
 2. **Discovery** — browse the catalog and add boards at `/discovery`
 3. **Settings** — poll saved boards, review board health (`/settings`)
 4. **Review feed** — search, filter, save/dismiss from `/jobs`
-5. **Prepare** — tailoring + Q&A on job detail pages
+5. **Prepare** — tailoring, per-job resume and cover letter, and Q&A on job detail pages
 6. **Track** — table or Kanban at `/applications`
 
 ## Automated discovery (V1)

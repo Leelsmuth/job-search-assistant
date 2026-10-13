@@ -21,6 +21,7 @@ import {
 } from "./resume-section-detector";
 import type { NormalizedDocument } from "@/modules/resumes/normalize/extracted-document-normalizer";
 import { computeConfidenceScores, mergeWarnings } from "./confidence";
+import { getOpenAiModel } from "@/lib/env";
 import { measureOpenAiCall } from "@/lib/performance/log-ai-run";
 
 function isOpenAiConfigured(): boolean {
@@ -70,7 +71,7 @@ async function callOpenAiParse(
     "openai.resume.parse",
     () =>
       openai!.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: getOpenAiModel(),
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -78,7 +79,7 @@ async function callOpenAiParse(
         response_format: { type: "json_object" },
         temperature: 0.1,
       }),
-    { inputChars: userPrompt.length, model: "gpt-4o-mini" }
+    { inputChars: userPrompt.length, model: getOpenAiModel() }
   );
 
   const content = response.choices[0]?.message?.content;
@@ -86,7 +87,7 @@ async function callOpenAiParse(
 
   return {
     content,
-    model: response.model,
+    model: response.model?.trim() || getOpenAiModel(),
     usage: {
       input: response.usage?.prompt_tokens ?? 0,
       output: response.usage?.completion_tokens ?? 0,

@@ -33,6 +33,8 @@ import {
   boardPollRuns,
   searchPreferences,
 } from "@/db/schema";
+import { getOpenAiModel, isOpenAiConfigured } from "@/lib/env";
+import { logAiRun } from "@/lib/performance/log-ai-run";
 import { getUser } from "@/lib/supabase/server";
 import { previewJobImport, persistDiscoveredJob, normalizeBoardUrl } from "@/modules/ingestion";
 import { runAndSaveMatchAnalysisDb } from "@/modules/matching/save-match-analysis";
@@ -43,7 +45,7 @@ import { generateTailoringSuggestions, draftApplicationAnswer } from "@/modules/
 import { selectTailoringBullets } from "@/modules/ai/tailoring-eligibility";
 import { detectUnsupportedClaims } from "@/modules/ai/schemas";
 import type { ApplicationStatus } from "@/lib/utils";
-import { parseOptionalInt } from "@/lib/utils";
+import { hashInput, parseOptionalInt } from "@/lib/utils";
 import { deleteResumeFile } from "@/modules/resumes/storage";
 import { wipeExtractedProfileData } from "@/modules/resumes/profile-wipe";
 import { sanitizeProfileExtraction } from "@/modules/resumes/profile-extraction-utils";
@@ -69,6 +71,31 @@ async function requireUser() {
   const user = await getUser();
   if (!user) throw new Error("Unauthorized");
   return user;
+}
+
+async function logConfiguredModel(
+  db: Db,
+  input: {
+    userId: string;
+    taskType: string;
+    promptVersion: string;
+    summary: string;
+    output?: Record<string, unknown>;
+  }
+) {
+  await logAiRun(db, {
+    userId: input.userId,
+    taskType: input.taskType,
+    promptVersion: input.promptVersion,
+    model: isOpenAiConfigured() ? getOpenAiModel() : null,
+    inputHash: hashInput(`${input.taskType}:${input.summary}`),
+    inputSummary: input.summary.slice(0, 240),
+    output: {
+      ...(input.output ?? {}),
+      fallbackReason: isOpenAiConfigured() ? null : "OPENAI_API_KEY missing",
+    },
+    status: "completed",
+  });
 }
 
 function withMeasuredAction<T>(
@@ -395,7 +422,7 @@ export async function enhanceFrontendFitAction(jobId: string) {
       where: eq(candidateProfiles.userId, user.id),
       with: { skills: true },
     });
-    return maybeEnhanceFrontendFit(
+    const fit = await maybeEnhanceFrontendFit(
       {
         title: job.title,
         description: job.description,
@@ -411,6 +438,14 @@ export async function enhanceFrontendFitAction(jobId: string) {
         minimumSalaryCad: prefs.minimumSalaryCad,
       }
     );
+    await logConfiguredModel(db, {
+      userId: user.id,
+      taskType: "frontend_fit.enhance",
+      promptVersion: "frontend_fit.enhance.v1",
+      summary: job.title,
+      output: { enhanced: fit.enhanced },
+    });
+    return fit;
   });
 }
 
@@ -881,6 +916,14 @@ export async function generateTailoring(jobId: string) {
       eligibleBullets
     );
 
+    await logConfiguredModel(db, {
+      userId: user.id,
+      taskType: "resume.tailor_suggestions",
+      promptVersion: "resume.tailor_suggestions.v2",
+      summary: job.title,
+      output: { suggestionCount: suggestions.length },
+    });
+
     if (suggestions.length === 0) {
       throw new Error(
         "Could not generate tailoring suggestions for this job. Try updating your profile bullets or re-running match analysis."
@@ -1109,6 +1152,14 @@ export async function draftAnswer(
       job.description ?? "",
       evidenceRows.map((e) => ({ id: e.id, evidenceText: e.evidenceText }))
     );
+
+    await logConfiguredModel(db, {
+      userId: user.id,
+      taskType: "application.draft_answer",
+      promptVersion: "application.draft_answer.v2",
+      summary: question,
+      output: { unsupportedClaimCount: unsupportedClaims.length },
+    });
 
     const appId = await saveApplicationAnswerDb(
       db,

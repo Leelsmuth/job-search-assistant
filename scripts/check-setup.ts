@@ -21,6 +21,7 @@ const databaseKeys = [
 
 const optional = [
   "OPENAI_API_KEY",
+  "OPENAI_MODEL",
   "CRON_SECRET",
   "SEED_USER_ID",
   "SUPABASE_SERVICE_ROLE_KEY",

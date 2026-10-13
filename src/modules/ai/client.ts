@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { z } from "zod";
+import { getOpenAiModel } from "@/lib/env";
 import { hashInput } from "@/lib/utils";
 import { validateTailoringSuggestions, validateDraftAnswerResponse, type TailoringSuggestionInput, type DraftAnswerResult } from "@/modules/ai/schemas";
 import { extractTechnologies } from "@/modules/ingestion/extract-requirements";
@@ -72,7 +73,7 @@ export async function extractProfileFromResume(
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: getOpenAiModel(),
       messages: [
         {
           role: "system",
@@ -191,7 +192,7 @@ export async function generateTailoringSuggestions(
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: getOpenAiModel(),
       messages: [
         {
           role: "system",
@@ -399,7 +400,7 @@ export async function draftApplicationAnswer(
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: getOpenAiModel(),
       messages: [
         {
           role: "system",
