@@ -97,7 +97,7 @@ export function FrontendFitCard({
           </Button>
         ) : (
           <p className="text-xs text-muted-foreground">
-            Deterministic score. Add OPENAI_API_KEY to optionally rewrite these reasons with gpt-4o-mini.
+            Deterministic score. Add OPENAI_API_KEY to optionally rewrite these reasons with the configured OpenAI model.
           </p>
         )}
       </CardContent>

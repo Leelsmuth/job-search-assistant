@@ -7,6 +7,8 @@ import {
   isAppConfigured,
   getSupabaseConfigOrNull,
   formatMissingConfigMessage,
+  getOpenAiModel,
+  DEFAULT_OPENAI_MODEL,
 } from "@/lib/env";
 
 describe("env resolution", () => {
@@ -94,5 +96,14 @@ describe("env resolution", () => {
 
   it("formatMissingConfigMessage handles empty missing list", () => {
     expect(formatMissingConfigMessage([])).toContain("NEXT_PUBLIC_SUPABASE_URL");
+  });
+
+  it("defaults the OpenAI model and honors OPENAI_MODEL", () => {
+    delete process.env.OPENAI_MODEL;
+    expect(getOpenAiModel()).toBe(DEFAULT_OPENAI_MODEL);
+    process.env.OPENAI_MODEL = "gpt-4.1-mini";
+    expect(getOpenAiModel()).toBe("gpt-4.1-mini");
+    process.env.OPENAI_MODEL = "placeholder";
+    expect(getOpenAiModel()).toBe(DEFAULT_OPENAI_MODEL);
   });
 });

@@ -15,6 +15,8 @@ export async function logAiRun(
     status: "completed" | "failed";
     tokenInputCount?: number;
     tokenOutputCount?: number;
+    costEstimate?: number | null;
+    error?: string | null;
     durationMs?: number;
   }
 ): Promise<void> {
@@ -32,8 +34,10 @@ export async function logAiRun(
       durationMs: input.durationMs,
     },
     status: input.status,
+    error: input.error ?? null,
     tokenInputCount: input.tokenInputCount,
     tokenOutputCount: input.tokenOutputCount,
+    costEstimate: input.costEstimate ?? null,
   });
 }
 

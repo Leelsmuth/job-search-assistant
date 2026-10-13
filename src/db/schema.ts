@@ -271,9 +271,29 @@ export const resumeVersions = pgTable("resume_versions", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").notNull(),
   resumeDocumentId: uuid("resume_document_id").references(() => resumeDocuments.id),
+  jobId: uuid("job_id"),
   name: text("name").notNull(),
   versionType: text("version_type").notNull().default("master"),
   contentText: text("content_text"),
+  contentJson: jsonb("content_json"),
+  generationMode: text("generation_mode"),
+  unsupportedClaims: jsonb("unsupported_claims").$type<string[]>().notNull().default([]),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const coverLetters = pgTable("cover_letters", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
+  jobId: uuid("job_id").notNull(),
+  profileId: uuid("profile_id")
+    .notNull()
+    .references(() => candidateProfiles.id, { onDelete: "cascade" }),
+  body: text("body").notNull(),
+  generationMode: text("generation_mode").notNull(),
+  unsupportedClaims: jsonb("unsupported_claims").$type<string[]>().notNull().default([]),
+  model: text("model"),
+  wordCount: integer("word_count"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -689,6 +709,18 @@ export const applicationsRelations = relations(applications, ({ one, many }) => 
   job: one(jobs, { fields: [applications.jobId], references: [jobs.id] }),
   events: many(applicationEvents),
   answers: many(applicationAnswers),
+}));
+
+export const resumeVersionsRelations = relations(resumeVersions, ({ one }) => ({
+  job: one(jobs, { fields: [resumeVersions.jobId], references: [jobs.id] }),
+}));
+
+export const coverLettersRelations = relations(coverLetters, ({ one }) => ({
+  job: one(jobs, { fields: [coverLetters.jobId], references: [jobs.id] }),
+  profile: one(candidateProfiles, {
+    fields: [coverLetters.profileId],
+    references: [candidateProfiles.id],
+  }),
 }));
 
 export const tailoringSuggestionsRelations = relations(tailoringSuggestions, ({ one }) => ({

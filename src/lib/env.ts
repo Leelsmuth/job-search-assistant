@@ -128,6 +128,16 @@ export function getSupabaseEnv(): { url: string; anonKey: string } {
   return { url, anonKey };
 }
 
+export const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
+
+/** Chat model for every OpenAI call. `OPENAI_MODEL` overrides the default. */
+export function getOpenAiModel(): string {
+  const model = process.env.OPENAI_MODEL?.trim();
+  if (!model) return DEFAULT_OPENAI_MODEL;
+  if (/your-model|placeholder|changeme/i.test(model)) return DEFAULT_OPENAI_MODEL;
+  return model;
+}
+
 /** True when a real OpenAI key is set. Placeholder values do not count. */
 export function isOpenAiConfigured(): boolean {
   const key = process.env.OPENAI_API_KEY?.trim();

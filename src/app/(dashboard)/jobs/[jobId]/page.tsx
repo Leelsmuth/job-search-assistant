@@ -14,6 +14,7 @@ import { isSparseExtraction } from "@/modules/matching/engine";
 import { groupRequirementMatches } from "@/modules/matching/group-matches";
 import { JobDescription } from "@/components/jobs/job-description";
 import { JobActions } from "./job-actions";
+import { DocumentsPanel } from "./documents-panel";
 import { LazyTailoringPanel } from "./lazy-tailoring-panel";
 import { LazyApplicationQAPanel } from "./lazy-application-qa-panel";
 import { MatchTabActions } from "./match-tab-actions";
@@ -55,10 +56,13 @@ function MatchGroupSection({
 
 export default async function JobDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ jobId: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { jobId } = await params;
+  const { tab } = await searchParams;
   const pageData = await getJobDetailPageData(jobId);
   if (!pageData) notFound();
 
@@ -86,7 +90,7 @@ export default async function JobDetailPage({
   const groupedMatches = groupRequirementMatches(match?.requirementMatches ?? []);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <div className="space-y-4">
         <Button variant="ghost" size="sm" asChild className="-ml-2 min-h-10">
           <Link href="/jobs">← Back to feed</Link>
@@ -135,12 +139,17 @@ export default async function JobDetailPage({
         isAlreadyApplied={application?.status === "applied"}
       />
 
-      <Tabs defaultValue="match">
+      <Button variant="outline" asChild>
+        <Link href={`/jobs/${job.id}?tab=documents`}>Tailor resume</Link>
+      </Button>
+
+      <Tabs defaultValue={tab === "documents" ? "documents" : "match"}>
         <TabsList className="mb-2 w-full sm:w-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="match">Match</TabsTrigger>
           <TabsTrigger value="evidence">Evidence</TabsTrigger>
           <TabsTrigger value="tailoring">Tailor</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="application">Q&amp;A</TabsTrigger>
         </TabsList>
 
@@ -295,6 +304,10 @@ export default async function JobDetailPage({
 
         <TabsContent value="tailoring">
           <LazyTailoringPanel jobId={job.id} />
+        </TabsContent>
+
+        <TabsContent value="documents">
+          <DocumentsPanel jobId={job.id} />
         </TabsContent>
 
         <TabsContent value="application">

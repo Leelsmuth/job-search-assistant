@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { z } from "zod";
-import { isOpenAiConfigured } from "@/lib/env";
+import { getOpenAiModel, isOpenAiConfigured } from "@/lib/env";
 import {
   scoreFrontendFit,
   type FrontendFitJob,
@@ -27,7 +27,7 @@ function unchanged(result: FrontendFitResult): EnhancedFrontendFit {
 }
 
 /**
- * Optional gpt-4o-mini pass. The deterministic score remains the source of truth;
+ * Optional model pass (`OPENAI_MODEL`, default gpt-4o-mini). The deterministic score remains the source of truth;
  * the model may only nudge it by 5 points and rewrite the short reasons.
  */
 export async function maybeEnhanceFrontendFit(
@@ -41,7 +41,7 @@ export async function maybeEnhanceFrontendFit(
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const response = await openai.chat.completions.create(
       {
-        model: "gpt-4o-mini",
+        model: getOpenAiModel(),
         temperature: 0,
         response_format: { type: "json_object" },
         messages: [
@@ -80,7 +80,7 @@ scoreDelta 0 and the provided reasons are correct when you are unsure.`,
       score,
       reasons: parsed.reasons.length > 0 ? parsed.reasons : deterministic.reasons,
       enhanced: true,
-      note: "Reasons adjusted with gpt-4o-mini. The base score is still the deterministic fit.",
+      note: `Reasons adjusted with ${getOpenAiModel()}. The base score is still the deterministic fit.`,
     };
   } catch {
     return unchanged(deterministic);
