@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getPreparedApplication, isAssistedApplySchemaError } from "@/server/actions/apply-actions";
+import { isAssistedApplySchemaError } from "@/modules/apply/schema-error";
+import { getPreparedApplication } from "@/server/actions/apply-actions";
 import { Card, CardContent } from "@/components/ui/card";
 import { PrepareApplication } from "./prepare-application";
 

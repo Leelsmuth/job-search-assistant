@@ -36,6 +36,10 @@ import {
   savedAnswersForStorage,
 } from "@/modules/apply/profile";
 import { readStoredQuestions } from "@/modules/apply/questions";
+import {
+  AssistedApplySchemaError,
+  isAssistedApplySchemaError,
+} from "@/modules/apply/schema-error";
 import type {
   ApplicationProfile,
   ApplyProvider,
@@ -48,20 +52,6 @@ import type {
 import { resolveApplicationForJob, type Db } from "@/server/actions/helpers";
 
 const MAX_DRAFTS = 12;
-
-export class AssistedApplySchemaError extends Error {
-  constructor() {
-    super(
-      "Apply migration 0013_assisted_apply.sql in the Supabase SQL editor before using assisted apply."
-    );
-    this.name = "AssistedApplySchemaError";
-  }
-}
-
-export function isAssistedApplySchemaError(error: unknown): boolean {
-  if (error instanceof AssistedApplySchemaError) return true;
-  return error instanceof Error && error.message.includes("0013_assisted_apply.sql");
-}
 
 function collectErrorText(error: unknown): string {
   const parts: string[] = [];
