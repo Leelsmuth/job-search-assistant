@@ -91,6 +91,7 @@ export const applicationStatusEnum = pgEnum("application_status", [
   "preparing",
   "ready_to_apply",
   "applied",
+  "interviewing",
   "recruiter_screen",
   "technical_interview",
   "final_interview",
@@ -561,6 +562,56 @@ export const applications = pgTable("applications", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export type AssistedApplyEventPayload = {
+  kind: "assisted_apply";
+  provider: string;
+  applyUrl: string | null;
+  resumeVersionId: string | null;
+  coverLetterId: string | null;
+  answers: Array<{
+    question: string;
+    answer: string;
+    source: string;
+    unsupportedClaims: string[];
+  }>;
+};
+
+export type StatusChangeEventPayload = {
+  kind: "status_change";
+  fromStatus: string;
+  toStatus: string;
+};
+
+export type FollowUpEventPayload = {
+  kind: "follow_up";
+  followUpDate: string | null;
+};
+
+export type NotesEventPayload = {
+  kind: "notes";
+};
+
+export type ManualAddEventPayload = {
+  kind: "manual_add";
+  company: string;
+  title: string;
+  jobUrl: string;
+  status: string;
+};
+
+export type AppliedDateEventPayload = {
+  kind: "applied_date";
+  dateApplied: string | null;
+};
+
+export type ApplicationEventPayload =
+  | AssistedApplyEventPayload
+  | StatusChangeEventPayload
+  | FollowUpEventPayload
+  | NotesEventPayload
+  | ManualAddEventPayload
+  | AppliedDateEventPayload;
+
 export const applicationEvents = pgTable("application_events", {
   id: uuid("id").primaryKey().defaultRandom(),
   applicationId: uuid("application_id")
@@ -569,19 +620,7 @@ export const applicationEvents = pgTable("application_events", {
   eventType: text("event_type").notNull(),
   eventDate: timestamp("event_date"),
   notes: text("notes"),
-  payload: jsonb("payload").$type<{
-    kind: "assisted_apply";
-    provider: string;
-    applyUrl: string | null;
-    resumeVersionId: string | null;
-    coverLetterId: string | null;
-    answers: Array<{
-      question: string;
-      answer: string;
-      source: string;
-      unsupportedClaims: string[];
-    }>;
-  } | null>(),
+  payload: jsonb("payload").$type<ApplicationEventPayload | null>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -46,12 +46,12 @@ export default async function DashboardPage() {
     {
       label: "Interviews",
       value: stats.interviews,
-      href: "/applications?view=kanban",
+      href: "/applications?view=board&status=interviewing",
     },
     {
       label: "Offers",
       value: stats.offers,
-      href: "/applications?view=kanban",
+      href: "/applications?view=board&status=offer",
     },
   ];
 
