@@ -264,6 +264,34 @@ function requestOnce(
   });
 }
 
+/** Public Workday career sites. The label requires a subdomain, so the apex host is rejected. */
+export const WORKDAY_JOBS_HOST = /^(?:[a-z0-9-]+\.)+myworkdayjobs\.com$/i;
+
+export function isWorkdayJobsHost(hostname: string): boolean {
+  const host = stripIpBrackets(hostname).replace(/\.$/, "").toLowerCase();
+  return WORKDAY_JOBS_HOST.test(host);
+}
+
+/** SSRF allowlist for Workday CXS calls. Rejects other hosts, credentials, and non-https URLs. */
+export function assertWorkdayJobsUrl(raw: string): URL {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new UnsafeUrlError("Invalid URL");
+  }
+  if (url.protocol !== "https:") {
+    throw new UnsafeUrlError("Only https URLs are allowed");
+  }
+  if (url.username || url.password) {
+    throw new UnsafeUrlError("URLs with embedded credentials are not allowed");
+  }
+  if (isBlockedHostname(url.hostname) || !isWorkdayJobsHost(url.hostname)) {
+    throw new UnsafeUrlError("URL host is not an allowlisted Workday jobs host");
+  }
+  return url;
+}
+
 export async function fetchPublicHttpUrl(
   rawUrl: string,
   init?: { headers?: Record<string, string>; timeoutMs?: number }

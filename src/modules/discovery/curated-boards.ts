@@ -268,6 +268,48 @@ export const CURATED_CANADA_BOARDS: CuratedBoard[] = [
     why: "Canadian company with remote-Canada roles",
   },
   {
+    companyName: "RBC",
+    provider: "workday",
+    boardUrl: "https://rbc.wd3.myworkdayjobs.com/RBCGLOBAL1",
+    why: "Canadian bank on Workday with Toronto engineering roles",
+  },
+  {
+    companyName: "TD",
+    provider: "workday",
+    boardUrl: "https://td.wd3.myworkdayjobs.com/TD_Bank_Careers",
+    why: "Canadian bank on Workday with Toronto frontend roles",
+  },
+  {
+    companyName: "CIBC",
+    provider: "workday",
+    boardUrl: "https://cibc.wd3.myworkdayjobs.com/search",
+    why: "Canadian bank on Workday with Toronto engineering roles",
+  },
+  {
+    companyName: "BMO",
+    provider: "workday",
+    boardUrl: "https://bmo.wd3.myworkdayjobs.com/External",
+    why: "Canadian bank on Workday with Toronto engineering roles",
+  },
+  {
+    companyName: "Manulife",
+    provider: "workday",
+    boardUrl: "https://manulife.wd3.myworkdayjobs.com/MFCJH_Jobs",
+    why: "Canadian insurer on Workday with engineering roles",
+  },
+  {
+    companyName: "Sun Life",
+    provider: "workday",
+    boardUrl: "https://sunlife.wd3.myworkdayjobs.com/Experienced-Jobs",
+    why: "Canadian insurer on Workday with engineering roles",
+  },
+  {
+    companyName: "Thomson Reuters",
+    provider: "workday",
+    boardUrl: "https://thomsonreuters.wd5.myworkdayjobs.com/External_Career_Site",
+    why: "Toronto employer on Workday with software engineering roles",
+  },
+  {
     companyName: "Affirm",
     provider: "greenhouse",
     boardUrl: "https://boards.greenhouse.io/affirm",

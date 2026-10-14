@@ -21,6 +21,13 @@ export type JobImportMeta = {
   rawPayload?: unknown;
 };
 
+function datePostedValue(value?: string): Date | undefined {
+  if (!value) return undefined;
+  const time = Date.parse(value);
+  if (Number.isNaN(time)) return undefined;
+  return new Date(time);
+}
+
 async function findOrCreateCompany(db: Db, name: string, atsProvider?: string) {
   const existing = await db.query.companies.findFirst({
     where: eq(companies.name, name),
@@ -77,6 +84,7 @@ export async function persistDiscoveredJob(
   });
 
   const nextHash = hashJobDescription(validatedJob.description);
+  const postedAt = datePostedValue(validatedJob.datePosted);
   const eligibility = classifyLocationEligibility({
     location: validatedJob.location,
     workplaceType: validatedJob.workplaceType,
@@ -113,6 +121,7 @@ export async function persistDiscoveredJob(
         salaryCurrency: validatedJob.salaryCurrency,
         description: validatedJob.description,
         descriptionHash: nextHash,
+        ...(postedAt ? { datePosted: postedAt } : {}),
         matchPipelineStatus: "match_pending",
         ...fitSnapshot,
         updatedAt: new Date(),
@@ -175,6 +184,7 @@ export async function persistDiscoveredJob(
       technologies: validatedJob.technologies,
       experienceRequirements: validatedJob.experienceRequirements,
       educationRequirements: validatedJob.educationRequirements,
+      ...(postedAt ? { datePosted: postedAt } : {}),
       dateDiscovered: new Date(),
       discoveredBoardUrl: validatedMeta.boardUrl,
       descriptionHash: nextHash,

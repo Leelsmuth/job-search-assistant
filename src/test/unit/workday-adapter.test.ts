@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { workdayAdapter } from "@/modules/ingestion/workday";
+import {
+  normalizeWorkdayDetail,
+  normalizeWorkdayListJob,
+  parseWorkdayPostedDate,
+  workdayAdapter,
+} from "@/modules/ingestion/workday";
 import workdayJob from "@/test/fixtures/boards/workday-job.json";
 
 const BOARD_URL = "https://nvidia.wd5.myworkdayjobs.com/en-US/NVIDIAExternalCareerSite";
@@ -99,5 +104,145 @@ describe("workdayAdapter", () => {
       "https://nvidia.wd5.myworkdayjobs.com/wday/cxs/nvidia/NVIDIAExternalCareerSite/job/Toronto/Software-Engineer_JR999"
     );
     expect(init?.method).toBe("GET");
+  });
+
+  it("does not follow a redirect off the Workday allowlist", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: false,
+      status: 302,
+      headers: { get: (name: string) => (name.toLowerCase() === "location" ? "https://evil.example/job" : null) },
+      json: async () => ({}),
+    } as unknown as Response);
+
+    await expect(workdayAdapter.fetch(BOARD_URL)).rejects.toThrow(/allowlisted Workday/i);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("searches frontend keywords when the board is larger than the cap", async () => {
+    const searches: string[] = [];
+    vi.spyOn(global, "fetch").mockImplementation(async (_input, init) => {
+      const body = JSON.parse(String(init?.body));
+      searches.push(body.searchText);
+      if (body.searchText === "") {
+        return jsonResponse({ total: 2000, jobPostings: [] });
+      }
+      if (body.searchText === "frontend") {
+        return jsonResponse({
+          total: 1,
+          jobPostings: [
+            {
+              title: "Frontend Engineer",
+              externalPath: "/job/Toronto/Frontend-Engineer_JR1",
+              locationsText: "Toronto, Ontario",
+              postedOn: "Posted 12 Days Ago",
+              remoteType: "Hybrid",
+              bulletFields: ["JR1"],
+            },
+          ],
+        });
+      }
+      if (body.searchText === "react") {
+        return jsonResponse({
+          total: 5000,
+          jobPostings: [{ title: "Unrelated", externalPath: "/job/X/Unrelated_1", bulletFields: ["1"] }],
+        });
+      }
+      return jsonResponse({ total: 0, jobPostings: [] });
+    });
+
+    const raw = await workdayAdapter.fetch(BOARD_URL);
+    const jobs = (raw.rawPayload as { jobs: Array<{ title: string }> }).jobs;
+    expect(jobs.map((job) => job.title)).toEqual(["Frontend Engineer"]);
+    expect(searches[0]).toBe("");
+    expect(searches).toContain("frontend");
+    expect(searches).not.toContain("react");
+  });
+});
+
+describe("Workday normalization", () => {
+  const now = new Date("2026-10-14T15:00:00.000Z");
+
+  it("converts relative posted dates", () => {
+    expect(parseWorkdayPostedDate("Posted Today", now)).toBe("2026-10-14T00:00:00.000Z");
+    expect(parseWorkdayPostedDate("Posted Yesterday", now)).toBe("2026-10-13T00:00:00.000Z");
+    expect(parseWorkdayPostedDate("Posted 12 Days Ago", now)).toBe("2026-10-02T00:00:00.000Z");
+    expect(parseWorkdayPostedDate("Posted 1 Day Ago", now)).toBe("2026-10-13T00:00:00.000Z");
+    expect(parseWorkdayPostedDate("Posted 30+ Days Ago", now)).toBe("2026-09-14T00:00:00.000Z");
+    expect(parseWorkdayPostedDate("2026-10-02", now)).toBe("2026-10-02T00:00:00.000Z");
+  });
+
+  it("normalizes list locations, workplace, and posted date", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    let job: ReturnType<typeof normalizeWorkdayListJob>;
+    try {
+      job = normalizeWorkdayListJob(
+        {
+          title: "Frontend Engineer",
+          externalPath: "/job/Toronto/Frontend-Engineer_JR1",
+          locationsText: "Toronto, Ontario",
+          postedOn: "Posted 12 Days Ago",
+          remoteType: "Hybrid",
+          bulletFields: ["Engineering", "JR1"],
+        },
+        "TD",
+        "https://td.wd3.myworkdayjobs.com/TD_Bank_Careers"
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(job.title).toBe("Frontend Engineer");
+    expect(job.location).toBe("Toronto, Ontario");
+    expect(job.workplaceType).toBe("hybrid");
+    expect(job.sourceJobId).toBe("JR1");
+    expect(job.datePosted).toBe("2026-10-02T00:00:00.000Z");
+    expect(job.jobUrl).toBe(
+      "https://td.wd3.myworkdayjobs.com/TD_Bank_Careers/job/Toronto/Frontend-Engineer_JR1"
+    );
+  });
+
+  it("joins detail locations and prefers the posting start date", () => {
+    const job = normalizeWorkdayDetail(
+      {
+        title: "Senior Software Engineer",
+        jobDescription: "<p>Build React interfaces for Canadian clients.</p>",
+        location: "Waterloo, Ontario",
+        additionalLocations: ["Sun Life Toronto Atria", "Waterloo, Ontario"],
+        remoteType: "Onsite",
+        timeType: "Full time",
+        jobReqId: "JR00127987",
+        postedOn: "Posted Yesterday",
+        startDate: "2026-10-13",
+        externalUrl:
+          "https://sunlife.wd3.myworkdayjobs.com/Experienced-Jobs/job/Waterloo-Ontario/Senior-Software-Engineer_JR00127987-1",
+      },
+      "Sun Life",
+      "https://sunlife.wd3.myworkdayjobs.com/Experienced-Jobs/job/Waterloo-Ontario/Senior-Software-Engineer_JR00127987-1"
+    );
+
+    expect(job.location).toBe("Waterloo, Ontario; Sun Life Toronto Atria");
+    expect(job.workplaceType).toBe("on_site");
+    expect(job.datePosted).toBe("2026-10-13T00:00:00.000Z");
+    expect(job.description).toContain("React");
+    expect(job.jobUrl).toContain("sunlife.wd3.myworkdayjobs.com");
+    expect(job.sourceJobId).toBe("JR00127987");
+  });
+
+  it("reads a requisition id that is not the first bullet", () => {
+    const job = normalizeWorkdayListJob(
+      {
+        title: "Senior Software Engineer II",
+        externalPath: "/job/India-Bengaluru/Senior-Software-Engineer-II_JREQ202434",
+        postedOn: "Posted 2 Days Ago",
+        remoteType: "Hybrid",
+        bulletFields: ["Bangalore", "Karnataka", "JREQ202434"],
+      },
+      "Thomson Reuters",
+      "https://thomsonreuters.wd5.myworkdayjobs.com/External_Career_Site"
+    );
+    expect(job.sourceJobId).toBe("JREQ202434");
+    expect(job.location).toBe("Bangalore, Karnataka");
+    expect(job.workplaceType).toBe("hybrid");
   });
 });

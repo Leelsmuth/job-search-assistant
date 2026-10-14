@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CURATED_CANADA_BOARDS, pickCuratedBoards } from "@/modules/discovery/curated-boards";
+import { normalizeBoardUrl } from "@/modules/ingestion/board-url";
 
 describe("pickCuratedBoards", () => {
   it("rotates a small slice and skips boards the user already saved", () => {
@@ -14,5 +15,21 @@ describe("pickCuratedBoards", () => {
     expect(new Set(CURATED_CANADA_BOARDS.map((board) => board.boardUrl)).size).toBe(
       CURATED_CANADA_BOARDS.length
     );
+  });
+
+  it("includes verified Canadian Workday boards", () => {
+    const workday = CURATED_CANADA_BOARDS.filter((board) => board.provider === "workday");
+    expect(workday.map((board) => board.companyName)).toEqual([
+      "RBC",
+      "TD",
+      "CIBC",
+      "BMO",
+      "Manulife",
+      "Sun Life",
+      "Thomson Reuters",
+    ]);
+    for (const board of workday) {
+      expect(normalizeBoardUrl(board.boardUrl, "workday").provider).toBe("workday");
+    }
   });
 });

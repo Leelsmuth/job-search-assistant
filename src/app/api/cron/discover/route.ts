@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { handleCronDiscoverRequest } from "@/lib/cron-discover-handler";
 
+export const maxDuration = 60;
+
 async function runDiscover(request: Request) {
   const { status, body } = await handleCronDiscoverRequest(
     request.headers.get("authorization")
