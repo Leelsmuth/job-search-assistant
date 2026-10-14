@@ -32,7 +32,9 @@ Optional in **API** tab:
 | `SUPABASE_SERVICE_ROLE_KEY` | Admin tasks (not needed for MVP) |
 | `OPENAI_API_KEY` | AI extraction, bullet rewrites, and cover letters (selection and templates work without it) |
 | `OPENAI_MODEL` | Chat model for every OpenAI call. Defaults to `gpt-4o-mini` |
-| `CRON_SECRET` | Protect `/api/cron/discover` in production |
+| `CRON_SECRET` | Protect `/api/cron/discover` and `/api/cron/digest` |
+| `RESEND_API_KEY` | Send the morning digest. If unset, the digest is saved in the app and email is skipped |
+| `DIGEST_FROM_EMAIL` | From address for Resend, for example `Job Search <onboarding@resend.dev>` |
 
 ### 3. Configure environment
 
@@ -172,7 +174,7 @@ Discovery polls **saved ATS boards** daily — it does not search the open web.
 
 1. Add boards from **Discovery** (`/discovery`) or paste URLs in **Settings**
 2. Set `CRON_SECRET` in Vercel (and `.env.local` for manual testing)
-3. Vercel cron runs daily at **08:00 UTC** (`vercel.json` → `/api/cron/discover`)
+3. Vercel cron discovers boards daily at **08:00 UTC** and sends the digest at **12:00 UTC** (`vercel.json`). 12:00 UTC is 8:00 AM in Toronto during daylight time and 7:00 AM during standard time. Hobby cron runs at most once a day, so both jobs stay on a daily UTC schedule.
 
 Manual poll (single board): use **Poll now** in Settings.
 
@@ -184,6 +186,19 @@ curl -X POST "https://your-app.vercel.app/api/cron/discover" \
 ```
 
 Cron response includes `{ newJobs, skipped, matched, filtered }` for monitoring.
+
+## Daily digest
+
+`/api/cron/digest` runs at **12:00 UTC**, after discovery. It saves a snapshot of up to 10 new location-eligible frontend matches (scored with the existing deterministic frontend-fit function, no model call) plus tracker reminders: follow-ups due today or overdue in `America/Toronto`, and applications still `applied` with no activity for 14 days. The same snapshot is on `/digest`.
+
+Email uses Resend when `RESEND_API_KEY` and `DIGEST_FROM_EMAIL` are set. The recipient is the account's auth email. If the API key is missing, email is skipped and logged. A day with nothing new and no reminders does not send. Settings can turn email off without hiding `/digest`. The send time is stored so a second run the same Toronto day does not send again.
+
+Apply [`drizzle/migrations/0016_job_digests.sql`](drizzle/migrations/0016_job_digests.sql) in the Supabase SQL editor before the first run. Do not run it from CI.
+
+```bash
+curl -X POST "https://your-app.vercel.app/api/cron/digest" \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
 
 ## Company catalog (1,000+ verified ATS boards)
 

@@ -156,7 +156,7 @@ Toasts when profile changes affect match relevance.
 
 ### Cron (Vercel)
 
-[`vercel.json`](../vercel.json) — daily discovery at **08:00 UTC**
+[`vercel.json`](../vercel.json) — daily discovery at **08:00 UTC**, daily digest at **12:00 UTC** (8:00 AM Toronto during daylight time).
 
 Requires self-generated `CRON_SECRET` in Vercel env.
 

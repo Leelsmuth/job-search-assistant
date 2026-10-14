@@ -25,6 +25,8 @@ const optional = [
   "CRON_SECRET",
   "SEED_USER_ID",
   "SUPABASE_SERVICE_ROLE_KEY",
+  "RESEND_API_KEY",
+  "DIGEST_FROM_EMAIL",
 ] as const;
 
 function isPlaceholder(value: string | undefined): boolean {

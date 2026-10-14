@@ -6,6 +6,7 @@ import {
   Briefcase,
   FileText,
   LayoutDashboard,
+  Mail,
   Settings,
   User,
   ClipboardList,
@@ -21,6 +22,7 @@ export const navItems: Array<{
   exact?: boolean;
 }> = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/digest", label: "Digest", icon: Mail },
   { href: "/jobs", label: "Jobs", icon: Briefcase, exact: true },
   { href: "/jobs/import", label: "Import Job", icon: PlusCircle, exact: true },
   { href: "/discovery", label: "Discovery", icon: Radar },
