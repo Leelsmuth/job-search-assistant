@@ -3,6 +3,8 @@ import {
   normalizeWorkdayDetail,
   normalizeWorkdayListJob,
   parseWorkdayPostedDate,
+  WORKDAY_FRONTEND_SEARCHES,
+  WORKDAY_MAX_PAGES_PER_SEARCH,
   workdayAdapter,
 } from "@/modules/ingestion/workday";
 import workdayJob from "@/test/fixtures/boards/workday-job.json";
@@ -118,44 +120,113 @@ describe("workdayAdapter", () => {
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
-  it("searches frontend keywords when the board is larger than the cap", async () => {
+  it("searches frontend keywords and dedupes a large board by externalPath", async () => {
     const searches: string[] = [];
+    const shared = {
+      title: "Frontend Engineer",
+      externalPath: "/job/Toronto/Frontend-Engineer_JR1",
+      locationsText: "Toronto, Ontario",
+      postedOn: "Posted 12 Days Ago",
+      remoteType: "Hybrid",
+      bulletFields: ["JR1"],
+    };
+    const reactOnly = {
+      title: "React Developer",
+      externalPath: "/job/Toronto/React-Developer_JR2",
+      locationsText: "Toronto, Ontario",
+      bulletFields: ["JR2"],
+    };
+
     vi.spyOn(global, "fetch").mockImplementation(async (_input, init) => {
       const body = JSON.parse(String(init?.body));
       searches.push(body.searchText);
       if (body.searchText === "") {
-        return jsonResponse({ total: 2000, jobPostings: [] });
-      }
-      if (body.searchText === "frontend") {
         return jsonResponse({
-          total: 1,
-          jobPostings: [
-            {
-              title: "Frontend Engineer",
-              externalPath: "/job/Toronto/Frontend-Engineer_JR1",
-              locationsText: "Toronto, Ontario",
-              postedOn: "Posted 12 Days Ago",
-              remoteType: "Hybrid",
-              bulletFields: ["JR1"],
-            },
-          ],
+          total: 2000,
+          jobPostings: [{ title: "Teller", externalPath: "/job/Branch/Teller_1", bulletFields: ["T1"] }],
         });
+      }
+      if (body.searchText === "frontend" || body.searchText === "front end") {
+        return jsonResponse({ total: 1, jobPostings: [shared] });
       }
       if (body.searchText === "react") {
-        return jsonResponse({
-          total: 5000,
-          jobPostings: [{ title: "Unrelated", externalPath: "/job/X/Unrelated_1", bulletFields: ["1"] }],
-        });
+        return jsonResponse({ total: 2, jobPostings: [shared, reactOnly] });
       }
       return jsonResponse({ total: 0, jobPostings: [] });
     });
 
     const raw = await workdayAdapter.fetch(BOARD_URL);
-    const jobs = (raw.rawPayload as { jobs: Array<{ title: string }> }).jobs;
-    expect(jobs.map((job) => job.title)).toEqual(["Frontend Engineer"]);
+    const jobs = (raw.rawPayload as { jobs: Array<{ title: string; externalPath: string }> }).jobs;
+    expect(jobs.map((job) => job.externalPath)).toEqual([
+      "/job/Toronto/Frontend-Engineer_JR1",
+      "/job/Toronto/React-Developer_JR2",
+    ]);
+    expect(jobs.map((job) => job.title)).not.toContain("Teller");
     expect(searches[0]).toBe("");
-    expect(searches).toContain("frontend");
-    expect(searches).not.toContain("react");
+    expect(searches.slice(1)).toEqual([...WORKDAY_FRONTEND_SEARCHES]);
+  });
+
+  it("does not page past the first results when a keyword matches most of the board", async () => {
+    const reactOffsets: number[] = [];
+    vi.spyOn(global, "fetch").mockImplementation(async (_input, init) => {
+      const body = JSON.parse(String(init?.body));
+      if (body.searchText === "") {
+        return jsonResponse({ total: 1600, jobPostings: [] });
+      }
+      if (body.searchText !== "react") {
+        return jsonResponse({ total: 0, jobPostings: [] });
+      }
+      reactOffsets.push(body.offset);
+      return jsonResponse({
+        total: 1600,
+        jobPostings: Array.from({ length: 20 }, (_, index) => {
+          const id = body.offset + index;
+          return {
+            title: `React Role ${id}`,
+            externalPath: `/job/Toronto/React-Role_${id}`,
+            bulletFields: [`JR${id}`],
+          };
+        }),
+      });
+    });
+
+    const raw = await workdayAdapter.fetch(BOARD_URL);
+    const jobs = (raw.rawPayload as { jobs: unknown[] }).jobs;
+    expect(reactOffsets).toEqual([0]);
+    expect(jobs).toHaveLength(20);
+  });
+
+  it("pages a small keyword search up to the per-search cap", async () => {
+    const offsets: number[] = [];
+    vi.spyOn(global, "fetch").mockImplementation(async (_input, init) => {
+      const body = JSON.parse(String(init?.body));
+      if (body.searchText === "") {
+        return jsonResponse({ total: 800, jobPostings: [] });
+      }
+      if (body.searchText !== "frontend") {
+        return jsonResponse({ total: 0, jobPostings: [] });
+      }
+      offsets.push(body.offset);
+      const count = body.offset === 0 ? 20 : 5;
+      return jsonResponse({
+        total: 25,
+        jobPostings: Array.from({ length: count }, (_, index) => {
+          const id = body.offset + index;
+          return {
+            title: `Frontend Role ${id}`,
+            externalPath: `/job/Toronto/Frontend-Role_${id}`,
+            bulletFields: [`JR${id}`],
+          };
+        }),
+      });
+    });
+
+    const raw = await workdayAdapter.fetch(BOARD_URL);
+    const jobs = (raw.rawPayload as { jobs: unknown[] }).jobs;
+    expect(offsets).toEqual(
+      Array.from({ length: WORKDAY_MAX_PAGES_PER_SEARCH }, (_, page) => page * 20)
+    );
+    expect(jobs).toHaveLength(25);
   });
 });
 

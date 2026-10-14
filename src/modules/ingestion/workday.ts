@@ -10,43 +10,45 @@ import { parseWorkdayUrl, type ParsedWorkdayUrl } from "./board-url";
 import { assertWorkdayJobsUrl, UnsafeUrlError } from "./ssrf";
 
 const PAGE_SIZE = 20;
-/** Stop listing once this many postings are in hand. */
-const MAX_JOBS_PER_BOARD = 500;
-/** Boards at or below this size are listed in full so a keyword search cannot drop a role. */
+/**
+ * Unique jobs kept from keyword searches. Lower than the old unfiltered cap so a
+ * fuzzy term such as "react" cannot crowd out the rest of the searches.
+ */
+export const WORKDAY_MAX_JOBS_PER_BOARD = 300;
+/** Boards this size or smaller are listed without a keyword so nothing is missed. */
 const FULL_LIST_MAX = 500;
 /**
- * Workday's searchText treats short tokens ("react") as a match for almost the whole board.
- * Skip a keyword whose hit count exceeds this and keep the specific searches.
+ * Each searchText query reads at most this many pages. A query whose reported
+ * total is larger than this many pages stops after the first page: Workday
+ * ranks that page by relevance, and another page on a slow tenant does not fit
+ * the cron time limit.
  */
-const MAX_KEYWORD_HITS = 200;
+export const WORKDAY_MAX_PAGES_PER_SEARCH = 2;
 const MAX_LIST_REQUESTS = 25;
 const PAGE_DELAY_MS = process.env.VITEST ? 0 : 150;
 const REQUEST_TIMEOUT_MS = 8_000;
 const MAX_REDIRECTS = 3;
 
 /**
- * Frontend-oriented searches, most specific first. Used only when a board is larger
- * than FULL_LIST_MAX so the cron poll does not page through thousands of unrelated jobs.
+ * CXS searchText queries for frontend-leaning roles.
+ * The frontend-fit title phrases are front end, UI engineer/developer,
+ * design engineer, React, and TypeScript. javascript, web developer, and
+ * full stack are the extra discovery terms. "front-end" and "web platform"
+ * are left out: Workday treats them like the phrases already listed, and each
+ * extra query on a slow tenant costs several seconds.
  */
-const FRONTEND_SEARCHES = [
+export const WORKDAY_FRONTEND_SEARCHES = [
   "frontend",
-  "front-end",
   "front end",
-  "full stack",
-  "fullstack",
-  "full-stack",
+  "react",
+  "UI developer",
+  "UI engineer",
   "web developer",
-  "web engineer",
-  "ui engineer",
-  "ui developer",
   "javascript",
   "typescript",
-  "angular",
-  "vue",
-  "software engineer",
-  "software developer",
-  "developpeur",
-];
+  "full stack",
+  "design engineer",
+] as const;
 
 const WORKDAY_HEADERS = {
   Accept: "application/json",
@@ -294,22 +296,28 @@ async function collectSearch(
   limit: number
 ): Promise<WorkdayListJob[]> {
   const jobs: WorkdayListJob[] = [];
+  const perSearchLimit = Math.min(limit, PAGE_SIZE * WORKDAY_MAX_PAGES_PER_SEARCH);
   let offset = 0;
   let total = Number.POSITIVE_INFINITY;
+  let pages = 0;
 
-  while (jobs.length < limit && offset < total && offset < MAX_JOBS_PER_BOARD) {
+  while (
+    jobs.length < perSearchLimit &&
+    pages < WORKDAY_MAX_PAGES_PER_SEARCH &&
+    offset < total
+  ) {
     if (budget.requests >= MAX_LIST_REQUESTS) break;
     const data = await fetchJobPage(parsed, offset, searchText, budget);
+    pages += 1;
     if (typeof data.total === "number") total = data.total;
-    if (offset === 0 && searchText && total > MAX_KEYWORD_HITS) return [];
-
     const postings = usableJobs(data.jobPostings);
     jobs.push(...postings);
     offset += PAGE_SIZE;
     if (postings.length === 0 || postings.length < PAGE_SIZE) break;
+    if (total > PAGE_SIZE * WORKDAY_MAX_PAGES_PER_SEARCH) break;
   }
 
-  return jobs.slice(0, limit);
+  return jobs.slice(0, perSearchLimit);
 }
 
 function addUnique(into: WorkdayListJob[], seen: Set<string>, jobs: WorkdayListJob[]): void {
@@ -317,7 +325,7 @@ function addUnique(into: WorkdayListJob[], seen: Set<string>, jobs: WorkdayListJ
     if (seen.has(job.externalPath)) continue;
     seen.add(job.externalPath);
     into.push(job);
-    if (into.length >= MAX_JOBS_PER_BOARD) return;
+    if (into.length >= WORKDAY_MAX_JOBS_PER_BOARD) return;
   }
 }
 
@@ -329,7 +337,7 @@ async function fetchWorkdayBoardList(parsed: ParsedWorkdayUrl): Promise<WorkdayL
   if (total <= FULL_LIST_MAX) {
     const jobs = usableJobs(first.jobPostings);
     let offset = PAGE_SIZE;
-    while (jobs.length < Math.min(total, MAX_JOBS_PER_BOARD) && offset < total) {
+    while (jobs.length < Math.min(total, FULL_LIST_MAX) && offset < total) {
       if (budget.requests >= MAX_LIST_REQUESTS) break;
       const data = await fetchJobPage(parsed, offset, "", budget);
       const postings = usableJobs(data.jobPostings);
@@ -337,24 +345,24 @@ async function fetchWorkdayBoardList(parsed: ParsedWorkdayUrl): Promise<WorkdayL
       offset += PAGE_SIZE;
       if (postings.length === 0 || postings.length < PAGE_SIZE) break;
     }
-    return jobs.slice(0, MAX_JOBS_PER_BOARD);
+    return jobs.slice(0, FULL_LIST_MAX);
   }
 
   const jobs: WorkdayListJob[] = [];
   const seen = new Set<string>();
-  for (const searchText of FRONTEND_SEARCHES) {
-    if (jobs.length >= MAX_JOBS_PER_BOARD || budget.requests >= MAX_LIST_REQUESTS) break;
+  for (const searchText of WORKDAY_FRONTEND_SEARCHES) {
+    if (jobs.length >= WORKDAY_MAX_JOBS_PER_BOARD || budget.requests >= MAX_LIST_REQUESTS) break;
     const found = await collectSearch(
       parsed,
       searchText,
       budget,
-      MAX_JOBS_PER_BOARD - jobs.length
+      WORKDAY_MAX_JOBS_PER_BOARD - jobs.length
     );
     addUnique(jobs, seen, found);
   }
 
   if (jobs.length === 0) {
-    return usableJobs(first.jobPostings).slice(0, MAX_JOBS_PER_BOARD);
+    return usableJobs(first.jobPostings).slice(0, WORKDAY_MAX_JOBS_PER_BOARD);
   }
   return jobs;
 }
