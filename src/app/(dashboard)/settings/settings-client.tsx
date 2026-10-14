@@ -21,6 +21,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useKeyedPending } from "@/components/layout/action-pending-provider";
 import { SearchPreferencesForm } from "./search-preferences-form";
 import { ApplicationProfileForm } from "./application-profile-form";
+import { DigestSettingsForm } from "./digest-settings-form";
 import type { SearchPreferences } from "@/modules/matching/search-preferences";
 import type { ApplicationProfile } from "@/modules/apply/types";
 
@@ -57,11 +58,17 @@ export function SettingsClient({
   preferences,
   applicationProfile,
   applicationProfileReady,
+  digestEmailsEnabled,
+  digestSchemaReady,
+  digestLastSentAt,
 }: {
   initialBoards: Board[];
   preferences: SearchPreferences;
   applicationProfile: ApplicationProfile;
   applicationProfileReady: boolean;
+  digestEmailsEnabled: boolean;
+  digestSchemaReady: boolean;
+  digestLastSentAt: string | null;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -105,6 +112,12 @@ export function SettingsClient({
       </div>
 
       <SearchPreferencesForm initial={preferences} />
+
+      <DigestSettingsForm
+        emailsEnabled={digestEmailsEnabled}
+        schemaReady={digestSchemaReady}
+        lastSentAt={digestLastSentAt}
+      />
 
       <ApplicationProfileForm initial={applicationProfile} schemaReady={applicationProfileReady} />
 

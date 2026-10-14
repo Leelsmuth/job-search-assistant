@@ -11,6 +11,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
+import type { DigestPayload, DigestSkipReason } from "@/modules/digest/types";
 
 export const skillCategoryEnum = pgEnum("skill_category", [
   "language",
@@ -332,7 +333,23 @@ export const searchPreferences = pgTable("search_preferences", {
   showOutOfArea: boolean("show_out_of_area").notNull().default(false),
   discoverCuratedBoards: boolean("discover_curated_boards").notNull().default(false),
   gtaCities: jsonb("gta_cities").$type<string[]>().notNull().default([]),
+  digestEmailsEnabled: boolean("digest_emails_enabled").notNull().default(true),
+  digestLastSentAt: timestamp("digest_last_sent_at"),
+  digestLastGeneratedAt: timestamp("digest_last_generated_at"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const jobDigests = pgTable("job_digests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+  windowStart: timestamp("window_start").notNull(),
+  windowEnd: timestamp("window_end").notNull(),
+  emailedAt: timestamp("emailed_at"),
+  skipReason: text("skip_reason").$type<DigestSkipReason | null>(),
+  subject: text("subject").notNull(),
+  payload: jsonb("payload").$type<DigestPayload>().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export type SavedApplicationAnswer = {

@@ -58,6 +58,12 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-bold sm:text-2xl">Dashboard</h1>
+      <p className="text-sm text-muted-foreground">
+        <Link href="/digest" className="underline">
+          Morning digest
+        </Link>{" "}
+        lists new frontend matches and tracker reminders from 8:00 AM Toronto time.
+      </p>
 
       <GettingStartedCard progress={progress} />
 

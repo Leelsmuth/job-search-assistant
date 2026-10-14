@@ -168,7 +168,7 @@ Match analysis runs only when `isNew === true`.
 
 ### Vercel cron
 
-[`vercel.json`](../vercel.json) — daily at **08:00 UTC** → `/api/cron/discover`
+[`vercel.json`](../vercel.json) — discovery daily at **08:00 UTC** → `/api/cron/discover`. Digest daily at **12:00 UTC** → `/api/cron/digest` (about 8:00 AM Toronto).
 
 Requires `CRON_SECRET` in environment (you generate this; Vercel sends it automatically on scheduled invocations when set).
 

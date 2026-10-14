@@ -20,6 +20,17 @@ export async function loadSearchPreferences(db: Db, userId: string): Promise<Sea
 
   const row = await table.findFirst({
     where: eq(searchPreferences.userId, userId),
+    columns: {
+      targetTitles: true,
+      preferredSeniority: true,
+      minimumSalaryCad: true,
+      includeHybridGta: true,
+      includeOnsiteGta: true,
+      showRemoteOther: true,
+      showOutOfArea: true,
+      discoverCuratedBoards: true,
+      gtaCities: true,
+    },
   });
   return row ? searchPreferencesFromRow(row) : defaultSearchPreferences();
 }
