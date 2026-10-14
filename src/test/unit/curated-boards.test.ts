@@ -11,5 +11,8 @@ describe("pickCuratedBoards", () => {
     expect(first.every((board) => !saved.some((url) => url.startsWith(board.boardUrl)))).toBe(true);
     expect(later[0]?.boardUrl).not.toBe(first[0]?.boardUrl);
     expect(CURATED_CANADA_BOARDS.every((board) => board.boardUrl.startsWith("https://"))).toBe(true);
+    expect(new Set(CURATED_CANADA_BOARDS.map((board) => board.boardUrl)).size).toBe(
+      CURATED_CANADA_BOARDS.length
+    );
   });
 });
