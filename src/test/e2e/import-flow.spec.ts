@@ -54,8 +54,11 @@ test.describe("Authenticated happy path", () => {
     await page.goto("/applications");
     await expect(page.getByText("Senior Frontend Engineer")).toBeVisible();
 
-    const statusSelect = page.locator("select").first();
-    await statusSelect.selectOption("preparing");
-    await expect(statusSelect).toHaveValue("preparing");
+    const statusSelect = page
+      .getByRole("combobox", { name: "Status for Senior Frontend Engineer at Acme Corp" })
+      .filter({ visible: true })
+      .first();
+    await statusSelect.selectOption("applied");
+    await expect(statusSelect).toHaveValue("applied");
   });
 });

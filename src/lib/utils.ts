@@ -46,6 +46,7 @@ export const APPLICATION_STATUSES = [
   "preparing",
   "ready_to_apply",
   "applied",
+  "interviewing",
   "recruiter_screen",
   "technical_interview",
   "final_interview",

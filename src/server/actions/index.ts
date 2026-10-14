@@ -45,6 +45,11 @@ import { generateTailoringSuggestions, draftApplicationAnswer } from "@/modules/
 import { selectTailoringBullets } from "@/modules/ai/tailoring-eligibility";
 import { detectUnsupportedClaims } from "@/modules/ai/schemas";
 import type { ApplicationStatus } from "@/lib/utils";
+import { pipelineStage } from "@/modules/applications/tracker";
+import {
+  setApplicationNotes,
+  setApplicationStatus,
+} from "@/modules/applications/store";
 import { hashInput, parseOptionalInt } from "@/lib/utils";
 import { deleteResumeFile } from "@/modules/resumes/storage";
 import { wipeExtractedProfileData } from "@/modules/resumes/profile-wipe";
@@ -684,10 +689,7 @@ export async function startReviewingJob(jobId: string) {
   return withUserDb(user.id, async (db) => {
     await requireOwnedJob(db, user.id, jobId);
     const app = await resolveApplicationForJob(db, user.id, jobId);
-    await db
-      .update(applications)
-      .set({ status: "reviewing", updatedAt: new Date() })
-      .where(eq(applications.id, app.id));
+    await setApplicationStatus(db, user.id, app.id, "reviewing");
     revalidatePath("/jobs");
     revalidatePath("/applications");
     revalidatePath("/dashboard");
@@ -742,25 +744,14 @@ export async function updateApplicationStatus(
   notes?: string
 ) {
   const user = await requireUser();
-  return withUserDb(user.id, async (db) => {
-    const app = await db.query.applications.findFirst({
-      where: and(eq(applications.id, applicationId), eq(applications.userId, user.id)),
-    });
-    if (!app) throw new Error("Application not found");
-
-    await requireOwnedJob(db, user.id, app.jobId);
-
-    const updates: Record<string, unknown> = { status, updatedAt: new Date() };
-    if (notes !== undefined) updates.notes = notes;
-    if (status === "applied") updates.dateApplied = new Date();
-
-    await db
-      .update(applications)
-      .set(updates)
-      .where(and(eq(applications.id, applicationId), eq(applications.userId, user.id)));
-
-    revalidatePath("/applications");
-  });
+  const result = await withUserDb(user.id, (db) =>
+    setApplicationStatus(db, user.id, applicationId, status, notes)
+  );
+  revalidatePath("/applications");
+  revalidatePath(`/applications/${applicationId}`);
+  revalidatePath("/dashboard");
+  revalidatePath(`/jobs/${result.jobId}`);
+  return result;
 }
 
 export async function markJobAsApplied(jobId: string) {
@@ -769,17 +760,12 @@ export async function markJobAsApplied(jobId: string) {
     await requireOwnedJob(db, user.id, jobId);
     const app = await resolveApplicationForJob(db, user.id, jobId);
     const alreadyApplied = app.status === "applied";
-
-    await db
-      .update(applications)
-      .set({
-        status: "applied",
-        dateApplied: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(and(eq(applications.id, app.id), eq(applications.userId, user.id)));
+    if (!alreadyApplied) {
+      await setApplicationStatus(db, user.id, app.id, "applied");
+    }
 
     revalidatePath("/applications");
+    revalidatePath(`/applications/${app.id}`);
     revalidatePath("/jobs");
     revalidatePath("/dashboard");
     revalidatePath(`/jobs/${jobId}`);
@@ -796,10 +782,7 @@ export async function prepareJobApplication(jobId: string) {
     const preApply = new Set(["discovered", "reviewing", "saved", "preparing"]);
 
     if (preApply.has(app.status)) {
-      await db
-        .update(applications)
-        .set({ status: "ready_to_apply", updatedAt: new Date() })
-        .where(and(eq(applications.id, app.id), eq(applications.userId, user.id)));
+      await setApplicationStatus(db, user.id, app.id, "ready_to_apply");
     }
 
     revalidatePath("/applications");
@@ -814,21 +797,13 @@ export async function prepareJobApplication(jobId: string) {
 
 export async function updateApplicationNotes(applicationId: string, notes: string) {
   const user = await requireUser();
-  return withUserDb(user.id, async (db) => {
-    const app = await db.query.applications.findFirst({
-      where: and(eq(applications.id, applicationId), eq(applications.userId, user.id)),
-    });
-    if (!app) throw new Error("Application not found");
-
-    await requireOwnedJob(db, user.id, app.jobId);
-
-    await db
-      .update(applications)
-      .set({ notes, updatedAt: new Date() })
-      .where(and(eq(applications.id, applicationId), eq(applications.userId, user.id)));
-
-    revalidatePath("/applications");
-  });
+  const result = await withUserDb(user.id, (db) =>
+    setApplicationNotes(db, user.id, applicationId, notes)
+  );
+  revalidatePath("/applications");
+  revalidatePath(`/applications/${applicationId}`);
+  revalidatePath(`/jobs/${result.jobId}`);
+  return result;
 }
 
 export async function getTailoringSuggestions(jobId: string) {
@@ -1262,9 +1237,7 @@ export async function getDashboardStats() {
       strongUnseen,
       boardsNeedingAttention,
       applicationsSubmitted: apps.filter((a) => a.status === "applied").length,
-      interviews: apps.filter((a) =>
-        ["recruiter_screen", "technical_interview", "final_interview"].includes(a.status)
-      ).length,
+      interviews: apps.filter((a) => pipelineStage(a.status) === "interviewing").length,
       offers: apps.filter((a) => a.status === "offer").length,
     };
   });
