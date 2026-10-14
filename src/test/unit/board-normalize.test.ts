@@ -65,6 +65,7 @@ describe("normalizeBoardJobs", () => {
       "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite/job/Toronto/Senior-Frontend-Engineer_JR111"
     );
     expect(jobs[0].description).toContain("Toronto");
+    expect(jobs[0].datePosted).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(jobs[1].workplaceType).toBe("remote");
   });
 });

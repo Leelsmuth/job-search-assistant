@@ -27,6 +27,19 @@ describe("parseWorkdayUrl", () => {
     expect(parsed?.externalPath).toBe("/job/Toronto/Frontend-Engineer_JR42");
   });
 
+  it("ignores a locale, query string, and trailing slash on a board URL", () => {
+    const parsed = parseWorkdayUrl(
+      "https://cibc.wd3.myworkdayjobs.com/en-CA/search/?Country=a30a87ed25634629aa6c3958aa2b91ea"
+    );
+    expect(parsed).toMatchObject({
+      tenant: "cibc",
+      cluster: "wd3",
+      site: "search",
+      boardUrl: "https://cibc.wd3.myworkdayjobs.com/search",
+      isSingleJob: false,
+    });
+  });
+
   it("rejects URLs that are not Workday CXS boards", () => {
     expect(parseWorkdayUrl("https://boards.greenhouse.io/stripe")).toBeNull();
     expect(parseWorkdayUrl("https://example.com/careers")).toBeNull();

@@ -23,7 +23,7 @@ const ALLOWED_TITLE_PATTERNS = [
   /\b(react|typescript|javascript|node)\b/i,
 ];
 
-function titleMatchesProfile(title: string, profile?: CandidateProfile): boolean {
+export function matchesDiscoveredJobTitle(title: string, profile?: CandidateProfile): boolean {
   const lower = title.toLowerCase();
   if (BLOCKED_TITLE_PATTERNS.some((p) => p.test(lower))) return false;
 
@@ -47,7 +47,7 @@ export function shouldImportDiscoveredJob(
   visibility: LocationVisibility = DEFAULT_VISIBILITY,
   gtaCities?: string[]
 ): { import: boolean; reason?: string } {
-  if (!titleMatchesProfile(job.title, profile)) {
+  if (!matchesDiscoveredJobTitle(job.title, profile)) {
     return { import: false, reason: "title_mismatch" };
   }
 

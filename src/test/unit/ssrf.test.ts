@@ -2,8 +2,10 @@ import { describe, it, expect, vi } from "vitest";
 import http from "node:http";
 import {
   assertPublicHttpUrl,
+  assertWorkdayJobsUrl,
   followSafeRedirects,
   isBlockedIpAddress,
+  isWorkdayJobsHost,
   UnsafeUrlError,
 } from "@/modules/ingestion/ssrf";
 import { genericUrlAdapter } from "@/modules/ingestion/adapters";
@@ -91,6 +93,27 @@ describe("assertPublicHttpUrl", () => {
     await expect(
       assertPublicHttpUrl("https://missing.example/job", async () => [])
     ).rejects.toThrow(/did not resolve/);
+  });
+});
+
+describe("Workday jobs host allowlist", () => {
+  it("allows tenant career hosts and rejects lookalikes", () => {
+    expect(isWorkdayJobsHost("td.wd3.myworkdayjobs.com")).toBe(true);
+    expect(isWorkdayJobsHost("thomsonreuters.wd5.myworkdayjobs.com")).toBe(true);
+    expect(assertWorkdayJobsUrl("https://rbc.wd3.myworkdayjobs.com/RBCGLOBAL1").hostname).toBe(
+      "rbc.wd3.myworkdayjobs.com"
+    );
+
+    expect(isWorkdayJobsHost("myworkdayjobs.com")).toBe(false);
+    expect(isWorkdayJobsHost("myworkdayjobs.com.evil.com")).toBe(false);
+    expect(isWorkdayJobsHost("evil.com")).toBe(false);
+    expect(() => assertWorkdayJobsUrl("https://evil.example/job")).toThrow(/allowlisted Workday/i);
+    expect(() => assertWorkdayJobsUrl("http://td.wd3.myworkdayjobs.com/TD_Bank_Careers")).toThrow(
+      /https/
+    );
+    expect(() =>
+      assertWorkdayJobsUrl("https://user:pass@td.wd3.myworkdayjobs.com/TD_Bank_Careers")
+    ).toThrow(/credentials/);
   });
 });
 

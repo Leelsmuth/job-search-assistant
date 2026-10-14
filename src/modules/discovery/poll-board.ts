@@ -6,11 +6,17 @@ import {
   detectBestAdapter,
   getAdapterForProvider,
 } from "@/modules/ingestion/adapters";
-import type { JobSourceProvider } from "@/modules/ingestion/types";
+import type { JobSourceProvider, NormalizedJob } from "@/modules/ingestion/types";
 import { normalizeBoardJobs } from "@/modules/ingestion/board-normalize";
-import { fetchWorkdayJobDetail } from "@/modules/ingestion/workday";
-import { persistDiscoveredJob } from "@/modules/ingestion/persist-job";
-import { shouldImportDiscoveredJob } from "@/modules/discovery/pre-import-filter";
+import {
+  fetchWorkdayJobDetail,
+  workdayLocationNeedsDetail,
+} from "@/modules/ingestion/workday";
+import { findExistingJob, persistDiscoveredJob } from "@/modules/ingestion/persist-job";
+import {
+  matchesDiscoveredJobTitle,
+  shouldImportDiscoveredJob,
+} from "@/modules/discovery/pre-import-filter";
 import type { CandidateProfile } from "@/modules/matching/engine";
 import { loadSearchPreferences } from "@/modules/matching/load-search-preferences";
 import type { SearchPreferences } from "@/modules/matching/search-preferences";
@@ -30,6 +36,158 @@ export type BoardPollStats = {
   queuedForMatch: number;
   filtered: number;
 };
+
+const WORKDAY_DETAIL_CONCURRENCY = 3;
+
+async function mapLimit<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  if (items.length === 0) return [];
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await fn(items[index]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+async function importNormalizedJob(
+  db: Db,
+  userId: string,
+  job: NormalizedJob,
+  provider: JobSourceProvider,
+  boardUrl: string,
+  caps: { remainingNewJobs: number },
+  stats: BoardPollStats
+): Promise<void> {
+  const result = await measureOperation(
+    "ingestion.persistDiscoveredJob",
+    () =>
+      persistDiscoveredJob(db, userId, job, {
+        provider,
+        sourceUrl: job.jobUrl || boardUrl,
+        sourceJobId: job.sourceJobId,
+        boardUrl,
+      }),
+    { source: "ingestion" }
+  );
+
+  if (!result.isNew) {
+    if (result.contentUnchanged) {
+      stats.skipped++;
+    } else {
+      stats.updated++;
+      stats.queuedForMatch++;
+    }
+    return;
+  }
+
+  stats.newJobs++;
+  stats.queuedForMatch++;
+  caps.remainingNewJobs--;
+}
+
+async function importWorkdayJobs(
+  db: Db,
+  userId: string,
+  jobs: NormalizedJob[],
+  boardUrl: string,
+  caps: { remainingNewJobs: number },
+  stats: BoardPollStats,
+  profile?: CandidateProfile,
+  preferences?: SearchPreferences
+): Promise<void> {
+  const titled: NormalizedJob[] = [];
+  for (const job of jobs) {
+    if (!matchesDiscoveredJobTitle(job.title, profile)) {
+      stats.filtered++;
+      continue;
+    }
+    titled.push(job);
+  }
+
+  const concrete: NormalizedJob[] = [];
+  const ambiguous: NormalizedJob[] = [];
+  for (const job of titled) {
+    if (workdayLocationNeedsDetail(job.location)) ambiguous.push(job);
+    else concrete.push(job);
+  }
+
+  await drain(concrete, true);
+  await drain(ambiguous, false);
+
+  async function drain(queue: NormalizedJob[], locationKnown: boolean): Promise<void> {
+    let index = 0;
+    while (index < queue.length && caps.remainingNewJobs > 0) {
+      const slice = queue.slice(index, index + WORKDAY_DETAIL_CONCURRENCY);
+      index += slice.length;
+      const pending: NormalizedJob[] = [];
+
+      for (const job of slice) {
+        if (caps.remainingNewJobs <= 0) break;
+        if (locationKnown) {
+          const prelim = shouldImportDiscoveredJob(
+            job,
+            profile,
+            preferences,
+            preferences?.gtaCities
+          );
+          if (!prelim.import) {
+            stats.filtered++;
+            continue;
+          }
+        }
+
+        // Skip the detail request when this posting is already stored. The lookup stays
+        // sequential so a daily poll does not repeat one HTTP request per known job.
+        const existing = await findExistingJob(db, userId, {
+          sourceJobId: job.sourceJobId,
+          jobUrl: job.jobUrl,
+        });
+        if (existing) {
+          stats.skipped++;
+          continue;
+        }
+        pending.push(job);
+      }
+
+      const detailed = await mapLimit(pending, WORKDAY_DETAIL_CONCURRENCY, async (job) => {
+        try {
+          return await fetchWorkdayJobDetail(job);
+        } catch (error) {
+          console.error("[discovery] workday detail failed", job.jobUrl, error);
+          return null;
+        }
+      });
+
+      for (const job of detailed) {
+        if (caps.remainingNewJobs <= 0) break;
+        if (!job) {
+          stats.filtered++;
+          continue;
+        }
+        const filterResult = shouldImportDiscoveredJob(
+          job,
+          profile,
+          preferences,
+          preferences?.gtaCities
+        );
+        if (!filterResult.import) {
+          stats.filtered++;
+          continue;
+        }
+        await importNormalizedJob(db, userId, job, "workday", boardUrl, caps, stats);
+      }
+    }
+  }
+}
 
 async function loadProfileForFilter(db: Db, userId: string): Promise<CandidateProfile | undefined> {
   const profile = await db.query.candidateProfiles.findFirst({
@@ -93,50 +251,40 @@ export async function pollSavedBoard(
         () => adapter.fetch(parsed.boardUrl),
         { source: "ats", recordCount: 1 }
       );
-      const normalizedJobs = normalizeBoardJobs(raw);
+      const normalizedJobs = normalizeBoardJobs(raw).map((job) =>
+        board.provider === "workday"
+          ? { ...job, company: board.companyName || job.company }
+          : job
+      );
 
-      for (const job of normalizedJobs) {
-        if (caps.remainingNewJobs <= 0) break;
-
-        const filterResult = shouldImportDiscoveredJob(
-          job,
+      if (board.provider === "workday") {
+        await importWorkdayJobs(
+          db,
+          userId,
+          normalizedJobs,
+          parsed.boardUrl,
+          caps,
+          stats,
           profile,
-          preferences,
-          preferences?.gtaCities
+          preferences
         );
-        if (!filterResult.import) {
-          stats.filtered++;
-          continue;
-        }
+      } else {
+        for (const job of normalizedJobs) {
+          if (caps.remainingNewJobs <= 0) break;
 
-        const jobToPersist =
-          board.provider === "workday" ? await fetchWorkdayJobDetail(job) : job;
-
-        const result = await measureOperation(
-          "ingestion.persistDiscoveredJob",
-          () =>
-            persistDiscoveredJob(db, userId, jobToPersist, {
-              provider: board.provider,
-              sourceUrl: jobToPersist.jobUrl || parsed.boardUrl,
-              sourceJobId: jobToPersist.sourceJobId,
-              boardUrl: parsed.boardUrl,
-            }),
-          { source: "ingestion" }
-        );
-
-        if (!result.isNew) {
-          if (result.contentUnchanged) {
-            stats.skipped++;
-          } else {
-            stats.updated++;
-            stats.queuedForMatch++;
+          const filterResult = shouldImportDiscoveredJob(
+            job,
+            profile,
+            preferences,
+            preferences?.gtaCities
+          );
+          if (!filterResult.import) {
+            stats.filtered++;
+            continue;
           }
-          continue;
-        }
 
-        stats.newJobs++;
-        stats.queuedForMatch++;
-        caps.remainingNewJobs--;
+          await importNormalizedJob(db, userId, job, board.provider, parsed.boardUrl, caps, stats);
+        }
       }
 
       if (options?.trackSavedBoard !== false) {
