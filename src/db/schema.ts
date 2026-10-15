@@ -331,7 +331,8 @@ export const searchPreferences = pgTable("search_preferences", {
   includeOnsiteGta: boolean("include_onsite_gta").notNull().default(true),
   showRemoteOther: boolean("show_remote_other").notNull().default(false),
   showOutOfArea: boolean("show_out_of_area").notNull().default(false),
-  discoverCuratedBoards: boolean("discover_curated_boards").notNull().default(false),
+  discoverCuratedBoards: boolean("discover_curated_boards").notNull().default(true),
+  excludedCuratedBoardUrls: jsonb("excluded_curated_board_urls").$type<string[]>().notNull().default([]),
   gtaCities: jsonb("gta_cities").$type<string[]>().notNull().default([]),
   digestEmailsEnabled: boolean("digest_emails_enabled").notNull().default(true),
   digestLastSentAt: timestamp("digest_last_sent_at"),
@@ -396,6 +397,20 @@ export const savedBoards = pgTable("saved_boards", {
   lastPollSkipped: integer("last_poll_skipped").default(0),
   lastPollFiltered: integer("last_poll_filtered").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+/**
+ * Shared cursor for the curated catalog. One row per board, not per user.
+ * The discovery cron writes it on the owner connection. API roles have no policy.
+ */
+export const curatedBoardPollState = pgTable("curated_board_poll_state", {
+  boardUrl: text("board_url").primaryKey(),
+  provider: text("provider").notNull(),
+  companyName: text("company_name").notNull(),
+  lastPolledAt: timestamp("last_polled_at"),
+  lastStatus: text("last_status"),
+  lastRunId: text("last_run_id"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const boardPollRuns = pgTable("board_poll_runs", {

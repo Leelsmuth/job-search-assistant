@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { getDiscoveryPageData } from "@/server/actions";
 import { CompanyCatalogPanel } from "@/components/discovery/company-catalog-panel";
+import { CuratedBoardsPanel } from "@/components/discovery/curated-boards-panel";
 import { SuggestedBoardsPanel } from "@/components/discovery/suggested-boards-panel";
 import { Button } from "@/components/ui/button";
 
 export default async function DiscoveryPage() {
   // One call: the catalog read must finish before the user transaction opens.
   // Promise.all of those two checkouts deadlocks a small postgres.js pool.
-  const { boards, catalog, suggestions } = await getDiscoveryPageData();
+  const { boards, catalog, suggestions, preferences } = await getDiscoveryPageData();
 
   const followingUrls = new Set(boards.map((b) => b.boardUrl));
 
@@ -24,6 +25,11 @@ export default async function DiscoveryPage() {
           <Link href="/settings">Manage saved boards</Link>
         </Button>
       </div>
+
+      <CuratedBoardsPanel
+        includeCurated={preferences.discoverCuratedBoards}
+        excludedBoardUrls={preferences.excludedCuratedBoardUrls}
+      />
 
       <SuggestedBoardsPanel suggestions={suggestions} followingUrls={followingUrls} />
 

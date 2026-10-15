@@ -34,6 +34,20 @@ export type DigestBuildResult =
 export async function buildDigestForUser(db: Db, userId: string, now: Date): Promise<DigestBuildResult> {
   const preferenceRow = await db.query.searchPreferences.findFirst({
     where: eq(searchPreferences.userId, userId),
+    columns: {
+      targetTitles: true,
+      preferredSeniority: true,
+      minimumSalaryCad: true,
+      includeHybridGta: true,
+      includeOnsiteGta: true,
+      showRemoteOther: true,
+      showOutOfArea: true,
+      discoverCuratedBoards: true,
+      gtaCities: true,
+      digestEmailsEnabled: true,
+      digestLastSentAt: true,
+      digestLastGeneratedAt: true,
+    },
   });
   const prefs = preferenceRow ? searchPreferencesFromRow(preferenceRow) : defaultSearchPreferences();
   const emailsEnabled = preferenceRow?.digestEmailsEnabled ?? true;

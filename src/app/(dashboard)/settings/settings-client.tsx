@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { useKeyedPending } from "@/components/layout/action-pending-provider";
+import { CuratedBoardsPanel } from "@/components/discovery/curated-boards-panel";
 import { SearchPreferencesForm } from "./search-preferences-form";
 import { ApplicationProfileForm } from "./application-profile-form";
 import { DigestSettingsForm } from "./digest-settings-form";
@@ -112,6 +113,11 @@ export function SettingsClient({
       </div>
 
       <SearchPreferencesForm initial={preferences} />
+
+      <CuratedBoardsPanel
+        includeCurated={preferences.discoverCuratedBoards}
+        excludedBoardUrls={preferences.excludedCuratedBoardUrls}
+      />
 
       <DigestSettingsForm
         emailsEnabled={digestEmailsEnabled}

@@ -1,3 +1,4 @@
+import { canonicalBoardUrl } from "@/modules/discovery/curated-boards";
 import { DEFAULT_GTA_CITIES, type LocationVisibility } from "@/modules/location/eligibility";
 import { normalizeSeniority, type SeniorityLevel } from "@/modules/matching/frontend-fit";
 
@@ -16,6 +17,7 @@ export type SearchPreferences = LocationVisibility & {
   preferredSeniority: SeniorityLevel;
   minimumSalaryCad: number | null;
   discoverCuratedBoards: boolean;
+  excludedCuratedBoardUrls: string[];
   gtaCities: string[];
 };
 
@@ -28,6 +30,7 @@ export type SearchPreferenceInput = {
   showRemoteOther?: boolean;
   showOutOfArea?: boolean;
   discoverCuratedBoards?: boolean;
+  excludedCuratedBoardUrls?: string[] | string;
   gtaCities?: string[] | string;
 };
 
@@ -40,9 +43,19 @@ export function defaultSearchPreferences(): SearchPreferences {
     includeOnsiteGta: true,
     showRemoteOther: false,
     showOutOfArea: false,
-    discoverCuratedBoards: false,
+    discoverCuratedBoards: true,
+    excludedCuratedBoardUrls: [],
     gtaCities: [...DEFAULT_GTA_CITIES],
   };
+}
+
+export function normalizeExcludedCuratedBoardUrls(value: string[] | string | undefined): string[] {
+  const source = Array.isArray(value) ? value : typeof value === "string" ? value.split(/[\n,]/) : [];
+  const cleaned = source
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => canonicalBoardUrl(item))
+    .filter((item) => item.length > 0);
+  return [...new Set(cleaned)].slice(0, 200);
 }
 
 function splitList(value: string[] | string | undefined, fallback: string[]): string[] {
@@ -66,6 +79,7 @@ export function normalizeSearchPreferences(input: SearchPreferenceInput = {}): S
     showRemoteOther: input.showRemoteOther ?? defaults.showRemoteOther,
     showOutOfArea: input.showOutOfArea ?? defaults.showOutOfArea,
     discoverCuratedBoards: input.discoverCuratedBoards ?? defaults.discoverCuratedBoards,
+    excludedCuratedBoardUrls: normalizeExcludedCuratedBoardUrls(input.excludedCuratedBoardUrls),
     gtaCities: splitList(input.gtaCities, defaults.gtaCities).slice(0, 40),
   };
 }
@@ -79,6 +93,7 @@ export type SearchPreferenceRow = {
   showRemoteOther: boolean;
   showOutOfArea: boolean;
   discoverCuratedBoards: boolean;
+  excludedCuratedBoardUrls?: unknown;
   gtaCities: unknown;
 };
 
@@ -92,6 +107,9 @@ export function searchPreferencesFromRow(row: SearchPreferenceRow): SearchPrefer
     showRemoteOther: row.showRemoteOther,
     showOutOfArea: row.showOutOfArea,
     discoverCuratedBoards: row.discoverCuratedBoards,
+    excludedCuratedBoardUrls: Array.isArray(row.excludedCuratedBoardUrls)
+      ? (row.excludedCuratedBoardUrls as string[])
+      : undefined,
     gtaCities: Array.isArray(row.gtaCities) ? (row.gtaCities as string[]) : undefined,
   });
 }

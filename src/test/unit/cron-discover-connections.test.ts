@@ -6,6 +6,7 @@ const state = vi.hoisted(() => ({
   getDb: vi.fn(),
   withUserDb: vi.fn(),
   pollBoardsForUser: vi.fn(),
+  fetchBoardListing: vi.fn(),
   processMatchQueue: vi.fn(),
 }));
 
@@ -18,6 +19,7 @@ vi.mock("@/db/user-context", () => ({
 }));
 
 vi.mock("@/modules/discovery/poll-board", () => ({
+  fetchBoardListing: state.fetchBoardListing,
   pollBoardsForUser: state.pollBoardsForUser,
   aggregateDiscoverStats: (
     results: Array<{ status: string }>,
@@ -42,7 +44,7 @@ vi.mock("@/modules/matching/match-queue", () => ({
   processMatchQueue: state.processMatchQueue,
 }));
 
-import { runCronDiscoverPoll } from "@/lib/cron-discover-handler";
+import { runCronDiscoverPoll, runDiscoverBatch } from "@/lib/cron-discover-handler";
 
 describe("cron discover connections", () => {
   beforeEach(() => {
@@ -51,6 +53,7 @@ describe("cron discover connections", () => {
     state.getDb.mockReset();
     state.withUserDb.mockReset();
     state.pollBoardsForUser.mockReset();
+    state.fetchBoardListing.mockReset();
     state.processMatchQueue.mockReset();
 
     state.getDb.mockReturnValue({
@@ -76,10 +79,17 @@ describe("cron discover connections", () => {
           ]),
         },
         searchPreferences: {
-          findMany: vi.fn().mockResolvedValue([]),
+          findMany: vi.fn().mockResolvedValue([
+            { userId: "u1", discoverCuratedBoards: false, excludedCuratedBoardUrls: [] },
+            { userId: "u2", discoverCuratedBoards: false, excludedCuratedBoardUrls: [] },
+          ]),
         },
       },
     });
+    state.fetchBoardListing.mockImplementation(async (board: { boardUrl: string }) => ({
+      boardUrl: board.boardUrl,
+      jobs: [],
+    }));
 
     state.withUserDb.mockImplementation(async (_userId: string, fn: (db: object) => Promise<unknown>) => {
       state.inFlight += 1;
@@ -104,9 +114,43 @@ describe("cron discover connections", () => {
 
     expect(state.maxInFlight).toBe(1);
     expect(state.withUserDb).toHaveBeenCalledTimes(4);
+    expect(state.fetchBoardListing).toHaveBeenCalledTimes(2);
     expect(state.processMatchQueue).toHaveBeenCalledTimes(2);
     for (const call of state.processMatchQueue.mock.calls) {
       expect(call[2]).toEqual(expect.objectContaining({ concurrency: 1 }));
     }
+  });
+
+  it("fetches a curated board once and attaches it to every included user", async () => {
+    const userA = "11111111-1111-4111-8111-111111111111";
+    const userB = "22222222-2222-4222-8222-222222222222";
+    const board = {
+      companyName: "Example",
+      provider: "greenhouse" as const,
+      boardUrl: "https://boards.greenhouse.io/example",
+      why: "test",
+    };
+    state.getDb.mockReturnValue({
+      query: {
+        savedBoards: { findMany: vi.fn().mockResolvedValue([]) },
+        searchPreferences: {
+          findMany: vi.fn().mockResolvedValue([
+            { userId: userA, discoverCuratedBoards: true, excludedCuratedBoardUrls: [] },
+            { userId: userB, discoverCuratedBoards: true, excludedCuratedBoardUrls: [] },
+          ]),
+        },
+      },
+      execute: vi.fn().mockResolvedValue([{ user_id: userA }, { user_id: userB }]),
+    });
+
+    await runDiscoverBatch({ curatedBoards: [board], budgetMs: 60_000 });
+
+    expect(state.fetchBoardListing).toHaveBeenCalledTimes(1);
+    expect(state.pollBoardsForUser).toHaveBeenCalledTimes(2);
+    const listings = state.pollBoardsForUser.mock.calls.map(
+      (call) => (call[2] as Array<{ listing?: unknown }>)[0]?.listing
+    );
+    expect(listings[0]).toBe(listings[1]);
+    expect(state.maxInFlight).toBe(1);
   });
 });

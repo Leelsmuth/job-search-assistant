@@ -109,15 +109,10 @@ export function SearchPreferencesForm({ initial }: { initial: SearchPreferences 
             onChange={() => toggle("showOutOfArea")}
             label="Show out-of-area roles"
           />
-          <PreferenceCheck
-            checked={prefs.discoverCuratedBoards}
-            onChange={() => toggle("discoverCuratedBoards")}
-            label="Also poll a curated list of Canadian and remote-friendly boards"
-          />
         </div>
         <p className="text-xs text-muted-foreground">
-          Curated discovery runs with the daily cron, two unsaved boards at a time, and still
-          skips roles outside the location rules above.
+          Curated boards have their own setting. Saving titles and location rules does not change
+          which companies are included.
         </p>
         <Button
           type="button"
@@ -125,8 +120,13 @@ export function SearchPreferencesForm({ initial }: { initial: SearchPreferences 
           onClick={() => {
             setPending(true);
             saveSearchPreferences({
-              ...prefs,
               targetTitles: titlesText,
+              preferredSeniority: prefs.preferredSeniority,
+              minimumSalaryCad: prefs.minimumSalaryCad,
+              includeHybridGta: prefs.includeHybridGta,
+              includeOnsiteGta: prefs.includeOnsiteGta,
+              showRemoteOther: prefs.showRemoteOther,
+              showOutOfArea: prefs.showOutOfArea,
               gtaCities: citiesText,
             })
               .then(() => {
