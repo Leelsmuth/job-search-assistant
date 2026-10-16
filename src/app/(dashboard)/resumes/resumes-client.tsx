@@ -8,6 +8,7 @@ import {
   listResumeDocuments,
   approveParsedResume,
   getResumeParseReview,
+  reparseResumeDocument,
 } from "@/server/actions";
 import { waitForResumeParse } from "@/lib/resume-parse-poll";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,10 @@ import { ParsedResumeReview } from "@/components/resumes/review/parsed-resume-re
 import { usePendingTransition } from "@/components/layout/action-pending-provider";
 import type { ParsedResume } from "@/modules/resumes/schema/resume-schema";
 import { sanitizeParsedResume } from "@/modules/resumes/schema/resume-schema";
+import {
+  PROFILE_SECTIONS,
+  type ProfileSectionKey,
+} from "@/modules/resumes/review/profile-snapshot";
 
 type ResumeDoc = {
   id: string;
@@ -47,6 +52,8 @@ export function ResumesClient({ initialDocuments }: { initialDocuments: ResumeDo
   const [sourcePreviewUrl, setSourcePreviewUrl] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParsedResume | null>(null);
+  const [acceptedSections, setAcceptedSections] = useState<ProfileSectionKey[]>([...PROFILE_SECTIONS]);
+  const [reparsingId, setReparsingId] = useState<string | null>(null);
 
   function refreshDocuments() {
     run(async () => {
@@ -107,7 +114,7 @@ export function ResumesClient({ initialDocuments }: { initialDocuments: ResumeDo
     const cleaned = sanitizeParsedResume(parsed);
     run(async () => {
       try {
-        await approveParsedResume(parsedVersionId, cleaned);
+        await approveParsedResume(parsedVersionId, cleaned, acceptedSections);
         setReviewStep("idle");
         setParsed(null);
         setParsedVersionId(null);
@@ -119,6 +126,37 @@ export function ResumesClient({ initialDocuments }: { initialDocuments: ResumeDo
           description: err instanceof Error ? err.message : "Unknown error",
           variant: "destructive",
         });
+      }
+    });
+  }
+
+  function handleReparse(documentId: string) {
+    setReparsingId(documentId);
+    run(async () => {
+      try {
+        const result = await reparseResumeDocument(documentId);
+        setParsedVersionId(result.parsedVersionId);
+        setNormalizedText(result.extractedText);
+        setParsed(result.parsed);
+        setFileName(null);
+        setReviewStep("review");
+        const review = await getResumeParseReview(result.parsedVersionId);
+        setParsed(review.parsed);
+        setNormalizedText(review.normalizedText);
+        setSourcePreviewUrl(review.sourcePreviewUrl);
+        setFileName(review.fileName);
+        toast({
+          title: "Resume re-parsed",
+          description: "Review the new structured profile before saving.",
+        });
+      } catch (err) {
+        toast({
+          title: "Re-parse failed",
+          description: err instanceof Error ? err.message : "Unknown error",
+          variant: "destructive",
+        });
+      } finally {
+        setReparsingId(null);
       }
     });
   }
@@ -177,6 +215,7 @@ export function ResumesClient({ initialDocuments }: { initialDocuments: ResumeDo
               normalizedText={normalizedText}
               sourcePreviewUrl={sourcePreviewUrl}
               fileName={fileName}
+              onAcceptedSectionsChange={setAcceptedSections}
             />
             <div className="flex gap-2">
               <Button loading={isPending} disabled={isPending} onClick={handleApproveProfile}>
@@ -254,14 +293,27 @@ export function ResumesClient({ initialDocuments }: { initialDocuments: ResumeDo
                     </div>
                   </div>
                 ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isPending}
-                    onClick={() => setPendingDeleteId(doc.id)}
-                  >
-                    Delete
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      title="Re-parse with AI"
+                      aria-label="Re-parse with AI"
+                      disabled={isPending}
+                      loading={reparsingId === doc.id}
+                      onClick={() => handleReparse(doc.id)}
+                    >
+                      Re-parse
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isPending}
+                      onClick={() => setPendingDeleteId(doc.id)}
+                    >
+                      Delete
+                    </Button>
+                  </div>
                 )}
               </div>
             ))

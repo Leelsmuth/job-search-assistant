@@ -1,4 +1,5 @@
 import type { GroupedLine } from "@/modules/resumes/normalize/line-grouper";
+import { splitConcatenatedDateTitle } from "@/modules/resumes/normalize/hyphenation-repair";
 
 export type ResumeSectionType =
   | "contact"
@@ -19,39 +20,64 @@ export type ResumeSection = {
 };
 
 const SECTION_PATTERNS: Array<{ type: ResumeSectionType; pattern: RegExp }> = [
-  { type: "summary", pattern: /^(summary|professional summary|career objective|profile|about me)$/i },
-  { type: "skills", pattern: /^(skills|technical skills|core technical skills|core skills|competencies)$/i },
-  { type: "experience", pattern: /^(experience|work experience|professional experience|employment history|work history)$/i },
-  { type: "education", pattern: /^education$/i },
-  { type: "certifications", pattern: /^(certifications|certificates|licenses)$/i },
-  { type: "projects", pattern: /^projects$/i },
+  { type: "summary", pattern: /^(professional summary|career objective|about me|summary|profile)\b/i },
+  { type: "skills", pattern: /^(core technical skills|technical skills|core skills|competencies|skills)\b/i },
+  { type: "experience", pattern: /^(professional experience|work experience|employment history|work history|experience)\b/i },
+  { type: "education", pattern: /^education\b/i },
+  { type: "certifications", pattern: /^(certifications|certificates|licenses)\b/i },
+  { type: "projects", pattern: /^projects\b/i },
 ];
 
-function isSectionHeading(text: string): boolean {
+const DATE_PREFIX =
+  /(?:\d{1,2}\/\d{4}|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4})\b/i;
+
+export function matchSectionHeading(
+  text: string
+): { type: ResumeSectionType; heading: string; rest: string } | null {
   const trimmed = text.trim();
-  if (trimmed.length > 60) return false;
-  return SECTION_PATTERNS.some(({ pattern }) => pattern.test(trimmed));
+  if (!trimmed || trimmed.length > 90) return null;
+
+  for (const { type, pattern } of SECTION_PATTERNS) {
+    const match = trimmed.match(pattern);
+    if (!match) continue;
+    const rest = trimmed.slice(match[0].length).replace(/^[\s:|\-–—]+/, "").trim();
+    if (rest && !DATE_PREFIX.test(rest)) continue;
+    return { type, heading: match[0], rest };
+  }
+
+  return null;
 }
 
-function detectSectionType(heading: string): ResumeSectionType {
-  for (const { type, pattern } of SECTION_PATTERNS) {
-    if (pattern.test(heading.trim())) return type;
-  }
-  return "additional";
+function contentLinesForHeading(line: GroupedLine, rest: string): GroupedLine[] {
+  if (!rest) return [];
+  return splitConcatenatedDateTitle(rest).map((text, index) => ({
+    text,
+    page: line.page,
+    items: index === 0 ? line.items : line.items.slice(-1),
+    fontSize: line.fontSize,
+    isBullet: false,
+    lineNumber: line.lineNumber,
+  }));
 }
 
 export function detectResumeSections(lines: GroupedLine[]): ResumeSection[] {
   if (lines.length === 0) return [];
 
-  const headingIndices: Array<{ index: number; heading: string; type: ResumeSectionType }> = [];
+  const headingIndices: Array<{
+    index: number;
+    heading: string;
+    type: ResumeSectionType;
+    rest: string;
+  }> = [];
 
   for (let i = 0; i < lines.length; i++) {
-    const text = lines[i].text.trim();
-    if (isSectionHeading(text)) {
+    const matched = matchSectionHeading(lines[i].text);
+    if (matched) {
       headingIndices.push({
         index: i,
-        heading: text,
-        type: detectSectionType(text),
+        heading: matched.heading,
+        type: matched.type,
+        rest: matched.rest,
       });
     }
   }
@@ -88,13 +114,16 @@ export function detectResumeSections(lines: GroupedLine[]): ResumeSection[] {
         ? headingIndices[h + 1].index - 1
         : lines.length - 1;
 
-    if (start <= end) {
+    const body = start <= end ? lines.slice(start, end + 1) : [];
+    const preface = contentLinesForHeading(lines[current.index], current.rest);
+    const sectionLines = [...preface, ...body];
+    if (sectionLines.length > 0) {
       sections.push({
         type: current.type,
         heading: current.heading,
         startIndex: start,
         endIndex: end,
-        lines: lines.slice(start, end + 1),
+        lines: sectionLines,
       });
     }
   }

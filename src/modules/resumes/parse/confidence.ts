@@ -18,9 +18,11 @@ export function computeConfidenceScores(
     ? Math.max(0.5, 0.85 - warningPenalty)
     : 0.3;
 
-  const skills =
-    resume.skillGroups.length > 0
-      ? Math.max(0.4, Math.min(1, resume.skillGroups.reduce((n, g) => n + g.skills.length, 0) / 10))
+  const skillScores = resume.skillGroups.flatMap((group) => group.skillConfidence ?? []);
+  const skills = skillScores.length
+    ? skillScores.reduce((sum, score) => sum + score, 0) / skillScores.length
+    : resume.skillGroups.length > 0
+      ? 0.62
       : 0.2;
 
   const experience =
