@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+  <body>
+    <div data-automation-id="progressBar">
+      <div data-automation-id="progressBarActiveStep">My Information</div>
+    </div>
+    <h2 data-automation-id="applyFlowPageTitle">My Information</h2>
+
+    <label for="legalNameSection_firstName">First Name</label>
+    <input id="legalNameSection_firstName" data-automation-id="legalNameSection_firstName" required />
+
+    <label for="legalNameSection_lastName">Last Name</label>
+    <input id="legalNameSection_lastName" data-automation-id="legalNameSection_lastName" required />
+
+    <label for="email">Email Address</label>
+    <input id="email" data-automation-id="email" type="email" required />
+
+    <label for="phone-number">Phone Number</label>
+    <input id="phone-number" data-automation-id="phone-number" type="tel" />
+
+    <label for="addressSection_addressLine1">Address Line 1*</label>
+    <input id="addressSection_addressLine1" data-automation-id="addressSection_addressLine1" required />
+
+    <label for="addressSection_city">City</label>
+    <input id="addressSection_city" data-automation-id="addressSection_city" required />
+
+    <label for="addressSection_postalCode">Postal Code*</label>
+    <input id="addressSection_postalCode" data-automation-id="addressSection_postalCode" required />
+
+    <button type="button" data-automation-id="countryDropdown" aria-haspopup="listbox" aria-controls="country-popup">Select One</button>
+    <div id="country-popup" data-automation-id="responsiveMonikerPrompt" hidden>
+      <div data-automation-id="promptSearch">
+        <input data-automation-id="searchBox" aria-label="Search" />
+      </div>
+      <div data-automation-id="activeListContainer" role="listbox">
+        <div role="option">United States of America</div>
+        <div role="option">Canada</div>
+        <div role="option">Cambodia</div>
+      </div>
+    </div>
+
+    <button type="button" data-automation-id="addressSection_countryRegion" aria-haspopup="listbox" aria-controls="region-list" aria-label="State">Select One</button>
+    <div id="region-list" role="listbox" hidden>
+      <div role="option">Ontario</div>
+      <div role="option">Quebec</div>
+    </div>
+
+    <button type="button" data-automation-id="phone-device-type" aria-haspopup="listbox" aria-controls="device-list" aria-label="Phone Device Type">Select One</button>
+    <div id="device-list" role="listbox" hidden>
+      <div role="option">Mobile</div>
+      <div role="option">Landline</div>
+    </div>
+
+    <button type="button" data-automation-id="bottom-navigation-next-button">Save and Continue</button>
+  </body>
+</html>

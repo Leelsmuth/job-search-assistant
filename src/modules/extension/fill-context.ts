@@ -3,6 +3,7 @@ import {
   applicationAnswers,
   applicationProfiles,
   applications,
+  candidateProfiles,
   coverLetters,
   jobApplicationForms,
   jobs,
@@ -11,6 +12,8 @@ import {
 } from "@/db/schema";
 import { applicationProfileFromRow } from "@/modules/apply/profile";
 import type { ApplicationProfile } from "@/modules/apply/types";
+import { workdayHistoryFromCandidate } from "@/modules/extension/workday/history";
+import type { WorkdayHistory } from "@/modules/extension/workday/types";
 import type { PreparedFillAnswer } from "@/modules/extension/page-types";
 import {
   detectPageProvider,
@@ -37,6 +40,7 @@ export type ExtensionFillContext = {
     coverLetter: { available: boolean; filename: string | null };
   };
   coverLetterBody: string | null;
+  history: WorkdayHistory;
 };
 
 type JobRow = {
@@ -166,6 +170,15 @@ export async function loadExtensionFillContext(
       ? ensurePdfName(document?.fileName || master?.name || "resume.pdf")
       : null;
 
+  const candidate = await db.query.candidateProfiles.findFirst({
+    where: eq(candidateProfiles.userId, userId),
+    with: {
+      experiences: { with: { bullets: true } },
+      education: true,
+      skills: true,
+    },
+  });
+
   return {
     provider,
     job: matched
@@ -185,6 +198,7 @@ export async function loadExtensionFillContext(
       coverLetter: { available: Boolean(coverLetterBody), filename: coverFilename },
     },
     coverLetterBody,
+    history: workdayHistoryFromCandidate(candidate),
   };
 }
 

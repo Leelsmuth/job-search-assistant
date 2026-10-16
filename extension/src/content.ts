@@ -1,5 +1,7 @@
 import { applyPlan, type ApplyFile } from "./apply-page";
+import { fillWorkdayFromMessage, startWorkdayAssistant } from "./workday-runtime";
 import { isComboboxControl } from "@/modules/extension/combobox";
+import { detectWorkdayStep } from "@/modules/extension/workday/detect";
 import { extractJobPosting } from "@/modules/extension/posting";
 import type { PageField } from "@/modules/extension/page-types";
 import { detectPageProvider } from "@/modules/extension/urls";
@@ -231,13 +233,15 @@ function postingSource(): string {
 }
 
 function collectPage() {
+  const provider = detectPageProvider(location.href);
   return {
     url: location.href,
-    provider: detectPageProvider(location.href),
+    provider,
     headings: headings(),
     buttons: buttons(),
     fields: collectFields(),
     posting: extractJobPosting(postingSource(), location.href),
+    workdayStep: provider === "workday" ? detectWorkdayStep(document) : null,
   };
 }
 
@@ -259,8 +263,13 @@ function boot() {
       }).then(sendResponse);
       return true;
     }
+    if (message?.type === "workday-fill") {
+      void fillWorkdayFromMessage(message).then(sendResponse);
+      return true;
+    }
     return false;
   });
+  if (detectPageProvider(location.href) === "workday") startWorkdayAssistant();
 }
 
 boot();
