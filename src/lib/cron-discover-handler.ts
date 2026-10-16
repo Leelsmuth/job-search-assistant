@@ -5,6 +5,7 @@ import { getDb } from "@/db/client";
 import { curatedBoardPollState, savedBoards } from "@/db/schema";
 import { withUserDb } from "@/db/user-context";
 import { CURATED_CANADA_BOARDS, canonicalBoardUrl, type CuratedBoard } from "@/modules/discovery/curated-boards";
+import { configuredDiscoveryFeeds, DISCOVERY_FEEDS } from "@/modules/discovery/source-catalog";
 import {
   buildDiscoveryTargets,
   isPolledForRun,
@@ -25,8 +26,9 @@ import {
 } from "@/modules/matching/load-search-preferences";
 import type { DiscoverContinuation } from "@/lib/cron-discover-kick";
 
-/** One hop per board plus the saved-board cap, with a few spare hops. */
-export const MAX_DISCOVER_HOPS = CURATED_CANADA_BOARDS.length + CRON_MAX_BOARDS_PER_RUN + 5;
+/** One hop per board or feed plus the saved-board cap, with a few spare hops. */
+export const MAX_DISCOVER_HOPS =
+  CURATED_CANADA_BOARDS.length + DISCOVERY_FEEDS.length + CRON_MAX_BOARDS_PER_RUN + 5;
 
 export type DiscoverBatchOptions = {
   cursor?: number;
@@ -47,6 +49,7 @@ export type DiscoverBatchResult = ReturnType<typeof aggregateDiscoverStats> & {
 type PreferenceSnapshot = {
   include: boolean;
   excluded: string[];
+  enabledDiscoverySources: Partial<Record<string, boolean>> | null;
 };
 
 function emptyResult(options: {
@@ -88,6 +91,7 @@ async function loadPreferences(db: ReturnType<typeof getDb>): Promise<Map<string
       userId: string;
       discoverCuratedBoards: boolean;
       excludedCuratedBoardUrls?: string[] | null;
+      enabledDiscoverySources?: Partial<Record<string, boolean>> | null;
     }>
   ) => {
     const map = new Map<string, PreferenceSnapshot>();
@@ -95,6 +99,7 @@ async function loadPreferences(db: ReturnType<typeof getDb>): Promise<Map<string
       map.set(row.userId, {
         include: row.discoverCuratedBoards,
         excluded: Array.isArray(row.excludedCuratedBoardUrls) ? row.excludedCuratedBoardUrls : [],
+        enabledDiscoverySources: row.enabledDiscoverySources ?? null,
       });
     }
     return map;
@@ -106,12 +111,28 @@ async function loadPreferences(db: ReturnType<typeof getDb>): Promise<Map<string
         userId: true,
         discoverCuratedBoards: true,
         excludedCuratedBoardUrls: true,
+        enabledDiscoverySources: true,
       },
     });
     return toMap(rows);
   } catch (error) {
     if (isMissingDatabaseRelation(error, "search_preferences")) return new Map();
-    if (!isMissingSearchPreferenceColumn(error, "excluded_curated_board_urls")) throw error;
+    if (isMissingSearchPreferenceColumn(error, "enabled_discovery_sources")) {
+      try {
+        const rows = await table.findMany({
+          columns: {
+            userId: true,
+            discoverCuratedBoards: true,
+            excludedCuratedBoardUrls: true,
+          },
+        });
+        return toMap(rows);
+      } catch (inner) {
+        if (!isMissingSearchPreferenceColumn(inner, "excluded_curated_board_urls")) throw inner;
+      }
+    } else if (!isMissingSearchPreferenceColumn(error, "excluded_curated_board_urls")) {
+      throw error;
+    }
     const rows = await table.findMany({
       columns: {
         userId: true,
@@ -171,6 +192,7 @@ function usersFromPreferences(
       userId,
       includeCurated: pref.include,
       excludedCuratedBoardUrls: pref.excluded,
+      enabledDiscoverySources: pref.enabledDiscoverySources,
     };
   });
 }
@@ -250,6 +272,7 @@ export async function runDiscoverBatch(options: DiscoverBatchOptions = {}): Prom
     curatedBoards: options.curatedBoards,
     savedBoards: saved,
     users,
+    feeds: configuredDiscoveryFeeds(),
   });
 
   const savedLastPolledAt = new Map(saved.map((board) => [board.id, board.lastPolledAt]));

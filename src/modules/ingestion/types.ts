@@ -39,6 +39,19 @@ export const jobImportMetaSchema = z.object({
     "lever",
     "ashby",
     "workday",
+    "smartrecruiters",
+    "workable",
+    "recruitee",
+    "bamboohr",
+    "teamtailor",
+    "personio",
+    "rippling",
+    "jobbank",
+    "remotive",
+    "weworkremotely",
+    "himalayas",
+    "remoteok",
+    "adzuna",
     "generic_web",
   ]),
   sourceUrl: z.string().url().optional(),
@@ -81,6 +94,19 @@ export type JobSourceProvider =
   | "lever"
   | "ashby"
   | "workday"
+  | "smartrecruiters"
+  | "workable"
+  | "recruitee"
+  | "bamboohr"
+  | "teamtailor"
+  | "personio"
+  | "rippling"
+  | "jobbank"
+  | "remotive"
+  | "weworkremotely"
+  | "himalayas"
+  | "remoteok"
+  | "adzuna"
   | "generic_web";
 
 export type RawJobSource = {

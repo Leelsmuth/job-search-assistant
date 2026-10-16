@@ -20,6 +20,8 @@ import { MatchTabActions } from "./match-tab-actions";
 import { MatchHistoryPanel } from "@/components/jobs/match-history-panel";
 import { FrontendFitCard } from "@/components/jobs/frontend-fit-card";
 import { isOpenAiConfigured } from "@/lib/env";
+import { JobSourceBadge } from "@/components/jobs/job-source-badge";
+import { sourceCredit } from "@/modules/discovery/source-catalog";
 
 function MatchGroupSection({
   title,
@@ -68,6 +70,7 @@ export default async function JobDetailPage({
   const { job, application, profileUpdatedAt, matchHistory, frontendFit, location } = pageData;
 
   const match = job.matchAnalyses[0];
+  const credit = sourceCredit(job.source?.provider);
   const displayTitle = resolveDisplayTitle(job.title, job.description ?? "");
   const hardFilter = match?.hardFilterResult as
     | { warnings?: string[]; blocks?: string[] }
@@ -100,11 +103,15 @@ export default async function JobDetailPage({
             <p className="mt-2 text-sm text-muted-foreground">
               {job.company?.name} · {job.location} · {job.workplaceType}
             </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <JobSourceBadge provider={job.source?.provider} />
+              {credit ? <span className="text-xs text-muted-foreground">{credit.applyNote}</span> : null}
+            </div>
             {job.jobUrl && (
               <a
                 href={job.jobUrl}
                 target="_blank"
-                rel="noopener noreferrer"
+                rel={credit ? "noopener" : "noopener noreferrer"}
                 className="mt-2 inline-block min-h-10 py-2 text-sm text-blue-600 hover:underline"
               >
                 View original posting

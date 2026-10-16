@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<workzag-jobs>
+  <position>
+    <id>9001</id>
+    <name>Frontend Engineer</name>
+    <subcompany>Example GmbH</subcompany>
+    <office>Munich</office>
+    <jobDescriptions>
+      <jobDescription>
+        <name>Description</name>
+        <value><![CDATA[<p>Build the web app.</p>]]></value>
+      </jobDescription>
+    </jobDescriptions>
+  </position>
+</workzag-jobs>

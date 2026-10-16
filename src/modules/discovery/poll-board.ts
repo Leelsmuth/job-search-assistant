@@ -21,6 +21,8 @@ import type { CandidateProfile } from "@/modules/matching/engine";
 import { loadSearchPreferences } from "@/modules/matching/load-search-preferences";
 import type { SearchPreferences } from "@/modules/matching/search-preferences";
 import type { CuratedBoard } from "@/modules/discovery/curated-boards";
+import { feedPublicUrl, isFeedProvider } from "@/modules/discovery/source-catalog";
+import { fetchDiscoveryFeed } from "@/modules/discovery/feeds";
 import { measureOperation } from "@/lib/performance/measure-operation";
 import {
   CRON_BOARD_DELAY_MS,
@@ -222,6 +224,11 @@ export async function fetchBoardListing(board: {
   provider: JobSourceProvider;
   companyName: string;
 }): Promise<{ boardUrl: string; jobs: NormalizedJob[] }> {
+  if (isFeedProvider(board.provider)) {
+    const jobs = await fetchDiscoveryFeed(board.provider);
+    return { boardUrl: feedPublicUrl(board.provider) || board.boardUrl, jobs };
+  }
+
   const parsed = normalizeBoardUrl(board.boardUrl, board.provider);
   const adapter =
     getAdapterForProvider(board.provider) ?? (await detectBestAdapter(parsed.boardUrl));
@@ -230,9 +237,16 @@ export async function fetchBoardListing(board: {
     source: "ats",
     recordCount: 1,
   });
-  const jobs = normalizeBoardJobs(raw).map((job) =>
-    board.provider === "workday" ? { ...job, company: board.companyName || job.company } : job
-  );
+  const jobs = normalizeBoardJobs(raw).map((job) => {
+    if (board.provider === "workday") return { ...job, company: board.companyName || job.company };
+    if (
+      board.companyName &&
+      job.company.toLowerCase() === parsed.boardSlug.toLowerCase()
+    ) {
+      return { ...job, company: board.companyName };
+    }
+    return job;
+  });
   return { boardUrl: parsed.boardUrl, jobs };
 }
 

@@ -19,6 +19,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useKeyedPending } from "@/components/layout/action-pending-provider";
 import { JobDeleteButton } from "./job-delete-button";
 import { ApplyLink } from "@/components/jobs/apply-link";
+import { JobSourceBadge } from "@/components/jobs/job-source-badge";
 import type { JobListItem } from "@/modules/jobs/job-list-item";
 
 export function JobFeedRow({
@@ -119,6 +120,7 @@ export function JobFeedRow({
         </Link>
 
         <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3 sm:border-0 sm:pt-0">
+          <JobSourceBadge provider={job.sourceProvider} />
           <ApplyLink jobId={job.id} jobUrl={job.jobUrl} variant="default" className="min-h-10" />
           <Button
             variant={saved ? "secondary" : "outline"}

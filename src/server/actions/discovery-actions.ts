@@ -15,6 +15,10 @@ import {
   defaultSearchPreferences,
   normalizeExcludedCuratedBoardUrls,
 } from "@/modules/matching/search-preferences";
+import {
+  isDiscoverySourceId,
+  normalizeEnabledDiscoverySources,
+} from "@/modules/discovery/source-catalog";
 
 async function requireUser() {
   const user = await getUser();
@@ -24,6 +28,9 @@ async function requireUser() {
 
 const EXCLUSIONS_SCHEMA_MESSAGE =
   "Apply drizzle/migrations/0017_curated_board_discovery.sql in the Supabase SQL editor before excluding curated boards.";
+
+const SOURCES_SCHEMA_MESSAGE =
+  "Apply drizzle/migrations/0021_discovery_sources.sql in the Supabase SQL editor before changing discovery sources.";
 
 function preferenceDefaults(userId: string, discoverCuratedBoards: boolean) {
   const prefs = defaultSearchPreferences();
@@ -103,6 +110,44 @@ export async function setCuratedBoardExcluded(boardUrl: string, excluded: boolea
 
   revalidatePath("/discovery");
   revalidatePath("/settings");
+}
+
+export async function setDiscoverySourceEnabled(sourceId: string, enabled: boolean): Promise<void> {
+  if (typeof enabled !== "boolean") throw new Error("Invalid source setting");
+  if (!isDiscoverySourceId(sourceId)) throw new Error("Unknown discovery source");
+  const user = await requireUser();
+
+  try {
+    await withUserDb(user.id, async (db) => {
+      const existing = await db.query.searchPreferences.findFirst({
+        where: eq(searchPreferences.userId, user.id),
+        columns: { enabledDiscoverySources: true },
+      });
+      const next = {
+        ...normalizeEnabledDiscoverySources(existing?.enabledDiscoverySources),
+        [sourceId]: enabled,
+      };
+      if (existing) {
+        await db
+          .update(searchPreferences)
+          .set({ enabledDiscoverySources: next, updatedAt: new Date() })
+          .where(eq(searchPreferences.userId, user.id));
+        return;
+      }
+      await db.insert(searchPreferences).values({
+        ...preferenceDefaults(user.id, true),
+        enabledDiscoverySources: next,
+      });
+    });
+  } catch (error) {
+    if (isMissingSearchPreferenceColumn(error, "enabled_discovery_sources")) {
+      throw new Error(SOURCES_SCHEMA_MESSAGE);
+    }
+    throw error;
+  }
+
+  revalidatePath("/settings");
+  revalidatePath("/discovery");
 }
 
 export async function runDiscoveryNow(): Promise<{ ok: true }> {

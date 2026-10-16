@@ -1,0 +1,10 @@
+{
+  "id": 42,
+  "title": "Frontend Engineer",
+  "company_name": "Example",
+  "city": "Toronto",
+  "country": "Canada",
+  "remote": true,
+  "careers_apply_url": "https://example.recruitee.com/o/frontend-engineer",
+  "description": "<p>Remote Canada React role.</p>"
+}

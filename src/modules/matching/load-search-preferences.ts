@@ -72,10 +72,30 @@ export async function loadSearchPreferences(db: Db, userId: string): Promise<Sea
   try {
     const row = await table.findFirst({
       where: eq(searchPreferences.userId, userId),
-      columns: { ...PREFERENCE_COLUMNS, excludedCuratedBoardUrls: true },
+      columns: {
+        ...PREFERENCE_COLUMNS,
+        excludedCuratedBoardUrls: true,
+        enabledDiscoverySources: true,
+      },
     });
     return row ? searchPreferencesFromRow(row) : defaultSearchPreferences();
   } catch (error) {
+    if (isMissingSearchPreferenceColumn(error, "enabled_discovery_sources")) {
+      try {
+        const row = await table.findFirst({
+          where: eq(searchPreferences.userId, userId),
+          columns: { ...PREFERENCE_COLUMNS, excludedCuratedBoardUrls: true },
+        });
+        return row ? searchPreferencesFromRow(row) : defaultSearchPreferences();
+      } catch (inner) {
+        if (!isMissingSearchPreferenceColumn(inner, "excluded_curated_board_urls")) throw inner;
+        const row = await table.findFirst({
+          where: eq(searchPreferences.userId, userId),
+          columns: PREFERENCE_COLUMNS,
+        });
+        return row ? searchPreferencesFromRow(row) : defaultSearchPreferences();
+      }
+    }
     if (isMissingSearchPreferenceColumn(error, "excluded_curated_board_urls")) {
       const row = await table.findFirst({
         where: eq(searchPreferences.userId, userId),

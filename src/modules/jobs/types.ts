@@ -11,6 +11,7 @@ export type JobWithRelations = {
   technologies: unknown;
   isSaved: boolean;
   company: { name: string } | null;
+  source?: { provider: string } | null;
   requirements: Array<{
     id: string;
     text: string;

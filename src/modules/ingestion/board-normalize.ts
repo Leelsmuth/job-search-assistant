@@ -127,6 +127,15 @@ export function normalizeWorkdayBoardJobs(raw: RawJobSource): NormalizedJob[] {
   return jobs.map((job) => normalizeWorkdayListJob(job, companyName, boardUrl));
 }
 
+function preNormalizedJobs(raw: RawJobSource): NormalizedJob[] {
+  const jobs = (raw.rawPayload as { jobs?: unknown } | undefined)?.jobs;
+  if (!Array.isArray(jobs)) return [];
+  return jobs.flatMap((job) => {
+    const parsed = normalizedJobSchema.safeParse(job);
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
 export function normalizeBoardJobs(raw: RawJobSource): NormalizedJob[] {
   switch (raw.provider) {
     case "greenhouse":
@@ -137,6 +146,14 @@ export function normalizeBoardJobs(raw: RawJobSource): NormalizedJob[] {
       return normalizeAshbyBoardJobs(raw);
     case "workday":
       return normalizeWorkdayBoardJobs(raw);
+    case "smartrecruiters":
+    case "workable":
+    case "recruitee":
+    case "bamboohr":
+    case "teamtailor":
+    case "personio":
+    case "rippling":
+      return preNormalizedJobs(raw);
     default:
       return [];
   }

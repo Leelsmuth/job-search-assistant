@@ -1,0 +1,8 @@
+{
+  "uuid": "11111111-1111-4111-8111-111111111111",
+  "name": "Engineering Manager, HRIS Flow Platform",
+  "url": "https://ats.rippling.com/rippling/jobs/11111111-1111-4111-8111-111111111111",
+  "department": { "label": "Engineering" },
+  "workLocation": { "label": "Toronto, Ontario, Canada" },
+  "description": { "role": "<p>Lead the frontend platform.</p>" }
+}

@@ -10,6 +10,13 @@ import { greenhouseAdapter } from "./greenhouse";
 import { leverAdapter } from "./lever";
 import { ashbyAdapter } from "./ashby";
 import { workdayAdapter } from "./workday";
+import { smartRecruitersAdapter } from "./smartrecruiters";
+import { workableAdapter } from "./workable";
+import { recruiteeAdapter } from "./recruitee";
+import { bambooHrAdapter } from "./bamboohr";
+import { teamtailorAdapter } from "./teamtailor";
+import { personioAdapter } from "./personio";
+import { ripplingAdapter } from "./rippling";
 import type { JobSourceProvider } from "./types";
 import { fetchPublicHttpUrl } from "./ssrf";
 
@@ -156,6 +163,13 @@ export const allAdapters: JobSourceAdapter[] = [
   leverAdapter,
   ashbyAdapter,
   workdayAdapter,
+  smartRecruitersAdapter,
+  workableAdapter,
+  recruiteeAdapter,
+  bambooHrAdapter,
+  teamtailorAdapter,
+  personioAdapter,
+  ripplingAdapter,
   manualDescriptionAdapter,
   genericUrlAdapter,
 ];
