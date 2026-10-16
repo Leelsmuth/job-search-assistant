@@ -1,4 +1,5 @@
 import { applyPlan, type ApplyFile } from "./apply-page";
+import { isComboboxControl } from "@/modules/extension/combobox";
 import { extractJobPosting } from "@/modules/extension/posting";
 import type { PageField } from "@/modules/extension/page-types";
 import { detectPageProvider } from "@/modules/extension/urls";
@@ -17,9 +18,35 @@ function text(element: Element | null | undefined): string {
   return element?.textContent?.replace(/\s+/g, " ").trim() ?? "";
 }
 
+function referenced(ids: string | null): string {
+  if (!ids) return "";
+  return ids
+    .split(/\s+/)
+    .map((id) => {
+      if (!id || /-error$|-help$/.test(id)) return "";
+      return text(document.getElementById(id));
+    })
+    .filter(Boolean)
+    .join(" ");
+}
+
+function groupOf(element: Element): string {
+  const legend = element.closest("fieldset")?.querySelector("legend");
+  if (text(legend)) return text(legend).replace(/\s*\*\s*/g, " ").trim();
+  const group = element.closest("[role='group'][aria-labelledby]");
+  return referenced(group?.getAttribute("aria-labelledby") ?? "").replace(/\s*\*\s*/g, " ").trim();
+}
+
+function displayLabel(label: string, group: string): string {
+  if (/^(attach|upload|choose file|browse)$/i.test(label.trim()) && group) return group;
+  return label;
+}
+
 function labelFor(element: Element): string {
   const aria = element.getAttribute("aria-label");
   if (aria?.trim()) return aria.trim();
+  const labelled = referenced(element.getAttribute("aria-labelledby"));
+  if (labelled) return labelled;
   const id = element.getAttribute("id");
   if (id) {
     const escaped = CSS.escape(id);
@@ -52,15 +79,42 @@ function collectFields(): PageField[] {
   const fields: PageField[] = [];
   const groups = new Map<string, PageField>();
   walk(document, (element) => {
+    if (element instanceof HTMLButtonElement && element.classList.contains("iti__selected-country")) {
+      const group = "Phone";
+      fields.push({
+        key: element.id || "phone-country",
+        name: element.getAttribute("name") || "",
+        id: element.id,
+        tag: "button",
+        type: "combobox",
+        label: "Country",
+        required: true,
+        options: [],
+        currentValue: (element.getAttribute("title") || "").trim(),
+        control: "combobox",
+        groupLabel: group,
+        description: "",
+      });
+      return;
+    }
     if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement)) {
       return;
     }
-    if (element.disabled) return;
-    const type = (element instanceof HTMLInputElement ? element.type : element instanceof HTMLSelectElement ? "select" : "textarea").toLowerCase();
+    if (element.disabled || element.getAttribute("aria-hidden") === "true") return;
+    const combobox = isComboboxControl({
+      role: element.getAttribute("role") ?? "",
+      ariaAutocomplete: element.getAttribute("aria-autocomplete") ?? "",
+      className: element.className,
+    });
+    const type = combobox
+      ? "combobox"
+      : (element instanceof HTMLInputElement ? element.type : element instanceof HTMLSelectElement ? "select" : "textarea").toLowerCase();
     if (["hidden", "submit", "button", "reset", "image", "password"].includes(type)) return;
     const name = element.getAttribute("name") || element.getAttribute("data-automation-id") || "";
     const id = element.id || element.getAttribute("data-automation-id") || "";
     const required = element.required || element.getAttribute("aria-required") === "true";
+    const grouped = groupOf(element);
+    const description = referenced(element.getAttribute("aria-describedby"));
     if (type === "radio" || type === "checkbox") {
       const input = element as HTMLInputElement;
       const key = name || id;
@@ -83,6 +137,8 @@ function collectFields(): PageField[] {
         required,
         options: [option],
         currentValue: input.checked ? input.value : "",
+        groupLabel: grouped,
+        description,
       };
       groups.set(key, field);
       fields.push(field);
@@ -100,13 +156,22 @@ function collectFields(): PageField[] {
       id,
       tag: element instanceof HTMLSelectElement ? "select" : element instanceof HTMLTextAreaElement ? "textarea" : "input",
       type,
-      label: labelFor(element).replace(/\s*\*\s*/g, " ").trim(),
+      label: displayLabel(labelFor(element).replace(/\s*\*\s*/g, " ").trim(), grouped),
       required,
       options,
-      currentValue: element.value.trim(),
+      currentValue: combobox ? comboboxValue(element) || element.value.trim() : element.value.trim(),
+      control: combobox ? "combobox" : undefined,
+      groupLabel: grouped,
+      description,
     });
   });
   return fields;
+}
+
+function comboboxValue(element: Element): string {
+  const container = element.closest(".select, .iti");
+  const single = container?.querySelector(".select__single-value, [class*='single-value'], [class*='singleValue']");
+  return text(single);
 }
 
 function headings(): string[] {
@@ -186,14 +251,13 @@ function boot() {
       return false;
     }
     if (message?.type === "apply-tab" || message?.type === "apply") {
-      const result = applyPlan({
+      void applyPlan({
         reviewStep: Boolean(message.reviewStep),
         fills: (message.fills ?? []) as FillInstruction[],
         files: (message.files ?? []) as ApplyFile[],
         attentionKeys: (message.attentionKeys ?? []) as string[],
-      });
-      sendResponse(result);
-      return false;
+      }).then(sendResponse);
+      return true;
     }
     return false;
   });

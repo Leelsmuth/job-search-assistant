@@ -1,5 +1,6 @@
+import { fillComboboxElement } from "./combobox-dom";
 import { assignFileList, setNativeChecked, setNativeValue } from "@/modules/extension/dom-value";
-import type { FillInstruction } from "@/modules/extension/page-types";
+import type { ComboboxMatch, FillInstruction } from "@/modules/extension/page-types";
 
 export type ApplyFile = {
   role: "resume" | "coverLetter";
@@ -81,14 +82,14 @@ function attach(input: HTMLInputElement, file: ApplyFile) {
 
 /**
  * Writes values into the current page only.
- * This will not submit, click, or continue to another step.
+ * This will not submit, click a submit or apply button, or continue to another step.
  */
-export function applyPlan(input: {
+export async function applyPlan(input: {
   reviewStep: boolean;
   fills: FillInstruction[];
   files: ApplyFile[];
   attentionKeys: string[];
-}): ApplyResult {
+}): Promise<ApplyResult> {
   if (input.reviewStep) {
     return {
       filled: [],
@@ -146,6 +147,20 @@ export function applyPlan(input: {
       }
       setNativeChecked(choice, true, checkedSetter());
       filled.push({ label: fill.label, value: fill.value });
+      continue;
+    }
+    if (fill.mode === "combobox") {
+      if (!(element instanceof HTMLElement)) continue;
+      const result = await fillComboboxElement(element, {
+        value: fill.value,
+        queries: fill.queries?.length ? fill.queries : [fill.value],
+        match: fill.match ?? ("text" satisfies ComboboxMatch),
+      });
+      if (result.ok) filled.push({ label: fill.label, value: result.value });
+      else {
+        attention.push(`${fill.label}: ${result.reason}`);
+        highlight(element);
+      }
       continue;
     }
     if (

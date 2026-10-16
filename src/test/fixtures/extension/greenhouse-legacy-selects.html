@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- Legacy boards.greenhouse.io phone country and work-location selects. -->
+<html>
+  <body>
+    <h1>Software Engineer</h1>
+    <form id="application">
+      <fieldset>
+        <legend>Phone</legend>
+        <label for="phone_country">Country*</label>
+        <select id="phone_country" name="job_application[phone_country]" required>
+          <option value="">Select</option>
+          <option value="us">United States (+1)</option>
+          <option value="ca">Canada (+1)</option>
+        </select>
+        <label for="phone">Phone</label>
+        <input id="phone" name="job_application[phone]" type="tel" />
+      </fieldset>
+
+      <label for="work_where">Where do you intend to work?*</label>
+      <select id="work_where" name="job_application[work_where]" required>
+        <option value="">Select</option>
+        <option value="remote-us">Remote - United States</option>
+        <option value="remote-ca">Remote - Canada</option>
+        <option value="hybrid-gta">Hybrid - Toronto / GTA</option>
+        <option value="sf">San Francisco, CA</option>
+      </select>
+
+      <button type="submit">Submit application</button>
+    </form>
+  </body>
+</html>

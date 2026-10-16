@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Job Search Assistant",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Fill job applications from your Job Search Assistant profile. You review and submit.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAl0BGNZR6uKaX0K8C5weun6Y3SjAJhOp3JS2fisNuWsEXV0Shm+Ce9r5BiR297YJLjSMYPoV3FkYkB+kL9w77ow8AsE9bq7tbX55f8XIzWZ4LYn9QGOG/IRXr8BmPL1b+OJbUM/0cm679r4wSbNjLg68AavIMebp6Wy5HQQZ/TqR1m2TOwrbixKVm2L38mZT+nXwNdbpmQ2wLkr7MyBTMZfKnVElOxjfNEouRVcItFCT2760G1IfQBbN9xVxg3K/WVXaRLXzmSvg1xxIbiRzbOeV8FfF163duRsLk69IfsMABwXazgjBnU4uv73AQw+H3HAR74SfPAsCjoG5X58xOKQIDAQAB",
   "permissions": ["activeTab", "scripting", "storage", "sidePanel"],

@@ -168,6 +168,81 @@ describe("extension field mapping", () => {
     expect(result.reviewStep).toBe(false);
   });
 
+  it("maps the Greenhouse job-boards phone country and work-location question", () => {
+    const snapshot = extractFieldsFromHtml(fixture("greenhouse-job-boards.html"));
+    const result = plan(
+      "greenhouse-job-boards.html",
+      "https://job-boards.greenhouse.io/mercury/jobs/6101151004"
+    );
+
+    expect(snapshot.fields.some((field) => field.label === "" && field.required)).toBe(false);
+    expect(value(result.fills, "first_name")).toBe("Ada");
+    expect(value(result.fills, "email")).toBe("ada@example.com");
+    expect(value(result.fills, "phone")).toBe("416-555-0100");
+    expect(mode(result.fills, "phone")).toBe("value");
+
+    const country = result.fills.find((fill) => fill.key === "country");
+    expect(country?.mode).toBe("combobox");
+    expect(country?.match).toBe("phoneCountry");
+    expect(country?.value).toBe("Canada");
+    expect(country?.queries).toEqual(["Canada", "Canada +1"]);
+
+    const location = result.fills.find((fill) => fill.key === "candidate-location");
+    expect(location?.mode).toBe("combobox");
+    expect(location?.match).toBe("place");
+    expect(location?.queries?.[0]).toBe("Toronto, Ontario");
+
+    const sponsorship = result.fills.find((fill) => fill.key === "question_19087928004");
+    expect(sponsorship?.mode).toBe("combobox");
+    expect(sponsorship?.match).toBe("yesNo");
+    expect(sponsorship?.value).toBe("No");
+
+    const intent = result.fills.find((fill) => fill.key === "question_19087929004");
+    expect(intent?.mode).toBe("value");
+    expect(intent?.value).toBe("Toronto, Ontario");
+
+    expect(value(result.fills, "question_19087924004")).toBe("https://www.linkedin.com/in/ada");
+    expect(mode(result.fills, "resume")).toBe("file");
+    expect(result.ignoredControls).toContain("Submit application");
+    expect(result.fills.some((fill) => /submit/i.test(fill.label))).toBe(false);
+    expect(JSON.stringify(result)).not.toMatch(/click|submit\(/i);
+  });
+
+  it("maps legacy Greenhouse selects for phone country and work location", () => {
+    const result = plan("greenhouse-legacy-selects.html", "https://boards.greenhouse.io/acme/jobs/123");
+    expect(value(result.fills, "phone_country")).toBe("ca");
+    expect(mode(result.fills, "phone_country")).toBe("select");
+    expect(value(result.fills, "work_where")).toBe("remote-ca");
+    expect(mode(result.fills, "work_where")).toBe("select");
+    expect(value(result.fills, "phone")).toBe("416-555-0100");
+    expect(result.ignoredControls).toContain("Submit application");
+  });
+
+  it("highlights a work-location select when no option matches the profile", () => {
+    const result = plan("greenhouse-work-intent-us.html", "https://boards.greenhouse.io/acme/jobs/456");
+    expect(result.fills.some((fill) => fill.key === "work_where")).toBe(false);
+    expect(result.attention.map((item) => item.key)).toContain("work_where");
+    expect(result.attention.find((item) => item.key === "work_where")?.reason).toMatch(/no option matches/i);
+    expect(result.ignoredControls).toContain("Submit application");
+  });
+
+  it("reuses combobox plans for Lever, Ashby, and Workday", () => {
+    const pages = [
+      ["https://jobs.lever.co/acme/11111111-1111-1111-1111-111111111111", "lever"],
+      ["https://jobs.ashbyhq.com/acme/22222222-2222-2222-2222-222222222222", "ashby"],
+      ["https://acme.wd1.myworkdayjobs.com/en-US/site/job/Toronto/Engineer_R-12345", "workday"],
+    ] as const;
+    for (const [url, provider] of pages) {
+      const result = plan("ats-combobox.html", url);
+      expect(result.provider).toBe(provider);
+      expect(mode(result.fills, "country")).toBe("combobox");
+      expect(value(result.fills, "country")).toBe("Canada");
+      expect(mode(result.fills, "work_where")).toBe("combobox");
+      expect(result.fills.find((fill) => fill.key === "work_where")?.queries?.[0]).toBe("Remote, Canada");
+      expect(result.ignoredControls).toContain("Submit application");
+    }
+  });
+
   it("does not fill or advance a Workday review step", () => {
     const result = plan(
       "workday-review.html",
