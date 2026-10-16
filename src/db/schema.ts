@@ -13,6 +13,11 @@ import {
 import { relations } from "drizzle-orm";
 import type { DigestPayload, DigestSkipReason } from "@/modules/digest/types";
 import type { FitBreakdown } from "@/modules/matching/fit-score";
+import type {
+  AtsCheck,
+  ResumeScoreResult,
+  StoredResumeSuggestion,
+} from "@/modules/resume-score/types";
 
 export const skillCategoryEnum = pgEnum("skill_category", [
   "language",
@@ -740,6 +745,42 @@ export const tailoringSuggestions = pgTable("tailoring_suggestions", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const resumeJobScores = pgTable(
+  "resume_job_scores",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    resumeVersionId: uuid("resume_version_id").references(() => resumeVersions.id, {
+      onDelete: "set null",
+    }),
+    resumeDocumentId: uuid("resume_document_id").references(() => resumeDocuments.id, {
+      onDelete: "set null",
+    }),
+    source: text("source").notNull().default("parsed"),
+    resumeHash: text("resume_hash").notNull(),
+    jobHash: text("job_hash").notNull(),
+    overallScore: real("overall_score").notNull(),
+    breakdown: jsonb("breakdown").$type<ResumeScoreResult>().notNull(),
+    keywords: jsonb("keywords").$type<ResumeScoreResult["extracted"]>().notNull(),
+    atsChecks: jsonb("ats_checks").$type<AtsCheck[]>().notNull(),
+    suggestions: jsonb("suggestions").$type<StoredResumeSuggestion[] | null>(),
+    beforeScore: real("before_score"),
+    afterScore: real("after_score"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("resume_job_scores_user_job_resume_unique").on(
+      table.userId,
+      table.jobId,
+      table.resumeHash
+    ),
+  ]
+);
+
 export const aiRuns = pgTable("ai_runs", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").notNull(),
@@ -870,6 +911,7 @@ export const jobsRelations = relations(jobs, ({ one, many }) => ({
   requirements: many(jobRequirements),
   matchAnalyses: many(matchAnalyses),
   applications: many(applications),
+  resumeJobScores: many(resumeJobScores),
 }));
 
 export const requirementMatchesRelations = relations(requirementMatches, ({ one }) => ({
@@ -901,6 +943,14 @@ export const applicationsRelations = relations(applications, ({ one, many }) => 
   job: one(jobs, { fields: [applications.jobId], references: [jobs.id] }),
   events: many(applicationEvents),
   answers: many(applicationAnswers),
+}));
+
+export const resumeJobScoresRelations = relations(resumeJobScores, ({ one }) => ({
+  job: one(jobs, { fields: [resumeJobScores.jobId], references: [jobs.id] }),
+  resumeVersion: one(resumeVersions, {
+    fields: [resumeJobScores.resumeVersionId],
+    references: [resumeVersions.id],
+  }),
 }));
 
 export const resumeVersionsRelations = relations(resumeVersions, ({ one }) => ({

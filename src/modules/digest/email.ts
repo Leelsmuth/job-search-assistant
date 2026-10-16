@@ -73,7 +73,7 @@ function renderText(payload: DigestPayload, base: string): string {
     lines.push("New matches", "");
     payload.jobs.forEach((job, index) => {
       lines.push(
-        `${index + 1}. ${job.title} — ${job.companyName} (${job.score})`,
+        `${index + 1}. ${job.title} — ${job.companyName} (${scoreLabel(job)})`,
         `   ${job.locationLabel}`,
         job.reason ? `   ${job.reason}` : "",
         `   ${base}${job.href}`,
@@ -123,7 +123,7 @@ function renderHtml(payload: DigestPayload, base: string): string {
               ? ` · <a href="${escapeHtml(job.postingUrl)}">Posting</a>`
               : "";
             const reason = job.reason ? `<div style="color:#444">${escapeHtml(job.reason)}</div>` : "";
-            return `<li style="margin:0 0 12px"><a href="${escapeHtml(base + job.href)}">${escapeHtml(job.title)}</a> — ${escapeHtml(job.companyName)} · ${escapeHtml(String(job.score))}<div style="color:#444">${escapeHtml(job.locationLabel)}</div>${reason}${posting}</li>`;
+            return `<li style="margin:0 0 12px"><a href="${escapeHtml(base + job.href)}">${escapeHtml(job.title)}</a> — ${escapeHtml(job.companyName)} · ${escapeHtml(scoreLabel(job))}<div style="color:#444">${escapeHtml(job.locationLabel)}</div>${reason}${posting}</li>`;
           })
           .join("")}</ol>`;
 
@@ -160,6 +160,11 @@ function renderHtml(payload: DigestPayload, base: string): string {
   <p><a href="${escapeHtml(base)}/applications">Open your tracker</a></p>
 </body>
 </html>`;
+}
+
+function scoreLabel(job: { score: number; resumeScore?: number | null }): string {
+  if (job.resumeScore == null) return String(job.score);
+  return `${job.score} · ATS ${job.resumeScore}`;
 }
 
 function escapeHtml(value: string): string {

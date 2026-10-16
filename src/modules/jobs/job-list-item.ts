@@ -27,6 +27,7 @@ export type JobListItem = {
   } | null;
   fitEligible: boolean;
   fitIneligibleReason: string | null;
+  resumeScore: number | null;
   match: {
     overallScore: number;
     classification: string;
@@ -113,14 +114,15 @@ export function mapRowToJobListItem(row: {
     locationClass: row.locationEligibility ?? null,
     locationFlags: row.locationFlags ?? [],
     frontendFit:
-    row.fitScore != null
-      ? {
-          score: Math.round(row.fitScore),
-          reasons: row.frontendFitReasons ?? [],
-        }
-      : null,
-  fitEligible: row.fitEligible ?? true,
-  fitIneligibleReason: row.fitIneligibleReason ?? null,
+      row.fitScore != null
+        ? {
+            score: Math.round(row.fitScore),
+            reasons: row.frontendFitReasons ?? [],
+          }
+        : null,
+    fitEligible: row.fitEligible ?? true,
+    fitIneligibleReason: row.fitIneligibleReason ?? null,
+    resumeScore: null,
     match: latest
       ? {
           overallScore: latest.overallScore,

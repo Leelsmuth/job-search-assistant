@@ -13,6 +13,9 @@ describe("performance architecture guards", () => {
         candidateProfiles: {
           findFirst: vi.fn().mockResolvedValue({ updatedAt: new Date() }),
         },
+        resumeDocuments: {
+          findFirst: vi.fn().mockResolvedValue(null),
+        },
         jobs: { findMany },
       },
     };

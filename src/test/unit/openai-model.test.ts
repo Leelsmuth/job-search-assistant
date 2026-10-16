@@ -7,6 +7,7 @@ const files = [
   "src/modules/matching/frontend-fit-llm.ts",
   "src/modules/resumes/parse/resume-structure-parser.ts",
   "src/modules/documents/llm.ts",
+  "src/modules/resume-score/suggest.ts",
 ];
 
 describe("OpenAI model configuration", () => {
