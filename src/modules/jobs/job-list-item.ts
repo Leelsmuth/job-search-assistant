@@ -25,6 +25,8 @@ export type JobListItem = {
     score: number;
     reasons: string[];
   } | null;
+  fitEligible: boolean;
+  fitIneligibleReason: string | null;
   match: {
     overallScore: number;
     classification: string;
@@ -47,6 +49,9 @@ export type JobsFeedResult = {
   hasMore: boolean;
   nextCursor: JobsFeedCursor | null;
   payloadBytes?: number;
+  lowFitCount: number;
+  ineligibleCount: number;
+  minFitToShow: number;
 };
 
 export const DEFAULT_JOBS_FEED_LIMIT = 50;
@@ -69,6 +74,11 @@ export function mapRowToJobListItem(row: {
   technologies?: string[] | null;
   locationEligibility?: string | null;
   locationFlags?: string[] | null;
+  fitScore?: number | null;
+  fitEligible?: boolean | null;
+  fitIneligibleReason?: string | null;
+  frontendFitScore?: number | null;
+  frontendFitReasons?: string[] | null;
   requirements: Array<{
     id: string;
     requirementType: string;
@@ -102,7 +112,15 @@ export function mapRowToJobListItem(row: {
     technologies: row.technologies ?? [],
     locationClass: row.locationEligibility ?? null,
     locationFlags: row.locationFlags ?? [],
-    frontendFit: null,
+    frontendFit:
+    row.fitScore != null
+      ? {
+          score: Math.round(row.fitScore),
+          reasons: row.frontendFitReasons ?? [],
+        }
+      : null,
+  fitEligible: row.fitEligible ?? true,
+  fitIneligibleReason: row.fitIneligibleReason ?? null,
     match: latest
       ? {
           overallScore: latest.overallScore,

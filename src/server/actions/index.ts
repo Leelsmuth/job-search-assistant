@@ -59,8 +59,10 @@ import { mapParsedResumeToProfile } from "@/modules/resumes/map/candidate-profil
 import * as resumeActions from "@/server/actions/resume-actions";
 import type { ParsedResume } from "@/modules/resumes/schema/resume-schema";
 import { fetchJobsFeed, countAllUserJobs, type JobsFeedFilters } from "@/modules/jobs/jobs-feed-service";
-import { classifyLocationEligibility } from "@/modules/location/eligibility";
-import { scoreFrontendFit } from "@/modules/matching/frontend-fit";
+import { scoreJobFit } from "@/modules/matching/fit-score";
+import { resolveSharedTargets } from "@/modules/matching/shared-targets";
+import { replaceCandidateSkills, rescoreUserJobs } from "@/modules/matching/rescore-jobs";
+import { sanitizeSkills } from "@/modules/candidate/sanitize-skills";
 import { maybeEnhanceFrontendFit } from "@/modules/matching/frontend-fit-llm";
 import { loadSearchPreferences } from "@/modules/matching/load-search-preferences";
 import {
@@ -129,22 +131,49 @@ export async function updateProfile(data: {
   yearsExperience?: number;
   summary?: string;
   dealBreakers?: string[];
+  skills?: string[];
 }) {
   const user = await requireUser();
   return withUserDb(user.id, async (db) => {
     const profile = await getOrCreateProfileDb(db, user.id);
-
+    const { skills, ...profileFields } = data;
+    const minimumSalary = parseOptionalInt(data.minimumSalary);
     await db
       .update(candidateProfiles)
       .set({
-        ...data,
-        minimumSalary: parseOptionalInt(data.minimumSalary),
+        ...profileFields,
+        minimumSalary,
         yearsExperience: parseOptionalInt(data.yearsExperience),
         updatedAt: new Date(),
       })
       .where(and(eq(candidateProfiles.id, profile.id), eq(candidateProfiles.userId, user.id)));
 
+    if (skills) {
+      await replaceCandidateSkills(db, profile.id, skills);
+    }
+
+    if (data.targetTitles || data.minimumSalary !== undefined) {
+      const existingPrefs = await db.query.searchPreferences.findFirst({
+        where: eq(searchPreferences.userId, user.id),
+        columns: { userId: true },
+      });
+      if (existingPrefs) {
+        await db
+          .update(searchPreferences)
+          .set({
+            ...(data.targetTitles ? { targetTitles: data.targetTitles } : {}),
+            ...(data.minimumSalary !== undefined ? { minimumSalaryCad: minimumSalary ?? null } : {}),
+            updatedAt: new Date(),
+          })
+          .where(eq(searchPreferences.userId, user.id));
+      }
+    }
+
+    await rescoreUserJobs(db, user.id);
+
     revalidatePath("/profile");
+    revalidatePath("/settings");
+    revalidatePath("/jobs");
     return { success: true, profileUpdated: true };
   });
 }
@@ -350,6 +379,8 @@ export async function saveSearchPreferences(input: SearchPreferenceInput): Promi
       targetTitles: string[];
       preferredSeniority: SearchPreferences["preferredSeniority"];
       minimumSalaryCad: number | null;
+      minFitToShow: number;
+      digestMinFit: number;
       includeHybridGta: boolean;
       includeOnsiteGta: boolean;
       showRemoteOther: boolean;
@@ -362,6 +393,8 @@ export async function saveSearchPreferences(input: SearchPreferenceInput): Promi
       targetTitles: prefs.targetTitles,
       preferredSeniority: prefs.preferredSeniority,
       minimumSalaryCad: prefs.minimumSalaryCad,
+      minFitToShow: prefs.minFitToShow,
+      digestMinFit: prefs.digestMinFit,
       includeHybridGta: prefs.includeHybridGta,
       includeOnsiteGta: prefs.includeOnsiteGta,
       showRemoteOther: prefs.showRemoteOther,
@@ -386,57 +419,61 @@ export async function saveSearchPreferences(input: SearchPreferenceInput): Promi
         target: searchPreferences.userId,
         set: values,
       });
-    await reclassifyUserJobs(db, user.id, prefs);
+    const profile = await db.query.candidateProfiles.findFirst({
+      where: eq(candidateProfiles.userId, user.id),
+      columns: { id: true },
+    });
+    if (profile) {
+      await db
+        .update(candidateProfiles)
+        .set({
+          targetTitles: prefs.targetTitles,
+          minimumSalary: prefs.minimumSalaryCad,
+          updatedAt: new Date(),
+        })
+        .where(eq(candidateProfiles.id, profile.id));
+    }
+    await rescoreUserJobs(db, user.id);
   });
   revalidatePath("/settings");
   revalidatePath("/jobs");
   return prefs;
 }
 
-async function reclassifyUserJobs(db: Db, userId: string, prefs: SearchPreferences) {
-  const rows = await db.query.jobs.findMany({
-    where: eq(jobs.userId, userId),
-    columns: {
-      id: true,
-      title: true,
-      location: true,
-      workplaceType: true,
-      description: true,
-      technologies: true,
-      salaryMin: true,
-      salaryMax: true,
-      salaryCurrency: true,
-    },
+export async function getCandidateSkillNames(): Promise<string[]> {
+  const user = await requireUser();
+  return withUserDb(user.id, async (db) => {
+    const profile = await db.query.candidateProfiles.findFirst({
+      where: eq(candidateProfiles.userId, user.id),
+      columns: { id: true },
+      with: { skills: { columns: { name: true } } },
+    });
+    return sanitizeSkills(profile?.skills.map((skill) => skill.name) ?? []);
   });
+}
 
-  for (const row of rows) {
-    const eligibility = classifyLocationEligibility(row, { gtaCities: prefs.gtaCities });
-    const fit = scoreFrontendFit(
-      {
-        title: row.title,
-        description: row.description,
-        technologies: row.technologies,
-        salaryMin: row.salaryMin,
-        salaryMax: row.salaryMax,
-        salaryCurrency: row.salaryCurrency,
-      },
-      {
-        targetTitles: prefs.targetTitles,
-        preferredSeniority: prefs.preferredSeniority,
-        minimumSalaryCad: prefs.minimumSalaryCad,
-      }
-    );
-    await db
-      .update(jobs)
-      .set({
-        locationEligibility: eligibility.class,
-        locationFlags: eligibility.flags,
-        frontendFitScore: fit.score,
-        frontendFitReasons: fit.reasons,
-        updatedAt: new Date(),
-      })
-      .where(eq(jobs.id, row.id));
-  }
+export async function saveCandidateSkills(names: string[]): Promise<string[]> {
+  const user = await requireUser();
+  const saved = await withUserDb(user.id, async (db) => {
+    const profile = await getOrCreateProfileDb(db, user.id);
+    const cleaned = await replaceCandidateSkills(db, profile.id, names);
+    await rescoreUserJobs(db, user.id);
+    return cleaned;
+  });
+  revalidatePath("/profile");
+  revalidatePath("/settings");
+  revalidatePath("/jobs");
+  return saved;
+}
+
+export async function rescoreAllJobsAction() {
+  const user = await requireUser();
+  const result = await withUserDb(user.id, (db) => rescoreUserJobs(db, user.id));
+  revalidatePath("/jobs");
+  revalidatePath("/settings");
+  revalidatePath("/profile");
+  revalidatePath("/digest");
+  return result;
 }
 
 export async function enhanceFrontendFitAction(jobId: string) {
@@ -537,10 +574,18 @@ export async function getJobDetailPageData(jobId: string) {
         where: eq(candidateProfiles.userId, user.id),
         with: { skills: true },
       });
-      const frontendFit = scoreFrontendFit(
+      const targets = resolveSharedTargets({
+        profileTitles: profile?.targetTitles,
+        preferenceTitles: prefs.targetTitles,
+        profileSalary: profile?.minimumSalary,
+        preferenceSalary: prefs.minimumSalaryCad,
+      });
+      const fit = scoreJobFit(
         {
           title: job.title,
           description: job.description,
+          location: job.location,
+          workplaceType: job.workplaceType,
           technologies: job.technologies,
           requirements: job.requirements,
           salaryMin: job.salaryMin,
@@ -549,29 +594,35 @@ export async function getJobDetailPageData(jobId: string) {
         },
         {
           skills: profile?.skills.map((skill) => skill.name) ?? [],
-          targetTitles: prefs.targetTitles,
-          preferredSeniority: prefs.preferredSeniority,
-          minimumSalaryCad: prefs.minimumSalaryCad ?? profile?.minimumSalary,
-        }
+          targetTitles: targets.targetTitles,
+          yearsExperience: profile?.yearsExperience,
+          minimumSalaryCad: targets.minimumSalaryCad,
+        },
+        prefs.gtaCities
       );
-      const location = classifyLocationEligibility(job, { gtaCities: prefs.gtaCities });
+      const frontendFit = {
+        score: fit.score,
+        reasons: fit.reasons,
+        components: fit.components,
+        eligible: fit.eligible,
+        ineligibleReason: fit.ineligibleReason,
+      };
+      const location = fit.location;
 
-      const [application, profileUpdatedAt, matchHistory] = await Promise.all([
-        getApplicationForJob(db, user.id, jobId),
-        getProfileUpdatedAt(db, user.id),
-        db.query.matchAnalyses.findMany({
-          where: eq(matchAnalyses.jobId, jobId),
-          orderBy: [desc(matchAnalyses.createdAt)],
-          limit: 3,
-          columns: {
-            id: true,
-            overallScore: true,
-            classification: true,
-            topConcern: true,
-            createdAt: true,
-          },
-        }),
-      ]);
+      const application = await getApplicationForJob(db, user.id, jobId);
+      const profileUpdatedAt = await getProfileUpdatedAt(db, user.id);
+      const matchHistory = await db.query.matchAnalyses.findMany({
+        where: eq(matchAnalyses.jobId, jobId),
+        orderBy: [desc(matchAnalyses.createdAt)],
+        limit: 3,
+        columns: {
+          id: true,
+          overallScore: true,
+          classification: true,
+          topConcern: true,
+          createdAt: true,
+        },
+      });
 
       const payload = {
         job: job as JobWithRelations,

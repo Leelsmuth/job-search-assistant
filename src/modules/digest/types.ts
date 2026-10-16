@@ -83,6 +83,8 @@ export type DigestJobSource = {
   locationEligibility: string | null;
   frontendFitScore: number | null;
   frontendFitReasons: string[] | null;
+  fitScore?: number | null;
+  fitEligible?: boolean | null;
 };
 
 export type DigestReminderSource = {

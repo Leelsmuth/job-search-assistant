@@ -52,7 +52,10 @@ export function ApplicationsBoard({
                       >
                         {application.title}
                       </Link>
-                      <p className="text-xs text-muted-foreground">{application.companyName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {application.companyName}
+                        {application.fitScore != null ? ` · Fit ${application.fitScore}` : ""}
+                      </p>
                       <p className="text-xs text-muted-foreground">{application.locationLabel}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         Applied{" "}

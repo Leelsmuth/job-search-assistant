@@ -10,6 +10,7 @@ import {
   scoreFrontendFit,
   type FrontendFitProfile,
 } from "@/modules/matching/frontend-fit";
+import { nonEngineeringReason } from "@/modules/matching/fit-score";
 import { isStaleApplied, safeHttpUrl } from "@/modules/applications/tracker";
 import {
   DIGEST_JOB_LIMIT,
@@ -62,17 +63,20 @@ export function selectDigestJobs(input: {
   gtaCities: string[];
   profile: FrontendFitProfile;
   limit?: number;
+  /** Jobs below this score stay stored and out of the digest. */
+  minScore?: number;
 }): DigestMatch[] {
   const limit = input.limit ?? DIGEST_JOB_LIMIT;
   const ranked: Array<DigestMatch & { discoveredAt: number }> = [];
 
   for (const job of input.jobs) {
     if (job.status === "dismissed") continue;
+    if (job.fitEligible === false || nonEngineeringReason(job.title)) continue;
     if (Number.isNaN(job.dateDiscovered.getTime())) continue;
     const locationClass = resolvedClass(job, input.gtaCities);
     if (!isLocationVisible(locationClass, input.visibility)) continue;
 
-    const storedScore = job.frontendFitScore;
+    const storedScore = job.fitScore ?? null;
     const useStored = storedScore != null && Number.isFinite(storedScore);
     const fit = useStored
       ? null
@@ -89,6 +93,7 @@ export function selectDigestJobs(input: {
           input.profile
         );
     const score = useStored ? storedScore : fit!.score;
+    if (input.minScore != null && score < input.minScore) continue;
     const reason = (useStored ? job.frontendFitReasons?.[0] : fit!.reasons[0]) ?? null;
 
     ranked.push({

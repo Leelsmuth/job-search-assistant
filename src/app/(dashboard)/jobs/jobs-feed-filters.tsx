@@ -7,6 +7,11 @@ import { Label } from "@/components/ui/label";
 
 export function JobsFeedFilters({
   view,
+  lowFitCount,
+  ineligibleCount,
+  minFitToShow,
+  showLowFit,
+  showIneligible,
 }: {
   view: {
     showRemoteOther: boolean;
@@ -14,6 +19,11 @@ export function JobsFeedFilters({
     includeHybridGta: boolean;
     includeOnsiteGta: boolean;
   };
+  lowFitCount: number;
+  ineligibleCount: number;
+  minFitToShow: number;
+  showLowFit: boolean;
+  showIneligible: boolean;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -118,6 +128,24 @@ export function JobsFeedFilters({
         >
           New today
         </Button>
+        <Button
+          variant={showLowFit ? "default" : "outline"}
+          size="sm"
+          onClick={() => update("showLowFit", showLowFit ? "" : "true")}
+        >
+          {showLowFit ? "Hide low-fit" : `Show low-fit (${lowFitCount})`}
+        </Button>
+        <Button
+          variant={showIneligible ? "default" : "outline"}
+          size="sm"
+          onClick={() => update("showIneligible", showIneligible ? "" : "true")}
+        >
+          {showIneligible ? "Hide ineligible" : `Show ineligible (${ineligibleCount})`}
+        </Button>
+        <p className="w-full text-xs text-muted-foreground">
+          Roles under {minFitToShow} stay saved and are hidden until you show low-fit. Ineligible
+          locations and non-engineering roles stay hidden until you show them.
+        </p>
         <Button
           variant={params.get("remote") === "true" ? "default" : "outline"}
           size="sm"

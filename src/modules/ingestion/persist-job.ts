@@ -10,8 +10,9 @@ import {
 import { requirementsToStructured } from "./extract-requirements";
 import { hashJobDescription } from "./description-hash";
 import { clampJobForImport } from "./clamp-import-job";
-import { classifyLocationEligibility } from "@/modules/location/eligibility";
-import { scoreFrontendFit } from "@/modules/matching/frontend-fit";
+import { inferWorkMode, workplaceTypeFromMode } from "@/modules/location/eligibility";
+import { fitSnapshot, scoreJobFit } from "@/modules/matching/fit-score";
+import { loadFitProfile } from "@/modules/matching/rescore-jobs";
 
 export type JobImportMeta = {
   provider: string;
@@ -84,29 +85,59 @@ export async function persistDiscoveredJob(
   });
 
   const nextHash = hashJobDescription(validatedJob.description);
+  if (
+    existing &&
+    existing.descriptionHash === nextHash &&
+    existing.fitScore != null &&
+    Number.isFinite(existing.fitScore)
+  ) {
+    return { jobId: existing.id, isNew: false, contentUnchanged: true };
+  }
+
   const postedAt = datePostedValue(validatedJob.datePosted);
-  const eligibility = classifyLocationEligibility({
-    location: validatedJob.location,
-    workplaceType: validatedJob.workplaceType,
-    description: validatedJob.description,
-  });
-  const fit = scoreFrontendFit({
-    title: validatedJob.title,
-    description: validatedJob.description,
-    technologies: validatedJob.technologies,
-    salaryMin: validatedJob.salaryMin,
-    salaryMax: validatedJob.salaryMax,
-    salaryCurrency: validatedJob.salaryCurrency,
-  });
-  const fitSnapshot = {
-    locationEligibility: eligibility.class,
-    locationFlags: eligibility.flags,
-    frontendFitScore: fit.score,
-    frontendFitReasons: fit.reasons,
-  };
+  const scoring = await loadFitProfile(db, userId);
+  const inferredWorkplace = workplaceTypeFromMode(
+    inferWorkMode({
+      title: validatedJob.title,
+      location: validatedJob.location,
+      workplaceType: validatedJob.workplaceType,
+      description: validatedJob.description,
+    })
+  );
+  const workplaceType =
+    !validatedJob.workplaceType || validatedJob.workplaceType === "unknown"
+      ? inferredWorkplace ?? validatedJob.workplaceType
+      : validatedJob.workplaceType;
+  const structuredReqs = requirementsToStructured(validatedJob);
+  const fit = scoreJobFit(
+    {
+      title: validatedJob.title,
+      description: validatedJob.description,
+      location: validatedJob.location,
+      workplaceType,
+      technologies: validatedJob.technologies,
+      requirements: structuredReqs,
+      salaryMin: validatedJob.salaryMin,
+      salaryMax: validatedJob.salaryMax,
+      salaryCurrency: validatedJob.salaryCurrency,
+    },
+    scoring.profile,
+    scoring.gtaCities
+  );
+  const scored = fitSnapshot(fit);
 
   if (existing) {
     if (existing.descriptionHash === nextHash) {
+      if (existing.fitScore == null) {
+        await db
+          .update(jobs)
+          .set({
+            ...scored,
+            ...(workplaceType ? { workplaceType } : {}),
+            updatedAt: new Date(),
+          })
+          .where(eq(jobs.id, existing.id));
+      }
       return { jobId: existing.id, isNew: false, contentUnchanged: true };
     }
 
@@ -115,7 +146,7 @@ export async function persistDiscoveredJob(
       .set({
         title: validatedJob.title,
         location: validatedJob.location,
-        workplaceType: validatedJob.workplaceType,
+        workplaceType,
         salaryMin: validatedJob.salaryMin,
         salaryMax: validatedJob.salaryMax,
         salaryCurrency: validatedJob.salaryCurrency,
@@ -123,13 +154,12 @@ export async function persistDiscoveredJob(
         descriptionHash: nextHash,
         ...(postedAt ? { datePosted: postedAt } : {}),
         matchPipelineStatus: "match_pending",
-        ...fitSnapshot,
+        ...scored,
         updatedAt: new Date(),
       })
       .where(eq(jobs.id, existing.id));
 
     await db.delete(jobRequirements).where(eq(jobRequirements.jobId, existing.id));
-    const structuredReqs = requirementsToStructured(validatedJob);
     if (structuredReqs.length > 0) {
       await db.insert(jobRequirements).values(
         structuredReqs.map((req) => ({
@@ -170,7 +200,7 @@ export async function persistDiscoveredJob(
       sourceId: source.id,
       title: validatedJob.title,
       location: validatedJob.location,
-      workplaceType: validatedJob.workplaceType,
+      workplaceType,
       salaryMin: validatedJob.salaryMin,
       salaryMax: validatedJob.salaryMax,
       salaryCurrency: validatedJob.salaryCurrency,
@@ -189,11 +219,10 @@ export async function persistDiscoveredJob(
       discoveredBoardUrl: validatedMeta.boardUrl,
       descriptionHash: nextHash,
       matchPipelineStatus: "match_pending",
-      ...fitSnapshot,
+      ...scored,
     })
     .returning();
 
-  const structuredReqs = requirementsToStructured(validatedJob);
   if (structuredReqs.length > 0) {
     await db.insert(jobRequirements).values(
       structuredReqs.map((req) => ({

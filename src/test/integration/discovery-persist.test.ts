@@ -8,6 +8,7 @@ describe("persistDiscoveredJob", () => {
     const existing = {
       id: "existing-job",
       descriptionHash: hashJobDescription(description),
+      fitScore: 72,
     };
     const db = {
       query: {
