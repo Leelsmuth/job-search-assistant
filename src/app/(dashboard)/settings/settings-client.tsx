@@ -28,6 +28,7 @@ import { ApplicationProfileForm } from "./application-profile-form";
 import { DigestSettingsForm } from "./digest-settings-form";
 import type { SearchPreferences } from "@/modules/matching/search-preferences";
 import type { ApplicationProfile } from "@/modules/apply/types";
+import type { OpenAiHealthReport } from "@/modules/ai/openai-health";
 
 type BoardProvider = "greenhouse" | "lever" | "ashby" | "workday";
 
@@ -66,6 +67,7 @@ export function SettingsClient({
   digestEmailsEnabled,
   digestSchemaReady,
   digestLastSentAt,
+  openAi,
 }: {
   initialBoards: Board[];
   preferences: SearchPreferences;
@@ -75,6 +77,7 @@ export function SettingsClient({
   digestEmailsEnabled: boolean;
   digestSchemaReady: boolean;
   digestLastSentAt: string | null;
+  openAi: OpenAiHealthReport;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -117,6 +120,30 @@ export function SettingsClient({
           <Link href="/discovery">Browse company catalog</Link>
         </Button>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">OpenAI</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <div className="flex items-center gap-2">
+            <Badge
+              className={
+                openAi.ok
+                  ? "border-transparent bg-primary text-primary-foreground"
+                  : "border-transparent bg-secondary text-secondary-foreground"
+              }
+            >
+              {openAi.ok ? "Key works" : openAi.configured ? "Key rejected" : "Key missing"}
+            </Badge>
+            <span className="text-muted-foreground">{openAi.reason}</span>
+          </div>
+          <p>{openAi.detail}</p>
+          <p className="text-xs text-muted-foreground">
+            Checked on the server when this page loads. The key itself is never shown.
+          </p>
+        </CardContent>
+      </Card>
 
       <SearchPreferencesForm initial={preferences} />
 

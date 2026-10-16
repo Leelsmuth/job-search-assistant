@@ -1,9 +1,12 @@
+import type { ExtractedTextItem } from "@/modules/resumes/extract/types";
 import type { GroupedLine } from "@/modules/resumes/normalize/line-grouper";
 import {
   isKnownSkillToken,
   isSkillCategoryHeading,
   splitGluedToken,
 } from "@/modules/resumes/normalize/text-cleanup";
+
+const SKILL_COLUMN_GAP = 18;
 
 export type ParsedSkill = {
   name: string;
@@ -18,6 +21,44 @@ export type ParsedSkillGroup = {
 
 function lineNumber(line: GroupedLine, index: number): number {
   return line.lineNumber ?? index + 1;
+}
+
+function itemEnd(item: ExtractedTextItem): number {
+  const width = item.width ?? Math.max(1, item.text.length) * (item.fontSize ?? 8) * 0.45;
+  return (item.x ?? 0) + width;
+}
+
+function splitSkillColumns(line: GroupedLine): GroupedLine[] {
+  if (line.items.length < 2) return [line];
+  const sorted = [...line.items].sort((a, b) => (a.x ?? 0) - (b.x ?? 0));
+  if (sorted.some((item) => item.x === undefined)) return [line];
+  const groups: ExtractedTextItem[][] = [];
+  let current: ExtractedTextItem[] = [];
+  for (const item of sorted) {
+    if (current.length === 0) {
+      current.push(item);
+      continue;
+    }
+    const previous = current[current.length - 1];
+    const gap = (item.x ?? 0) - itemEnd(previous);
+    if (gap >= SKILL_COLUMN_GAP) {
+      groups.push(current);
+      current = [item];
+      continue;
+    }
+    current.push(item);
+  }
+  if (current.length > 0) groups.push(current);
+  if (groups.length < 2) return [line];
+  return groups.map((items) => ({
+    ...line,
+    text: items
+      .map((item) => item.text)
+      .join(" ")
+      .replace(/[ \t]+/g, " ")
+      .trim(),
+    items,
+  }));
 }
 
 function skillConfidence(name: string): number {
@@ -73,8 +114,10 @@ export function parseSkillLines(lines: GroupedLine[]): ParsedSkillGroup[] {
     return created;
   }
 
-  for (let index = 0; index < lines.length; index++) {
-    const line = lines[index];
+  const skillLines = lines.flatMap(splitSkillColumns);
+
+  for (let index = 0; index < skillLines.length; index++) {
+    const line = skillLines[index];
     const text = line.text.trim();
     if (!text || /^[-•*–—]\s+/.test(text)) continue;
 

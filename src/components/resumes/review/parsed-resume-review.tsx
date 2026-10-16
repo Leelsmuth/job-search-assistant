@@ -60,7 +60,7 @@ function FieldWarnings({
   fieldPath: string;
 }) {
   const relevant = warnings.filter(
-    (w) => w.fieldPath === fieldPath || w.fieldPath?.startsWith(fieldPath)
+    (w) => w.fieldPath === fieldPath || w.fieldPath?.startsWith(`${fieldPath}.`)
   );
   if (relevant.length === 0) return null;
   return (
@@ -534,6 +534,15 @@ function ExperienceSection({
                   value={exp.location ?? ""}
                   onChange={(e) =>
                     updateExperience(expIndex, { location: e.target.value || null })
+                  }
+                />
+              </div>
+              <div>
+                <Label>Company website</Label>
+                <Input
+                  value={exp.companyUrl ?? ""}
+                  onChange={(e) =>
+                    updateExperience(expIndex, { companyUrl: e.target.value || null })
                   }
                 />
               </div>

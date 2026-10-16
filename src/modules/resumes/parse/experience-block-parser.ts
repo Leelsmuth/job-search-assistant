@@ -1,5 +1,8 @@
 import type { GroupedLine } from "@/modules/resumes/normalize/line-grouper";
 import {
+  cleanResumeName,
+  isRejectedCompanyToken,
+  looksLikeBulletContinuation,
   looksLikeCompanyName,
   looksLikeDateRange,
   looksLikeJobTitle,
@@ -279,18 +282,66 @@ function hasTitleOrDateHeader(block: ExperienceBlock): boolean {
 
 type BlockAccumulator = ExperienceBlock;
 
+function isShortRoleField(text: string): boolean {
+  const trimmed = cleanResumeName(text);
+  if (!trimmed || trimmed.length > 60) return false;
+  if (/[.!?]/.test(trimmed)) return false;
+  if (isBulletLine(trimmed)) return false;
+  if (looksLikeDateRange(trimmed)) return false;
+  if (ROLE_SUBHEADING.test(trimmed)) return false;
+  return trimmed.split(/\s+/).length <= 8;
+}
+
+function isPureDateHeader(block: ExperienceBlock): boolean {
+  const header = cleanResumeName(block.headerLine);
+  return Boolean(header) && looksLikeDateRange(header) && !header.includes("|") && header.length < 48;
+}
+
+function applyDateLedFields(block: ExperienceBlock): ExperienceBlock {
+  if (!isPureDateHeader(block)) return block;
+  const short: string[] = [];
+  for (const line of block.lines) {
+    const text = cleanResumeName(line.text);
+    if (!text || isBulletLine(text, line) || ROLE_SUBHEADING.test(text)) continue;
+    if (looksLikeDateRange(text)) continue;
+    if (!isShortRoleField(text)) continue;
+    short.push(text);
+  }
+
+  const title = short.find(
+    (text) => !looksLikeLocation(text) && !isRejectedCompanyToken(text)
+  );
+  const company = short.find(
+    (text) =>
+      text !== title &&
+      !looksLikeLocation(text) &&
+      !isRejectedCompanyToken(text) &&
+      looksLikeCompanyName(text)
+  );
+  const location = short.find(
+    (text) => looksLikeLocation(text) && text !== title && text !== company
+  );
+
+  return {
+    ...block,
+    title: title ?? (block.title ? cleanResumeName(block.title) : undefined),
+    company: company ?? (isRejectedCompanyToken(block.company) ? undefined : block.company ? cleanResumeName(block.company) : undefined),
+    location: location ?? block.location,
+  };
+}
+
 function enrichBlockFromLines(block: BlockAccumulator): ExperienceBlock {
   const enriched: ExperienceBlock = { ...block };
 
   for (const line of block.lines) {
-    const text = line.text.trim();
+    const text = cleanResumeName(line.text);
     if (!text || isBulletLine(text, line)) continue;
 
     if (!enriched.dateRange && looksLikeDateRange(text)) {
       enriched.dateRange = text;
       continue;
     }
-    if (!enriched.title && looksLikeJobTitle(text)) {
+    if (!enriched.title && looksLikeJobTitle(text) && !isRejectedCompanyToken(text)) {
       enriched.title = text;
       continue;
     }
@@ -327,7 +378,12 @@ function enrichBlockFromLines(block: BlockAccumulator): ExperienceBlock {
     }
   }
 
-  return enriched;
+  const dated = applyDateLedFields(enriched);
+  return {
+    ...dated,
+    title: dated.title ? cleanResumeName(dated.title) : undefined,
+    company: dated.company ? cleanResumeName(dated.company) : undefined,
+  };
 }
 
 function flushBlock(
@@ -380,21 +436,31 @@ export function parseExperienceBlocks(lines: GroupedLine[]): ExperienceBlock[] {
 
     if (
       current?.dateRange &&
-      current.title &&
-      !current.company &&
-      looksLikeCompanyName(text) &&
+      !current.title &&
+      isShortRoleField(text) &&
       !looksLikeLocation(text) &&
-      !looksLikeDateRange(text) &&
-      !looksLikeJobTitle(text)
+      !isRejectedCompanyToken(text)
     ) {
-      current.company = text;
+      current.title = cleanResumeName(text);
       current.lines.push(line);
       continue;
     }
 
-    if (current?.dateRange && !current.title && looksLikeJobTitle(text)) {
-      current.title = text;
+    if (
+      current?.dateRange &&
+      current.title &&
+      !current.company &&
+      isShortRoleField(text) &&
+      looksLikeCompanyName(text) &&
+      !isRejectedCompanyToken(text)
+    ) {
+      current.company = cleanResumeName(text);
       current.lines.push(line);
+      continue;
+    }
+
+    if (isRejectedCompanyToken(text) || looksLikeBulletContinuation(text)) {
+      if (current) current.lines.push(line);
       continue;
     }
 

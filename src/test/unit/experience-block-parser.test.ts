@@ -89,6 +89,33 @@ Priceline
     expect(blocks[0].dateRange).toMatch(/Jun 2022 - Present/i);
   });
 
+  it("uses the first short line after a date as the title and skips tech tails", () => {
+    const input = `01/2021 - 05/2022
+Full Stack
+MongoDB
+Brightpath Studio
+Remote
+• Built authentication flows with Express and session storage.`;
+
+    const blocks = parseExperienceBlocks(linesFromText(input));
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].title).toBe("Full Stack");
+    expect(blocks[0].company).toBe("Brightpath Studio");
+    expect(blocks[0].company).not.toBe("MongoDB");
+  });
+
+  it("strips word joiners from company names", () => {
+    const input = `06/2022 - present
+Software Developer
+Northwind\u2060 Labs
+Toronto
+• Shipped the billing workspace.`;
+
+    const blocks = parseExperienceBlocks(linesFromText(input));
+    expect(blocks[0].company).toBe("Northwind Labs");
+    expect(blocks[0].title).toBe("Software Developer");
+  });
+
   it("parses vertical date → title → company → bullets layout", () => {
     const input = `Jun 2022 – Present
 Software Developer

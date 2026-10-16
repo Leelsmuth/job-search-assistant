@@ -42,6 +42,16 @@ function lineNumber(line: GroupedLine, index: number): number {
   return line.lineNumber ?? index + 1;
 }
 
+/** Flat extractors have no y, so a repeated header row arrives as one mashed line. */
+function isRunningHeaderLine(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  if (/^(?:page\s+)?\d{1,3}(?:\s*(?:of|\/)\s*\d{1,3})?$/i.test(trimmed)) return true;
+  if (/^[•·▪◦‣●]$/.test(trimmed)) return true;
+  if (/[•·▪◦‣●]/.test(trimmed) && trimmed.length < 80) return true;
+  return false;
+}
+
 function isSocialHandle(text: string, links: ExtractedLink[]): boolean {
   const trimmed = text.trim().replace(/^@/, "");
   if (!trimmed || /\s/.test(trimmed)) return false;
@@ -75,11 +85,6 @@ export function applyAnnotationLinks(contact: Contact, links: ExtractedLink[]): 
     }
     if (/github\.com/i.test(url)) {
       next.githubUrl = next.githubUrl ?? url;
-      continue;
-    }
-    if (!next.portfolioUrl) next.portfolioUrl = url;
-    else if (!next.otherLinks.some((item) => item.url === url)) {
-      next.otherLinks.push({ label: null, url });
     }
   }
   return next;
@@ -126,7 +131,8 @@ function extractContactFromLines(lines: GroupedLine[], links: ExtractedLink[] = 
       !LINKEDIN.test(t) &&
       !GITHUB.test(t) &&
       !URL.test(t) &&
-      !isSocialHandle(t, links)
+      !isSocialHandle(t, links) &&
+      !isRunningHeaderLine(t)
     );
   });
 
@@ -233,14 +239,22 @@ export function preParseHintsToPartialResume(hints: PreParseHints): ParsedResume
 
   resume.experience = reconcileExperienceList(
     hints.experienceBlocks.map((block) => {
+      let summaryConsumed = false;
       const achievementLines = block.lines.filter((line) => {
         const text = line.text.trim();
         if (!text || text === block.headerLine) return false;
-        if (BULLET_PREFIX.test(text) || line.isBullet) return true;
         if (DATE_RANGE.test(text) || looksLikeDateRange(text)) return false;
         if (text === block.company || text === block.title || text === block.location) return false;
         if (/^(key contributions|highlights|responsibilities)$/i.test(text)) return false;
-        return text.length > 30 && /[.!]/.test(text);
+        if (BULLET_PREFIX.test(text) || line.isBullet) {
+          summaryConsumed = true;
+          return true;
+        }
+        if (!summaryConsumed) {
+          summaryConsumed = true;
+          return false;
+        }
+        return false;
       });
       const achievements = achievementLines.map((line) =>
         line.text.trim().replace(BULLET_PREFIX, "").trim()

@@ -20,11 +20,13 @@ import {
 import { detectResumeSections } from "./resume-section-detector";
 import type { NormalizedDocument } from "@/modules/resumes/normalize/extracted-document-normalizer";
 import { toLineNumberedLayout } from "@/modules/resumes/normalize/extracted-document-normalizer";
-import { computeConfidenceScores, mergeWarnings } from "./confidence";
-import { getOpenAiModel, isOpenAiConfigured } from "@/lib/env";
+import { computeConfidenceScores, experienceGapWarnings, mergeWarnings } from "./confidence";
+import { getOpenAiApiKey, getOpenAiModel, readOpenAiApiKey } from "@/lib/env";
 import { measureOpenAiCall } from "@/lib/performance/log-ai-run";
 import { estimateResumeParseCost } from "./parse-cost";
+import { attachClassifiedLinks } from "./link-classifier";
 import { llmResultToParsedResume, verifyParsedResume } from "./verify-parsed-resume";
+import { redactSecret } from "@/lib/redact-secret";
 
 export type ParseTokenUsage = {
   input: number;
@@ -39,28 +41,39 @@ export type ParseResult = {
   tokenUsage?: ParseTokenUsage;
   usedRepair: boolean;
   usedHeuristicOnly: boolean;
+  fallbackReason: string | null;
 };
 
-function getClient(): OpenAI | null {
-  if (!isOpenAiConfigured()) return null;
-  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+function openAiClient(): { client: OpenAI; key: string } | { reason: string } {
+  const read = readOpenAiApiKey();
+  if (!read.ok) return { reason: read.reason };
+  return { client: new OpenAI({ apiKey: read.key, timeout: 60_000, maxRetries: 0 }), key: read.key };
 }
 
-function finishHeuristic(parsed: ParsedResume, normalized: NormalizedDocument, extraWarnings: ParsedResume["warnings"] = []): ParsedResume {
-  const verified = verifyParsedResume(parsed, normalized.lines);
-  verified.warnings = mergeWarnings(verified.warnings, extraWarnings);
+function finishParsed(
+  parsed: ParsedResume,
+  normalized: NormalizedDocument,
+  extraWarnings: ParsedResume["warnings"] = []
+): ParsedResume {
+  const linked = attachClassifiedLinks(parsed, normalized.lines, normalized.links);
+  const verified = verifyParsedResume(linked, normalized.lines);
+  verified.warnings = mergeWarnings(verified.warnings, extraWarnings, experienceGapWarnings(verified));
   verified.confidence = computeConfidenceScores(verified, verified.warnings);
   return sanitizeParsedResume(parsedResumeSchema.parse(verified));
 }
 
-function heuristicParse(normalized: NormalizedDocument, extraWarnings: ParsedResume["warnings"] = []): ParsedResume {
+function heuristicParse(
+  normalized: NormalizedDocument,
+  reason: string,
+  extraWarnings: ParsedResume["warnings"] = []
+): ParsedResume {
   const sections = detectResumeSections(normalized.lines);
   const hints = deterministicPreParse(sections, { links: normalized.links });
   const partial = preParseHintsToPartialResume(hints);
-  return finishHeuristic(partial, normalized, [
+  return finishParsed(partial, normalized, [
     {
       code: "heuristic_fallback",
-      message: "Structured parsing used deterministic heuristics only (no AI).",
+      message: `Structured parsing used deterministic heuristics only (${reason}).`,
       fieldPath: null,
     },
     ...extraWarnings,
@@ -70,16 +83,18 @@ function heuristicParse(normalized: NormalizedDocument, extraWarnings: ParsedRes
 const STRICT_RESUME_SCHEMA = buildStrictParsedResumeJsonSchema();
 
 export async function parseResumeStructure(normalized: NormalizedDocument): Promise<ParseResult> {
-  const client = getClient();
-  if (!client) {
+  const opened = openAiClient();
+  if (!("client" in opened)) {
     return {
-      parsed: heuristicParse(normalized),
+      parsed: heuristicParse(normalized, opened.reason),
       model: null,
       promptVersion: RESUME_PARSE_PROMPT_VERSION,
       usedRepair: false,
       usedHeuristicOnly: true,
+      fallbackReason: opened.reason,
     };
   }
+  const client = opened.client;
 
   const numberedLayout = toLineNumberedLayout(normalized.lines);
   const userPrompt = buildResumeParseUserPrompt({
@@ -116,9 +131,7 @@ export async function parseResumeStructure(normalized: NormalizedDocument): Prom
     if (!content) throw new Error("Empty AI response");
 
     const llm = llmParsedResumeSchema.parse(JSON.parse(content));
-    const verified = verifyParsedResume(llmResultToParsedResume(llm), normalized.lines);
-    verified.confidence = computeConfidenceScores(verified, verified.warnings);
-    const parsed = sanitizeParsedResume(parsedResumeSchema.parse(verified));
+    const parsed = finishParsed(llmResultToParsedResume(llm), normalized);
     const inputTokens = response.usage?.prompt_tokens ?? 0;
     const outputTokens = response.usage?.completion_tokens ?? 0;
     const usedModel = response.model?.trim() || model;
@@ -134,11 +147,15 @@ export async function parseResumeStructure(normalized: NormalizedDocument): Prom
       },
       usedRepair: false,
       usedHeuristicOnly: false,
+      fallbackReason: null,
     };
   } catch (error) {
-    const detail = error instanceof Error ? error.message : "Unknown AI parse error";
+    const detail = redactSecret(
+      error instanceof Error ? error.message : "Unknown AI parse error",
+      getOpenAiApiKey()
+    );
     return {
-      parsed: heuristicParse(normalized, [
+      parsed: heuristicParse(normalized, detail, [
         {
           code: "ai_parse_failed",
           message: `AI parsing failed; fell back to deterministic parser. ${detail}`,
@@ -149,6 +166,7 @@ export async function parseResumeStructure(normalized: NormalizedDocument): Prom
       promptVersion: RESUME_PARSE_PROMPT_VERSION,
       usedRepair: false,
       usedHeuristicOnly: true,
+      fallbackReason: detail,
     };
   }
 }

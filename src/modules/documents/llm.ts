@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { z } from "zod";
-import { getOpenAiModel, isOpenAiConfigured } from "@/lib/env";
+import { getOpenAiApiKey, getOpenAiModel, isOpenAiConfigured } from "@/lib/env";
 import { measureOpenAiCall } from "@/lib/performance/log-ai-run";
 import type { JobTailoringContext, ProfileSnapshot, TailoredResumeDraft } from "@/modules/documents/types";
 
@@ -46,8 +46,9 @@ function costFor(model: string, input: number, output: number): number | null {
 }
 
 function client(): OpenAI | null {
-  if (!isOpenAiConfigured()) return null;
-  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const key = getOpenAiApiKey();
+  if (!key) return null;
+  return new OpenAI({ apiKey: key });
 }
 
 async function completeJson(

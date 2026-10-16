@@ -5,6 +5,9 @@ import { newEntityId } from "@/lib/entity-id";
 const QUALIFICATION =
   /\b(b\.?\s*eng|b\.?\s*sc|m\.?\s*sc|m\.?\s*eng|bachelor|master|ph\.?\s*d|diploma|certificate|associate)\b/i;
 
+const INSTITUTION =
+  /\b(schools?|universit(?:y|ies)|colleges?|institutes?|polytechnics?|academ(?:y|ies))\b/i;
+
 const CREDENTIAL_LABEL =
   /^(validation number|credential id|credential identifier|certificate number|license number|certification id)$/i;
 
@@ -13,6 +16,15 @@ const CERT_CONTINUATION =
 
 const ISSUER =
   /\b(amazon web services|google|microsoft|oracle|cisco|comptia|linux foundation|coursera|udemy|amazon)\b/i;
+
+const CREDENTIAL_URL = /https?:\/\/\S*certmetrics\S*|https?:\/\/\S*(?:credly|credential\.net)\S*/i;
+
+function inferIssuer(name: string, issuer: string | null): string | null {
+  const explicit = issuer?.trim() || null;
+  if (explicit && !/^aws$/i.test(explicit)) return explicit;
+  if (/\baws\b/i.test(name) || /^aws$/i.test(explicit ?? "")) return "Amazon Web Services";
+  return explicit;
+}
 
 function lineNo(line: GroupedLine, index: number): number {
   return line.lineNumber ?? index + 1;
@@ -80,16 +92,22 @@ function parsePipeEducation(text: string, sourceLines: number[]): Education {
       entry.endDateText = dates.end;
       continue;
     }
-    if (QUALIFICATION.test(part) && !entry.qualification) {
+    if (QUALIFICATION.test(part) && !INSTITUTION.test(part) && !entry.qualification) {
       const split = splitQualification(part);
       entry.qualification = split.qualification;
       entry.fieldOfStudy = split.field;
       continue;
     }
+    if (INSTITUTION.test(part) && !entry.institution) {
+      entry.institution = part;
+      continue;
+    }
     if (!entry.institution) entry.institution = part;
     else if (!entry.qualification) entry.qualification = part;
   }
-  if (!entry.institution) entry.institution = parts[0] ?? text;
+  if (!entry.institution) {
+    entry.institution = parts.find((part) => INSTITUTION.test(part)) ?? null;
+  }
   return entry;
 }
 
@@ -115,16 +133,6 @@ export function parseEducationEntries(lines: GroupedLine[]): Education[] {
       continue;
     }
 
-    if (QUALIFICATION.test(text)) {
-      if (current && (current.qualification || current.institution)) flush();
-      current = emptyEducation();
-      const split = splitQualification(text);
-      current.qualification = split.qualification;
-      current.fieldOfStudy = split.field;
-      current.sourceLines = [sourceLine];
-      continue;
-    }
-
     if (isEducationDate(text)) {
       current ??= emptyEducation();
       const dates = splitEducationDate(text);
@@ -134,29 +142,26 @@ export function parseEducationEntries(lines: GroupedLine[]): Education[] {
       continue;
     }
 
-    if (!current) {
-      current = emptyEducation();
-      current.institution = text;
-      current.sourceLines = [sourceLine];
-      continue;
-    }
+    const isQualification = QUALIFICATION.test(text);
+    const isInstitution = INSTITUTION.test(text);
 
-    if (!current.institution) {
-      current.institution = text;
+    if (isQualification && !isInstitution) {
+      if (current?.qualification) flush();
+      current ??= emptyEducation();
+      const split = splitQualification(text);
+      current.qualification = split.qualification;
+      current.fieldOfStudy = current.fieldOfStudy ?? split.field;
       current.sourceLines = [...(current.sourceLines ?? []), sourceLine];
       continue;
     }
 
-    if (!current.qualification) {
-      current.qualification = text;
+    if (isInstitution) {
+      if (current?.institution) flush();
+      current ??= emptyEducation();
+      current.institution = text;
       current.sourceLines = [...(current.sourceLines ?? []), sourceLine];
       continue;
     }
-
-    flush();
-    current = emptyEducation();
-    current.institution = text;
-    current.sourceLines = [sourceLine];
   }
 
   flush();
@@ -196,7 +201,10 @@ export function parseCertificationEntries(lines: GroupedLine[]): Certification[]
   let expectCredential = false;
 
   function flush() {
-    if (current?.name.trim()) certifications.push(current);
+    if (current?.name.trim()) {
+      current.issuer = inferIssuer(current.name, current.issuer);
+      certifications.push(current);
+    }
     current = null;
     expectCredential = false;
   }
@@ -210,6 +218,14 @@ export function parseCertificationEntries(lines: GroupedLine[]): Certification[]
     if (text.includes("|")) {
       flush();
       certifications.push(parsePipeCertification(text, line, index));
+      continue;
+    }
+
+    const credentialUrl = text.match(CREDENTIAL_URL);
+    if (credentialUrl && current) {
+      current.credentialUrl = credentialUrl[0].replace(/[),.;]+$/, "");
+      current.sourceLines = [...(current.sourceLines ?? []), sourceLine];
+      current.sourceEvidence = [...current.sourceEvidence, ...evidenceFor(lines, [index])];
       continue;
     }
 

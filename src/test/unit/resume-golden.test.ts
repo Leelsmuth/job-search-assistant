@@ -7,6 +7,10 @@ import { buildStrictParsedResumeJsonSchema } from "@/modules/resumes/schema/llm-
 import type { ParsedResume } from "@/modules/resumes/schema/resume-schema";
 import {
   ANONYMISED_RESUME_TEXT,
+  COMPANY_URL,
+  CREDENTIAL_URL,
+  PORTFOLIO_URL,
+  ROLE_SUMMARY_LINES,
   buildAnonymisedResumePdf,
 } from "@/test/fixtures/resumes/anonymised-jordan-hale";
 
@@ -32,7 +36,16 @@ function expectGoldenResume(parsed: ParsedResume) {
 
   expect(parsed.experience).toHaveLength(4);
   const bullets = parsed.experience.map((role) => role.achievements.length);
-  expect(bullets).toEqual([11, 4, 4, 3]);
+  expect(bullets).toEqual([11, 4, 4, 4]);
+  const achievements = parsed.experience.flatMap((role) => role.achievements);
+  for (const summary of ROLE_SUMMARY_LINES) {
+    expect(achievements).not.toContain(summary);
+  }
+  expect(achievements.some((bullet) => bullet.includes("cut interface delivery time by 35 percent"))).toBe(true);
+  expect(achievements.some((bullet) => bullet.includes("MongoDB indexes"))).toBe(true);
+  expect(achievements.some((bullet) => bullet === "delivery time by 35 percent.")).toBe(false);
+  expect(achievements.some((bullet) => bullet === "with MongoDB indexes.")).toBe(false);
+  expect(parsed.experience.map((role) => role.company)).not.toContain("MongoDB");
 
   const [northwind, brightpath, harbor, lumen] = parsed.experience;
   expect(northwind.company).toBe("Northwind Labs");
@@ -49,7 +62,7 @@ function expectGoldenResume(parsed: ParsedResume) {
   expect(brightpath.endDate).toBe("2022-05");
   expect(brightpath.location).toMatch(/Remote/i);
 
-  expect(harbor.company).toBe("Harbor & Co");
+  expect(harbor.company).toBe("Bank of Harbor");
   expect(harbor.title).toBe("Software Developer");
   expect(harbor.startDate).toBe("2019-08");
   expect(harbor.endDate).toBe("2020-12");
@@ -62,18 +75,36 @@ function expectGoldenResume(parsed: ParsedResume) {
   expect(lumen.location).toMatch(/Lagos/i);
 
   expect(parsed.education).toHaveLength(2);
-  expect(parsed.education.map((entry) => entry.institution)).toEqual([
-    "Harbourview Polytechnic",
-    "Northline Academy",
-  ]);
+  expect(parsed.education[0]).toMatchObject({
+    institution: "Harbourview Polytechnic",
+    qualification: "B.Eng",
+    fieldOfStudy: "Mechanical Engineering",
+  });
+  expect(parsed.education[1].institution).toBe("Northline Academy");
+  expect(parsed.education[1].qualification).toMatch(/Certificate in Full Stack Web Development/i);
 
   expect(parsed.certifications).toHaveLength(1);
   expect(parsed.certifications[0].name).toMatch(/AWS Certified Cloud Practitioner/i);
   expect(parsed.certifications[0].credentialId).toBe("NW-CLOUD-2048");
-  expect(parsed.certifications[0].issuer).toMatch(/Amazon Web Services/i);
+  expect(parsed.certifications[0].issuer).toBe("Amazon Web Services");
+  expect(parsed.certifications[0].credentialUrl).toBe(CREDENTIAL_URL);
 
   const skills = parsed.skillGroups.flatMap((group) => group.skills);
-  for (const name of ["React", "TypeScript", "GraphQL", "Express", "Turborepo", "Storybook", "Figma", "Playwright"]) {
+  for (const name of [
+    "React",
+    "TypeScript",
+    "GraphQL",
+    "Express",
+    "Turborepo",
+    "Storybook",
+    "Figma",
+    "Playwright",
+    "Sentry",
+    "Splunk",
+    "pnpm",
+    "CI/CD",
+    "WCAG",
+  ]) {
     expect(skills).toContain(name);
   }
   for (const heading of [
@@ -83,6 +114,7 @@ function expectGoldenResume(parsed: ParsedResume) {
     "Design Systems",
     "UI/UX & Design",
     "Testing",
+    "Integration and Data",
     "CSS3Responsive",
     "pipelinesTurborepo",
     "StorybookFigma",
@@ -127,6 +159,7 @@ describe("anonymised resume golden fixture", () => {
     const result = await parseResumeStructure(normalized);
     expect(result.usedHeuristicOnly).toBe(true);
     expect(result.model).toBeNull();
+    expect(result.fallbackReason).toBe("no_key");
     expectGoldenResume(result.parsed);
   });
 
@@ -143,7 +176,16 @@ describe("anonymised resume golden fixture", () => {
       expect(urls).toContain("https://www.linkedin.com/in/jordan-hale");
       expect(urls).toContain("https://github.com/jordan-hale-dev");
 
+      expect(extracted.pages.length).toBeGreaterThanOrEqual(3);
+      const rawKey = extracted.pages.flatMap((page) => page.items).filter((item) => item.text === "Key Contributions");
+      expect(rawKey.length).toBeGreaterThanOrEqual(4);
       const normalized = normalizeExtractedDocument(extracted);
+      expect(normalized.lines.filter((line) => line.text === "Software Developer")).toHaveLength(2);
+      expect(normalized.lines.filter((line) => line.text === "Key Contributions")).toHaveLength(1);
+      for (const removed of ["of", "Developer", "Full Stack", "•", "1", "2", "3"]) {
+        expect(normalized.lines.some((line) => line.text.trim() === removed)).toBe(false);
+      }
+      expect(normalized.normalizedText).toContain("Bank of Harbor");
       expect(normalized.lines.some((line) => line.text.trim() === "•")).toBe(false);
       expect(normalized.lines.some((line) => line.text.startsWith("• "))).toBe(true);
       expect(normalized.lines.map((line) => line.text)).toContain("01/2021 - 05/2022");
@@ -156,6 +198,20 @@ describe("anonymised resume golden fixture", () => {
       expectGoldenResume(result.parsed);
       expect(result.parsed.contact.linkedInUrl).toBe("https://www.linkedin.com/in/jordan-hale");
       expect(result.parsed.contact.githubUrl).toBe("https://github.com/jordan-hale-dev");
+      expect(result.parsed.contact.portfolioUrl).toBe(PORTFOLIO_URL);
+      expect(result.parsed.contact.otherLinks.map((link) => link.url)).not.toContain(COMPANY_URL);
+      expect(result.parsed.experience[0].companyUrl).toBe(COMPANY_URL);
+      const uncited = result.parsed.warnings.filter((warning) => warning.code === "uncited_fact");
+      for (const field of [
+        "contact.linkedInUrl",
+        "contact.githubUrl",
+        "contact.portfolioUrl",
+        "contact.email",
+        "certifications.0.credentialUrl",
+        "experience.0.companyUrl",
+      ]) {
+        expect(uncited.some((warning) => warning.fieldPath === field)).toBe(false);
+      }
     } finally {
       if (previous === undefined) delete process.env.VERCEL;
       else process.env.VERCEL = previous;
@@ -245,6 +301,7 @@ describe("anonymised resume golden fixture", () => {
       expect(request.messages[1].content).toMatch(/(^|\n)1\| /);
       expect(request.messages[1].content).not.toContain("Deterministic pre-parse");
       expect(result.usedHeuristicOnly).toBe(false);
+      expect(result.fallbackReason).toBeNull();
       expect(result.usedRepair).toBe(false);
       expect(result.model).toContain("gpt-4o-mini");
       expect(result.tokenUsage?.costUsd).toBeCloseTo(0.00195, 5);
@@ -255,6 +312,19 @@ describe("anonymised resume golden fixture", () => {
     } finally {
       delete process.env.OPENAI_API_KEY;
     }
+  });
+
+  it("records the model error when the API call fails", async () => {
+    process.env.OPENAI_API_KEY = "sk-test-golden-resume";
+    createMock.mockRejectedValue(new Error("schema rejected the payload"));
+    const normalized = normalizeExtractedDocument(
+      extractTextDocument(Buffer.from(ANONYMISED_RESUME_TEXT))
+    );
+    const result = await parseResumeStructure(normalized);
+    expect(result.usedHeuristicOnly).toBe(true);
+    expect(result.model).toBeNull();
+    expect(result.fallbackReason).toContain("schema rejected the payload");
+    expect(result.parsed.warnings.some((warning) => warning.code === "ai_parse_failed")).toBe(true);
   });
 
   it("builds a strict schema with no extra properties", () => {
