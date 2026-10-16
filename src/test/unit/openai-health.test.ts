@@ -34,6 +34,32 @@ describe("OpenAI health check", () => {
     expect(JSON.stringify(report)).not.toContain("sk-test-health-key");
   });
 
+  it("names a format, placeholder, or wrapper gate without showing the key", async () => {
+    process.env.OPENAI_API_KEY = "not-a-real-key";
+    const format = await checkOpenAiHealth();
+    expect(format.detail).toMatch(/doesn't start with sk-/);
+    expect(format.detail).not.toContain("not-a-real-key");
+
+    process.env.OPENAI_API_KEY = "placeholder-key";
+    const placeholder = await checkOpenAiHealth();
+    expect(placeholder.detail).toMatch(/looks like a placeholder/);
+    expect(placeholder.detail).not.toContain("placeholder-key");
+
+    process.env.OPENAI_API_KEY = '"not-a-real-key"';
+    const wrapped = await checkOpenAiHealth();
+    expect(wrapped.detail).toMatch(/surrounding quotes or whitespace/);
+    expect(wrapped.detail).not.toContain("not-a-real-key");
+    expect(listMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts a quoted key after trimming", async () => {
+    process.env.OPENAI_API_KEY = '"sk-quoted-health-key"';
+    listMock.mockResolvedValue({ data: [] });
+    const report = await checkOpenAiHealth();
+    expect(report).toMatchObject({ configured: true, ok: true, reason: "ok" });
+    expect(JSON.stringify(report)).not.toContain("sk-quoted-health-key");
+  });
+
   it("redacts the key from an error", async () => {
     process.env.OPENAI_API_KEY = "sk-test-health-key";
     listMock.mockRejectedValue(new Error("Unauthorized sk-test-health-key"));

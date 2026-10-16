@@ -218,6 +218,35 @@ describe("anonymised resume golden fixture", () => {
     }
   });
 
+  it("keeps achievements when bullet glyphs are inline with the text", async () => {
+    const buffer = await buildAnonymisedResumePdf({ inlineGlyphs: true });
+    const extracted = await extractPdfDocument(buffer);
+    expect(extracted.pages.length).toBeGreaterThanOrEqual(3);
+    const tinyGlyphs = extracted.pages.flatMap((page) =>
+      page.items.filter(
+        (item) =>
+          item.text === "•" &&
+          typeof item.width === "number" &&
+          item.width < 2 &&
+          typeof item.fontSize === "number" &&
+          item.fontSize < 3
+      )
+    );
+    expect(tinyGlyphs.length).toBeGreaterThan(0);
+
+    const result = await parseResumeStructure(normalizeExtractedDocument(extracted));
+    expectGoldenResume(result.parsed);
+    const achievements = result.parsed.experience.flatMap((role) => role.achievements);
+    expect(achievements.length).toBe(23);
+    for (const achievement of achievements) {
+      expect(achievement).not.toMatch(/^[•●▪◦‣·–—]/);
+    }
+    expect(achievements.some((bullet) => bullet.includes("cut interface delivery time by 35 percent"))).toBe(
+      true
+    );
+    expect(achievements.some((bullet) => bullet.includes("with MongoDB indexes"))).toBe(true);
+  });
+
   it("still uses pdfjs when VERCEL=1", async () => {
     const buffer = await buildAnonymisedResumePdf();
     const previous = process.env.VERCEL;

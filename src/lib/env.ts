@@ -139,17 +139,39 @@ export function readServerEnv(name: string): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+export type OpenAiKeyGate = "missing" | "placeholder" | "format" | "wrapped";
+
 export type OpenAiKeyRead =
   | { ok: true; key: string }
-  | { ok: false; reason: "no_key" | "gate"; gate: "missing" | "placeholder" | "format" };
+  | { ok: false; reason: "no_key"; gate: "missing" }
+  | { ok: false; reason: "gate"; gate: Exclude<OpenAiKeyGate, "missing"> };
+
+/** Drop space and quotes Vercel sometimes stores around a pasted key. */
+export function unwrapOpenAiKey(raw: string): { key: string; wrapped: boolean } {
+  const trimmed = raw.trim();
+  const key = trimmed.replace(/^['"“”‘’]+|['"“”‘’]+$/g, "").trim();
+  return { key, wrapped: key !== raw };
+}
+
+export function describeOpenAiKeyGate(gate: Exclude<OpenAiKeyGate, "missing">): string {
+  if (gate === "placeholder") return "OPENAI_API_KEY looks like a placeholder.";
+  if (gate === "wrapped") return "OPENAI_API_KEY has surrounding quotes or whitespace.";
+  return "OPENAI_API_KEY value doesn't start with sk-.";
+}
 
 export function readOpenAiApiKey(): OpenAiKeyRead {
-  const key = readServerEnv("OPENAI_API_KEY");
+  const raw = process.env.OPENAI_API_KEY;
+  if (typeof raw !== "string" || raw.trim().length === 0) {
+    return { ok: false, reason: "no_key", gate: "missing" };
+  }
+  const { key, wrapped } = unwrapOpenAiKey(raw);
   if (!key) return { ok: false, reason: "no_key", gate: "missing" };
   if (/your-key|placeholder|changeme/i.test(key) || /^xxx+$/i.test(key)) {
     return { ok: false, reason: "gate", gate: "placeholder" };
   }
-  if (!key.startsWith("sk-")) return { ok: false, reason: "gate", gate: "format" };
+  if (!key.startsWith("sk-")) {
+    return { ok: false, reason: "gate", gate: wrapped ? "wrapped" : "format" };
+  }
   return { ok: true, key };
 }
 

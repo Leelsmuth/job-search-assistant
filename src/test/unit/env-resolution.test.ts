@@ -9,6 +9,7 @@ import {
   formatMissingConfigMessage,
   getOpenAiModel,
   isOpenAiConfigured,
+  readOpenAiApiKey,
   DEFAULT_OPENAI_MODEL,
 } from "@/lib/env";
 
@@ -117,5 +118,19 @@ describe("env resolution", () => {
     expect(isOpenAiConfigured()).toBe(false);
     process.env.OPENAI_API_KEY = "placeholder-key";
     expect(isOpenAiConfigured()).toBe(false);
+  });
+
+  it("trims quotes and whitespace around an OpenAI key and names the gate", () => {
+    process.env.OPENAI_API_KEY = '  "sk-quoted-key"  ';
+    expect(readOpenAiApiKey()).toEqual({ ok: true, key: "sk-quoted-key" });
+
+    process.env.OPENAI_API_KEY = "not-a-real-key";
+    expect(readOpenAiApiKey()).toMatchObject({ ok: false, gate: "format" });
+
+    process.env.OPENAI_API_KEY = '"not-a-real-key"';
+    expect(readOpenAiApiKey()).toMatchObject({ ok: false, gate: "wrapped" });
+
+    process.env.OPENAI_API_KEY = "  your-key-here  ";
+    expect(readOpenAiApiKey()).toMatchObject({ ok: false, gate: "placeholder" });
   });
 });

@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { readOpenAiApiKey } from "@/lib/env";
+import { describeOpenAiKeyGate, readOpenAiApiKey } from "@/lib/env";
 import { redactSecret } from "@/lib/redact-secret";
 
 export type OpenAiHealthReport = {
@@ -13,13 +13,13 @@ export async function checkOpenAiHealth(): Promise<OpenAiHealthReport> {
   const read = readOpenAiApiKey();
   if (!read.ok) {
     return {
-      configured: false,
+      configured: read.reason === "gate",
       ok: false,
       reason: read.reason,
       detail:
         read.reason === "no_key"
           ? "OPENAI_API_KEY is not set in the server runtime."
-          : "OPENAI_API_KEY is present but failed the server-side key check.",
+          : describeOpenAiKeyGate(read.gate),
     };
   }
 

@@ -147,7 +147,9 @@ function addLink(page: PDFPage, refs: PDFRef[], x: number, y: number, width: num
   refs.push(page.doc.context.register(annot));
 }
 
-export async function buildAnonymisedResumePdf(): Promise<Buffer> {
+export async function buildAnonymisedResumePdf(options?: {
+  inlineGlyphs?: boolean;
+}): Promise<Buffer> {
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const pages: Array<{ page: PDFPage; links: PDFRef[]; y: number }> = [];
@@ -186,6 +188,15 @@ export async function buildAnonymisedResumePdf(): Promise<Buffer> {
   }
 
   function bullet(text: string, tail?: string) {
+    if (options?.inlineGlyphs) {
+      ensure(tail ? 2 : 1);
+      const drawnY = state.y;
+      state.page.drawText("•", { x: LEFT + 12, y: drawnY, size: 0.75, font });
+      state.page.drawText(text, { x: LEFT + 12, y: drawnY, size: SIZE, font });
+      state.y -= LEAD;
+      if (tail) textLine(tail, LEFT + 12);
+      return;
+    }
     const drawnY = textLine(text, LEFT + 12);
     state.page.drawText("•", { x: LEFT, y: drawnY - BULLET_DROP, size: SIZE, font });
     if (tail) textLine(tail, LEFT + 12);
