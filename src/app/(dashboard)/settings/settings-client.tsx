@@ -26,6 +26,8 @@ import { SkillsChipEditor } from "@/components/profile/skills-chip-editor";
 import { SearchPreferencesForm } from "./search-preferences-form";
 import { ApplicationProfileForm } from "./application-profile-form";
 import { DigestSettingsForm } from "./digest-settings-form";
+import { BrowserExtensionPanel } from "./browser-extension-panel";
+import type { ExtensionTokenSummary } from "@/modules/extension/token-summary";
 import type { SearchPreferences } from "@/modules/matching/search-preferences";
 import type { ApplicationProfile } from "@/modules/apply/types";
 import type { OpenAiHealthReport } from "@/modules/ai/openai-health";
@@ -68,6 +70,8 @@ export function SettingsClient({
   digestSchemaReady,
   digestLastSentAt,
   openAi,
+  extensionTokens,
+  extensionSchemaReady,
 }: {
   initialBoards: Board[];
   preferences: SearchPreferences;
@@ -78,6 +82,8 @@ export function SettingsClient({
   digestSchemaReady: boolean;
   digestLastSentAt: string | null;
   openAi: OpenAiHealthReport;
+  extensionTokens: ExtensionTokenSummary[];
+  extensionSchemaReady: boolean;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -227,6 +233,8 @@ export function SettingsClient({
       />
 
       <ApplicationProfileForm initial={applicationProfile} schemaReady={applicationProfileReady} />
+
+      <BrowserExtensionPanel schemaReady={extensionSchemaReady} tokens={extensionTokens} />
 
       <Card>
         <CardHeader>

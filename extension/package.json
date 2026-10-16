@@ -1,0 +1,16 @@
+{
+  "name": "job-search-assistant-extension",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "vite build && vite build --config vite.content.config.ts",
+    "zip": "node scripts/zip.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.326",
+    "typescript": "^5.8.2",
+    "vite": "^6.3.5"
+  }
+}

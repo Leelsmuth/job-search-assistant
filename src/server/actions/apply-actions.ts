@@ -31,6 +31,7 @@ import { mapFormQuestions } from "@/modules/apply/map-questions";
 import {
   defaultApplicationProfile,
   emptyToNull,
+  applicationProfileFromRow,
   parseApplicationProfile,
   profileIsReady,
   savedAnswersForStorage,
@@ -123,37 +124,7 @@ function asProvider(value: string): ApplyProvider {
 }
 
 function profileFromRow(row: typeof applicationProfiles.$inferSelect | undefined): ApplicationProfile {
-  if (!row) return defaultApplicationProfile();
-  const saved = Array.isArray(row.savedAnswers) ? row.savedAnswers : [];
-  return {
-    legalName: row.legalName ?? "",
-    email: row.email ?? "",
-    phone: row.phone ?? "",
-    city: row.city ?? "",
-    province: row.province ?? "",
-    linkedinUrl: row.linkedinUrl ?? "",
-    githubUrl: row.githubUrl ?? "",
-    portfolioUrl: row.portfolioUrl ?? "",
-    workAuthorization: row.workAuthorization || defaultApplicationProfile().workAuthorization,
-    requiresSponsorship: row.requiresSponsorship,
-    willingToRelocate: row.willingToRelocate,
-    earliestStartDate: row.earliestStartDate ?? "",
-    salaryExpectationCad: row.salaryExpectationCad,
-    pronouns: row.pronouns ?? "",
-    howDidYouHear: row.howDidYouHear ?? "",
-    eeoGender: row.eeoGender,
-    eeoRace: row.eeoRace,
-    eeoVeteran: row.eeoVeteran,
-    eeoDisability: row.eeoDisability,
-    savedAnswers: saved.flatMap((item) => {
-      if (!item || typeof item !== "object") return [];
-      const record = item as { id?: unknown; question?: unknown; answer?: unknown };
-      if (typeof record.id !== "string" || typeof record.question !== "string" || typeof record.answer !== "string") {
-        return [];
-      }
-      return [{ id: record.id, question: record.question, answer: record.answer }];
-    }),
-  };
+  return applicationProfileFromRow(row);
 }
 
 function readForm(row: typeof jobApplicationForms.$inferSelect): CachedForm | null {

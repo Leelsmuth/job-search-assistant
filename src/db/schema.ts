@@ -394,6 +394,26 @@ export const applicationProfiles = pgTable("application_profiles", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+/**
+ * Browser-extension credentials. Only the SHA-256 hash is stored.
+ * The plaintext token is shown once in Settings and kept in the extension.
+ */
+export const extensionTokens = pgTable(
+  "extension_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    tokenPrefix: text("token_prefix").notNull(),
+    scopes: jsonb("scopes").$type<string[]>().notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    revokedAt: timestamp("revoked_at"),
+    lastUsedAt: timestamp("last_used_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("extension_tokens_token_hash_unique").on(table.tokenHash)]
+);
+
 export const savedBoards = pgTable("saved_boards", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").notNull(),

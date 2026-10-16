@@ -17,6 +17,7 @@ const eslintConfig = [
       "dist/**",
       "build/**",
       "drizzle/**",
+      "extension/**",
     ],
   },
   ...compat.extends("next/core-web-vitals"),

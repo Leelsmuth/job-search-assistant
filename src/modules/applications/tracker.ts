@@ -358,6 +358,7 @@ export type ManualApplicationInput = {
   dateApplied: Date | null;
   followUpDate: Date | null;
   notes: string | null;
+  description: string | null;
 };
 
 const MAX_COMPANY = 160;
@@ -384,6 +385,7 @@ export function parseManualApplication(input: unknown): ManualApplicationInput {
   const dateAppliedRaw = readString(form, "dateApplied");
   const followUpRaw = readString(form, "followUpDate");
   const notesRaw = readString(form, "notes");
+  const descriptionRaw = readString(form, "description");
 
   if (!company || company.length > MAX_COMPANY) {
     throw new Error(`Company is required and must be ${MAX_COMPANY} characters or fewer`);
@@ -400,6 +402,9 @@ export function parseManualApplication(input: unknown): ManualApplicationInput {
   }
   if (notesRaw.length > MAX_NOTES) {
     throw new Error(`Notes must be ${MAX_NOTES} characters or fewer`);
+  }
+  if (descriptionRaw.length > 20000) {
+    throw new Error("Description must be 20000 characters or fewer");
   }
   if (!isTrackerStage(statusRaw)) {
     throw new Error("Choose a status from the pipeline");
@@ -419,6 +424,7 @@ export function parseManualApplication(input: unknown): ManualApplicationInput {
     dateApplied: dateAppliedRaw ? parseCalendarDate(dateAppliedRaw, "Applied date") : null,
     followUpDate: followUpRaw ? parseCalendarDate(followUpRaw, "Follow-up date") : null,
     notes: notesRaw || null,
+    description: descriptionRaw || null,
   };
 }
 

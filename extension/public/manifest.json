@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "Job Search Assistant",
+  "version": "0.1.0",
+  "description": "Fill job applications from your Job Search Assistant profile. You review and submit.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAl0BGNZR6uKaX0K8C5weun6Y3SjAJhOp3JS2fisNuWsEXV0Shm+Ce9r5BiR297YJLjSMYPoV3FkYkB+kL9w77ow8AsE9bq7tbX55f8XIzWZ4LYn9QGOG/IRXr8BmPL1b+OJbUM/0cm679r4wSbNjLg68AavIMebp6Wy5HQQZ/TqR1m2TOwrbixKVm2L38mZT+nXwNdbpmQ2wLkr7MyBTMZfKnVElOxjfNEouRVcItFCT2760G1IfQBbN9xVxg3K/WVXaRLXzmSvg1xxIbiRzbOeV8FfF163duRsLk69IfsMABwXazgjBnU4uv73AQw+H3HAR74SfPAsCjoG5X58xOKQIDAQAB",
+  "permissions": ["activeTab", "scripting", "storage", "sidePanel"],
+  "host_permissions": [
+    "https://job-search-assistant-virid.vercel.app/*",
+    "https://*.greenhouse.io/*",
+    "https://jobs.lever.co/*",
+    "https://jobs.ashbyhq.com/*",
+    "https://*.myworkdayjobs.com/*",
+    "https://*.myworkdaysite.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Job Search Assistant",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.greenhouse.io/*",
+        "https://jobs.lever.co/*",
+        "https://jobs.ashbyhq.com/*",
+        "https://*.myworkdayjobs.com/*",
+        "https://*.myworkdaysite.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src https://job-search-assistant-virid.vercel.app"
+  }
+}
