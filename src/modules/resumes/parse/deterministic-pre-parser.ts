@@ -5,6 +5,7 @@ import {
   BULLET_PREFIX,
   DATE_RANGE,
   parseExperienceBlocks,
+  stripBulletPrefix,
   type ExperienceBlock,
 } from "./experience-block-parser";
 import {
@@ -42,14 +43,48 @@ function lineNumber(line: GroupedLine, index: number): number {
   return line.lineNumber ?? index + 1;
 }
 
-/** Flat extractors have no y, so a repeated header row arrives as one mashed line. */
-function isRunningHeaderLine(text: string): boolean {
-  const trimmed = text.trim();
+function isFlatLine(line: GroupedLine): boolean {
+  return line.items.length === 0 || line.items.every((item) => item.x === undefined && item.y === undefined);
+}
+
+/** A short bullet line is a running header only for flat text, or when it repeats in the margins. */
+function repeatsInMargins(line: GroupedLine, lines: GroupedLine[]): boolean {
+  const text = line.text.trim().toLowerCase();
+  if (!text) return false;
+  const byPage = new Map<number, GroupedLine[]>();
+  for (const entry of lines) {
+    const pageLines = byPage.get(entry.page) ?? [];
+    pageLines.push(entry);
+    byPage.set(entry.page, pageLines);
+  }
+  if (byPage.size < 2) return false;
+
+  let hits = 0;
+  for (const pageLines of byPage.values()) {
+    const ys = pageLines.flatMap((entry) =>
+      entry.items.map((item) => item.y).filter((y): y is number => typeof y === "number")
+    );
+    if (ys.length === 0) continue;
+    const min = Math.min(...ys);
+    const max = Math.max(...ys);
+    const span = Math.max(max - min, 1);
+    const match = pageLines.find((entry) => entry.text.trim().toLowerCase() === text);
+    if (!match) continue;
+    const y = match.items.map((item) => item.y).find((value): value is number => typeof value === "number");
+    if (y === undefined) continue;
+    if (max - y <= span * 0.08 || y - min <= span * 0.08) hits += 1;
+  }
+  return hits >= 2 && hits * 2 > byPage.size;
+}
+
+function isRunningHeaderLine(line: GroupedLine, lines: GroupedLine[]): boolean {
+  const trimmed = line.text.trim();
   if (!trimmed) return false;
   if (/^(?:page\s+)?\d{1,3}(?:\s*(?:of|\/)\s*\d{1,3})?$/i.test(trimmed)) return true;
   if (/^[•·▪◦‣●]$/.test(trimmed)) return true;
-  if (/[•·▪◦‣●]/.test(trimmed) && trimmed.length < 80) return true;
-  return false;
+  if (!/[•·▪◦‣●]/.test(trimmed) || trimmed.length >= 80) return false;
+  if (isFlatLine(line)) return true;
+  return repeatsInMargins(line, lines);
 }
 
 function isSocialHandle(text: string, links: ExtractedLink[]): boolean {
@@ -132,7 +167,7 @@ function extractContactFromLines(lines: GroupedLine[], links: ExtractedLink[] = 
       !GITHUB.test(t) &&
       !URL.test(t) &&
       !isSocialHandle(t, links) &&
-      !isRunningHeaderLine(t)
+      !isRunningHeaderLine(l, lines)
     );
   });
 
@@ -256,9 +291,9 @@ export function preParseHintsToPartialResume(hints: PreParseHints): ParsedResume
         }
         return false;
       });
-      const achievements = achievementLines.map((line) =>
-        line.text.trim().replace(BULLET_PREFIX, "").trim()
-      );
+      const achievements = achievementLines
+        .map((line) => stripBulletPrefix(line.text))
+        .filter((text) => text.length > 0);
 
       const dates = normalizeExperienceDates({ dateRange: block.dateRange });
       const headerFallback =

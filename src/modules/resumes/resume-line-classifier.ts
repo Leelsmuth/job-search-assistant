@@ -9,7 +9,7 @@ const CONTACT_PATTERNS = [
 const SECTION_HEADER =
   /^(experience|work experience|employment|education|skills|projects|summary|contact|certifications|technical skills)$/i;
 
-const BULLET_PREFIX = /^[-•*–—]\s+/;
+const BULLET_PREFIX = /^(?:[•●▪◦‣·–—]\s*(?=\S)|[-*]\s+)/;
 const ACHIEVEMENT_HINT =
   /\b(built|developed|led|designed|implemented|migrated|shipped|improved|reduced|increased|delivered|owned|architected|created|maintained|collaborated|optimized|automated|scaled|mentored|launched|worked|contributed|achieved)\b/i;
 
@@ -32,7 +32,7 @@ export function isLikelyExperienceBullet(line: string): boolean {
 }
 
 export function normalizeBulletText(line: string): string {
-  return line.trim().replace(BULLET_PREFIX, "").trim();
+  return line.trim().replace(/^(?:[•●▪◦‣·–—]\s*|[-*]\s+)/, "").trim();
 }
 
 export function filterExtractedBullets(lines: string[]): string[] {

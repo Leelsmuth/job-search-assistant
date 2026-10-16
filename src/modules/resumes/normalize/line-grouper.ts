@@ -5,6 +5,25 @@ const COLUMN_GAP = 36;
 const WORD_GAP = 1.25;
 
 const ORPHAN_BULLET = /^[•●◦∙·▪‣]\s*$/;
+/** Glyphs may sit on the text with no space. Hyphen and asterisk still need whitespace. */
+export const BULLET_PREFIX = /^(?:[•●▪◦‣·–—]\s*(?=\S)|[-*]\s+)/;
+
+export function isBulletText(text: string): boolean {
+  const trimmed = text.trim();
+  return BULLET_PREFIX.test(trimmed) || ORPHAN_BULLET.test(trimmed);
+}
+
+export function stripBulletPrefix(text: string): string {
+  return text.trim().replace(/^(?:[•●▪◦‣·–—]\s*|[-*]\s+)/, "").trim();
+}
+
+function isInlineBulletItem(item: ExtractedTextItem): boolean {
+  const text = item.text.trim();
+  if (/^[•●▪◦‣·∙–—]$/.test(text)) return true;
+  const width = item.width ?? Number.POSITIVE_INFINITY;
+  const fontSize = item.fontSize ?? Number.POSITIVE_INFINITY;
+  return text.length > 0 && text.length <= 2 && width < 2 && fontSize < 3;
+}
 const ROLE_HEADING = /^(key contributions|highlights|selected achievements|responsibilities)$/i;
 const DATE_LINE =
   /^(?:\d{1,2}\/\d{4}|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4})\b/i;
@@ -19,10 +38,6 @@ export type GroupedLine = {
   isBullet: boolean;
   lineNumber?: number;
 };
-
-function isBulletText(text: string): boolean {
-  return /^[-•*–—●]\s+/.test(text.trim()) || ORPHAN_BULLET.test(text.trim());
-}
 
 function itemEnd(item: ExtractedTextItem): number {
   const width = item.width ?? Math.max(1, item.text.length) * (item.fontSize ?? 8) * 0.45;
@@ -79,19 +94,48 @@ function clusterRow(items: ExtractedTextItem[]): ExtractedTextItem[][] {
   return clusters;
 }
 
-function lineFromItems(items: ExtractedTextItem[], text: string): GroupedLine {
+function splitInlineBullet(items: ExtractedTextItem[]): {
+  bullet: boolean;
+  content: ExtractedTextItem[];
+} {
+  const textItems = items.filter((item) => !isInlineBulletItem(item));
+  if (textItems.length === 0) return { bullet: false, content: items };
+  const anchorX = textItems[0].x;
+  const leading = new Set<ExtractedTextItem>();
+  for (const item of items) {
+    if (!isInlineBulletItem(item)) continue;
+    const atStart =
+      item === items[0] ||
+      (typeof item.x === "number" &&
+        typeof anchorX === "number" &&
+        Math.abs(item.x - anchorX) <= 1.5);
+    if (atStart) leading.add(item);
+  }
+  if (leading.size === 0) return { bullet: false, content: items };
+  return { bullet: true, content: items.filter((item) => !leading.has(item)) };
+}
+
+function lineFromItems(items: ExtractedTextItem[]): GroupedLine {
+  const split = splitInlineBullet(items);
+  const joined = joinCluster(split.content);
+  const text = split.bullet ? `• ${joined}`.replace(/[ \t]+/g, " ").trim() : joined;
   return {
     text,
     page: items[0]?.page ?? 1,
     items,
     fontSize: items.reduce((max, item) => Math.max(max, item.fontSize ?? 0), 0) || undefined,
-    isBullet: isBulletText(text),
+    isBullet: split.bullet || isBulletText(text),
   };
 }
 
 function contentIndent(line: GroupedLine): number | null {
   const xs = line.items
-    .filter((item) => !ORPHAN_BULLET.test(item.text.trim()) && typeof item.x === "number")
+    .filter(
+      (item) =>
+        !ORPHAN_BULLET.test(item.text.trim()) &&
+        !isInlineBulletItem(item) &&
+        typeof item.x === "number"
+    )
     .map((item) => item.x as number);
   if (xs.length === 0) return null;
   return Math.min(...xs);
@@ -118,7 +162,7 @@ function canOwnBullet(textLine: GroupedLine, bulletLine: GroupedLine): boolean {
 
 function markBullet(textLine: GroupedLine, bulletLine: GroupedLine, glyphFirst: boolean) {
   textLine.isBullet = true;
-  if (!/^[-•*–—●]\s+/.test(textLine.text.trim())) {
+  if (!BULLET_PREFIX.test(textLine.text.trim())) {
     textLine.text = `• ${textLine.text.trim()}`;
   }
   textLine.items = glyphFirst
@@ -203,7 +247,7 @@ export function groupItemsIntoLines(items: ExtractedTextItem[]): GroupedLine[] {
 
   const lines = rows.flatMap((row) =>
     clusterRow(row)
-      .map((cluster) => lineFromItems(cluster, joinCluster(cluster)))
+      .map((cluster) => lineFromItems(cluster))
       .filter((line) => line.text.length > 0)
   );
 

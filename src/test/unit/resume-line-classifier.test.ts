@@ -26,6 +26,9 @@ describe("resume-line-classifier", () => {
 
   it("strips bullet prefixes", () => {
     expect(normalizeBulletText("• Shipped checkout redesign")).toBe("Shipped checkout redesign");
+    expect(normalizeBulletText("•Architected the billing pipeline")).toBe(
+      "Architected the billing pipeline"
+    );
   });
 
   it("filters non-achievement lines from extracted blocks", () => {

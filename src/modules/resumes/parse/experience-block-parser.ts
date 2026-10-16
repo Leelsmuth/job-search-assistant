@@ -1,4 +1,9 @@
-import type { GroupedLine } from "@/modules/resumes/normalize/line-grouper";
+import {
+  BULLET_PREFIX,
+  isBulletText,
+  stripBulletPrefix,
+  type GroupedLine,
+} from "@/modules/resumes/normalize/line-grouper";
 import {
   cleanResumeName,
   isRejectedCompanyToken,
@@ -12,7 +17,7 @@ import {
 export const DATE_RANGE =
   /(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s*)?\d{4}\s*[-–—]\s*(?:Present|Current|(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s*)?\d{4}|\d{1,2}\/\d{4})/i;
 
-export const BULLET_PREFIX = /^[-•*–—]\s+/;
+export { BULLET_PREFIX, stripBulletPrefix };
 
 export type ExperienceBlock = {
   headerLine: string;
@@ -24,7 +29,7 @@ export type ExperienceBlock = {
 };
 
 export function isBulletLine(text: string, line?: GroupedLine): boolean {
-  return BULLET_PREFIX.test(text.trim()) || Boolean(line?.isBullet);
+  return isBulletText(text) || BULLET_PREFIX.test(text.trim()) || Boolean(line?.isBullet);
 }
 
 const ROLE_SUBHEADING = /^(key contributions|highlights|selected achievements|responsibilities)$/i;

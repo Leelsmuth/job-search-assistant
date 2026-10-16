@@ -142,7 +142,6 @@ export function SettingsClient({
             >
               {openAi.ok ? "Key works" : openAi.configured ? "Key rejected" : "Key missing"}
             </Badge>
-            <span className="text-muted-foreground">{openAi.reason}</span>
           </div>
           <p>{openAi.detail}</p>
           <p className="text-xs text-muted-foreground">

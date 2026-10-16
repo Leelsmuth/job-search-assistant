@@ -1,4 +1,4 @@
-export const NORMALIZATION_VERSION = "v3";
+export const NORMALIZATION_VERSION = "v4";
 
 import type { ExtractedDocument, ExtractedLink } from "@/modules/resumes/extract/types";
 import { removeRepeatedHeadersFooters } from "./header-footer-remover";
