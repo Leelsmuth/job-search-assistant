@@ -1,6 +1,6 @@
-export const NORMALIZATION_VERSION = "v1";
+export const NORMALIZATION_VERSION = "v2";
 
-import type { ExtractedDocument } from "@/modules/resumes/extract/types";
+import type { ExtractedDocument, ExtractedLink } from "@/modules/resumes/extract/types";
 import { removeRepeatedHeadersFooters } from "./header-footer-remover";
 import {
   groupItemsIntoLines,
@@ -20,6 +20,7 @@ export type NormalizedDocument = {
   normalizedText: string;
   normalizationVersion: string;
   extractionHash: string;
+  links: ExtractedLink[];
 };
 
 function postProcessLine(line: GroupedLine): GroupedLine[] {
@@ -44,10 +45,15 @@ export function normalizeExtractedDocument(doc: ExtractedDocument): NormalizedDo
   const merged = mergeWrappedLines(grouped);
 
   const lines = merged.flatMap(postProcessLine).filter((l) => l.text.length > 0);
+  lines.forEach((line, index) => {
+    line.lineNumber = index + 1;
+  });
   const normalizedText = lines.map((l) => l.text).join("\n");
+  const links = doc.links ?? [];
+  const linkKey = links.map((link) => link.url).join("|");
 
   const extractionHash = hashInput(
-    `${EXTRACTOR_VERSION}:${NORMALIZATION_VERSION}:${normalizedText}`
+    `${EXTRACTOR_VERSION}:${NORMALIZATION_VERSION}:${normalizedText}:${linkKey}`
   );
 
   return {
@@ -55,7 +61,14 @@ export function normalizeExtractedDocument(doc: ExtractedDocument): NormalizedDo
     normalizedText,
     normalizationVersion: NORMALIZATION_VERSION,
     extractionHash,
+    links,
   };
+}
+
+export function toLineNumberedLayout(lines: GroupedLine[]): string {
+  return lines
+    .map((line, index) => `${line.lineNumber ?? index + 1}| ${line.text}`)
+    .join("\n");
 }
 
 export function computeParserVersion(promptVersion: string): string {

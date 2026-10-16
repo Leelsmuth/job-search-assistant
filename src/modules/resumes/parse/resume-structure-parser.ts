@@ -1,111 +1,79 @@
 import OpenAI from "openai";
-import { z } from "zod";
 import {
   parsedResumeSchema,
-  type ParsedResume,
   sanitizeParsedResume,
+  type ParsedResume,
 } from "@/modules/resumes/schema/resume-schema";
 import {
   RESUME_PARSE_PROMPT_VERSION,
-  RESUME_PARSE_REPAIR_PROMPT,
   RESUME_PARSE_SYSTEM_PROMPT,
   buildResumeParseUserPrompt,
 } from "@/modules/resumes/schema/resume-parser-prompts";
 import {
+  buildStrictParsedResumeJsonSchema,
+  llmParsedResumeSchema,
+} from "@/modules/resumes/schema/llm-resume-schema";
+import {
   deterministicPreParse,
   preParseHintsToPartialResume,
 } from "./deterministic-pre-parser";
-import {
-  detectResumeSections,
-  sectionsToOutline,
-} from "./resume-section-detector";
+import { detectResumeSections } from "./resume-section-detector";
 import type { NormalizedDocument } from "@/modules/resumes/normalize/extracted-document-normalizer";
+import { toLineNumberedLayout } from "@/modules/resumes/normalize/extracted-document-normalizer";
 import { computeConfidenceScores, mergeWarnings } from "./confidence";
-import { getOpenAiModel } from "@/lib/env";
+import { getOpenAiModel, isOpenAiConfigured } from "@/lib/env";
 import { measureOpenAiCall } from "@/lib/performance/log-ai-run";
+import { estimateResumeParseCost } from "./parse-cost";
+import { llmResultToParsedResume, verifyParsedResume } from "./verify-parsed-resume";
 
-function isOpenAiConfigured(): boolean {
-  const key = process.env.OPENAI_API_KEY?.trim();
-  if (!key) return false;
-  if (/your-key|placeholder|changeme|xxx/i.test(key)) return false;
-  return key.startsWith("sk-");
-}
-
-const openai = isOpenAiConfigured()
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+export type ParseTokenUsage = {
+  input: number;
+  output: number;
+  costUsd: number | null;
+};
 
 export type ParseResult = {
   parsed: ParsedResume;
   model: string | null;
   promptVersion: string;
-  tokenUsage?: { input: number; output: number };
+  tokenUsage?: ParseTokenUsage;
   usedRepair: boolean;
   usedHeuristicOnly: boolean;
 };
 
-function heuristicParse(normalized: NormalizedDocument): ParsedResume {
+function getClient(): OpenAI | null {
+  if (!isOpenAiConfigured()) return null;
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+}
+
+function finishHeuristic(parsed: ParsedResume, normalized: NormalizedDocument, extraWarnings: ParsedResume["warnings"] = []): ParsedResume {
+  const verified = verifyParsedResume(parsed, normalized.lines);
+  verified.warnings = mergeWarnings(verified.warnings, extraWarnings);
+  verified.confidence = computeConfidenceScores(verified, verified.warnings);
+  return sanitizeParsedResume(parsedResumeSchema.parse(verified));
+}
+
+function heuristicParse(normalized: NormalizedDocument, extraWarnings: ParsedResume["warnings"] = []): ParsedResume {
   const sections = detectResumeSections(normalized.lines);
-  const hints = deterministicPreParse(sections);
+  const hints = deterministicPreParse(sections, { links: normalized.links });
   const partial = preParseHintsToPartialResume(hints);
-  const warnings = mergeWarnings(partial.warnings, [
+  return finishHeuristic(partial, normalized, [
     {
       code: "heuristic_fallback",
       message: "Structured parsing used deterministic heuristics only (no AI).",
       fieldPath: null,
     },
+    ...extraWarnings,
   ]);
-  partial.warnings = warnings;
-  partial.confidence = computeConfidenceScores(partial, warnings);
-  return sanitizeParsedResume(parsedResumeSchema.parse(partial));
 }
 
-async function callOpenAiParse(
-  normalized: NormalizedDocument,
-  systemPrompt: string,
-  userPrompt: string
-): Promise<{ content: string; model: string; usage?: { input: number; output: number } }> {
-  if (!openai) throw new Error("OpenAI not configured");
+const STRICT_RESUME_SCHEMA = buildStrictParsedResumeJsonSchema();
 
-  const response = await measureOpenAiCall(
-    "openai.resume.parse",
-    () =>
-      openai!.chat.completions.create({
-        model: getOpenAiModel(),
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.1,
-      }),
-    { inputChars: userPrompt.length, model: getOpenAiModel() }
-  );
-
-  const content = response.choices[0]?.message?.content;
-  if (!content) throw new Error("Empty AI response");
-
-  return {
-    content,
-    model: response.model?.trim() || getOpenAiModel(),
-    usage: {
-      input: response.usage?.prompt_tokens ?? 0,
-      output: response.usage?.completion_tokens ?? 0,
-    },
-  };
-}
-
-export async function parseResumeStructure(
-  normalized: NormalizedDocument
-): Promise<ParseResult> {
-  const sections = detectResumeSections(normalized.lines);
-  const hints = deterministicPreParse(sections);
-  const partial = preParseHintsToPartialResume(hints);
-
-  if (!openai) {
-    const parsed = heuristicParse(normalized);
+export async function parseResumeStructure(normalized: NormalizedDocument): Promise<ParseResult> {
+  const client = getClient();
+  if (!client) {
     return {
-      parsed,
+      parsed: heuristicParse(normalized),
       model: null,
       promptVersion: RESUME_PARSE_PROMPT_VERSION,
       usedRepair: false,
@@ -113,84 +81,70 @@ export async function parseResumeStructure(
     };
   }
 
+  const numberedLayout = toLineNumberedLayout(normalized.lines);
   const userPrompt = buildResumeParseUserPrompt({
-    normalizedText: normalized.normalizedText,
-    sectionOutline: sectionsToOutline(sections),
-    preParseJson: JSON.stringify(partial, null, 0),
+    numberedLayout,
+    links: normalized.links.map((link) => link.url),
   });
+  const model = getOpenAiModel();
 
   try {
-    const first = await callOpenAiParse(
-      normalized,
-      RESUME_PARSE_SYSTEM_PROMPT,
-      userPrompt
+    const response = await measureOpenAiCall(
+      "openai.resume.parse",
+      () =>
+        client.chat.completions.create({
+          model,
+          temperature: 0,
+          max_tokens: 4096,
+          messages: [
+            { role: "system", content: RESUME_PARSE_SYSTEM_PROMPT },
+            { role: "user", content: userPrompt },
+          ],
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "parsed_resume",
+              strict: true,
+              schema: STRICT_RESUME_SCHEMA,
+            },
+          },
+        }),
+      { inputChars: userPrompt.length, model }
     );
 
-    try {
-      const parsed = sanitizeParsedResume(
-        parsedResumeSchema.parse(JSON.parse(first.content))
-      );
-      parsed.confidence = computeConfidenceScores(parsed, parsed.warnings);
-      return {
-        parsed,
-        model: first.model,
-        promptVersion: RESUME_PARSE_PROMPT_VERSION,
-        tokenUsage: first.usage,
-        usedRepair: false,
-        usedHeuristicOnly: false,
-      };
-    } catch (validationError) {
-      const zodError =
-        validationError instanceof z.ZodError
-          ? validationError.flatten()
-          : { formErrors: [String(validationError)] };
+    const content = response.choices[0]?.message?.content;
+    if (!content) throw new Error("Empty AI response");
 
-      const repairPrompt = `${userPrompt}
+    const llm = llmParsedResumeSchema.parse(JSON.parse(content));
+    const verified = verifyParsedResume(llmResultToParsedResume(llm), normalized.lines);
+    verified.confidence = computeConfidenceScores(verified, verified.warnings);
+    const parsed = sanitizeParsedResume(parsedResumeSchema.parse(verified));
+    const inputTokens = response.usage?.prompt_tokens ?? 0;
+    const outputTokens = response.usage?.completion_tokens ?? 0;
+    const usedModel = response.model?.trim() || model;
 
-Validation errors:
-${JSON.stringify(zodError)}
-
-Return corrected JSON only.`;
-
-      const repair = await callOpenAiParse(
-        normalized,
-        RESUME_PARSE_REPAIR_PROMPT,
-        repairPrompt
-      );
-
-      const parsed = sanitizeParsedResume(
-        parsedResumeSchema.parse(JSON.parse(repair.content))
-      );
-      parsed.warnings = mergeWarnings(parsed.warnings, [
-        {
-          code: "schema_repair",
-          message: "Initial parse required schema repair.",
-          fieldPath: null,
-        },
-      ]);
-      parsed.confidence = computeConfidenceScores(parsed, parsed.warnings);
-
-      return {
-        parsed,
-        model: repair.model,
-        promptVersion: RESUME_PARSE_PROMPT_VERSION,
-        tokenUsage: repair.usage,
-        usedRepair: true,
-        usedHeuristicOnly: false,
-      };
-    }
-  } catch {
-    const parsed = heuristicParse(normalized);
-    parsed.warnings = mergeWarnings(parsed.warnings, [
-      {
-        code: "ai_parse_failed",
-        message: "AI parsing failed; fell back to deterministic parser.",
-        fieldPath: null,
-      },
-    ]);
-    parsed.confidence = computeConfidenceScores(parsed, parsed.warnings);
     return {
       parsed,
+      model: usedModel,
+      promptVersion: RESUME_PARSE_PROMPT_VERSION,
+      tokenUsage: {
+        input: inputTokens,
+        output: outputTokens,
+        costUsd: estimateResumeParseCost(usedModel, inputTokens, outputTokens),
+      },
+      usedRepair: false,
+      usedHeuristicOnly: false,
+    };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Unknown AI parse error";
+    return {
+      parsed: heuristicParse(normalized, [
+        {
+          code: "ai_parse_failed",
+          message: `AI parsing failed; fell back to deterministic parser. ${detail}`,
+          fieldPath: null,
+        },
+      ]),
       model: null,
       promptVersion: RESUME_PARSE_PROMPT_VERSION,
       usedRepair: false,

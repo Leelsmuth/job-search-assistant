@@ -36,6 +36,13 @@ export async function deleteResumeFile(storagePath: string): Promise<void> {
   }
 }
 
+export async function downloadResumeFile(storagePath: string): Promise<Buffer | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.storage.from(BUCKET).download(storagePath);
+  if (error || !data) return null;
+  return Buffer.from(await data.arrayBuffer());
+}
+
 export async function getResumeSignedUrl(storagePath: string): Promise<string | null> {
   const supabase = await createClient();
   const { data, error } = await supabase.storage

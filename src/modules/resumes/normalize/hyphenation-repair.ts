@@ -1,3 +1,5 @@
+import { repairEmailSpacing, splitGluedWords, stripZeroWidth } from "./text-cleanup";
+
 export function repairHyphenation(text: string): string {
   return text.replace(/(\w)-\s*\n\s*(\w)/g, "$1-$2");
 }
@@ -29,5 +31,8 @@ export function splitConcatenatedDateTitle(line: string): string[] {
 }
 
 export function normalizeLineText(line: string): string {
-  return collapseWhitespace(normalizeUnicode(line));
+  const cleaned = splitGluedWords(
+    repairEmailSpacing(normalizeUnicode(stripZeroWidth(line)))
+  );
+  return collapseWhitespace(cleaned);
 }

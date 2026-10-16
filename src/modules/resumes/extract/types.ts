@@ -1,4 +1,4 @@
-export const EXTRACTOR_VERSION = "v2";
+export const EXTRACTOR_VERSION = "v3";
 
 export type ExtractionWarningCode =
   | "encrypted_pdf"
@@ -26,6 +26,13 @@ export type ExtractedTextItem = {
   lineIndex?: number;
 };
 
+export type ExtractedLink = {
+  url: string;
+  page: number;
+  x?: number;
+  y?: number;
+};
+
 export type ExtractedPage = {
   pageNumber: number;
   items: ExtractedTextItem[];
@@ -41,6 +48,7 @@ export type ExtractedDocument = {
   extractorVersion: string;
   pageCount: number;
   itemCount: number;
+  links?: ExtractedLink[];
 };
 
 export type DetectedFileType = "pdf" | "docx" | "txt";

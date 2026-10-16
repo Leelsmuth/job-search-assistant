@@ -34,6 +34,7 @@ export const evidenceSourceTypeEnum = pgEnum("evidence_source_type", [
   "manual_profile_fact",
   "certification",
   "summary",
+  "skill",
 ]);
 
 export const jobSourceProviderEnum = pgEnum("job_source_provider", [
@@ -310,6 +311,11 @@ export const profileEvidence = pgTable("profile_evidence", {
   sourceId: uuid("source_id"),
   evidenceText: text("evidence_text").notNull(),
   normalizedSkills: jsonb("normalized_skills").$type<string[]>().default([]),
+  provenanceJson: jsonb("provenance_json").$type<{
+    sourceLines: number[];
+    sourceText: string;
+    fieldPath?: string;
+  } | null>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -159,9 +159,18 @@ export async function getResumeParseReview(parsedVersionId: string) {
 
 export async function approveParsedResume(
   parsedVersionId: string,
-  editedParsed: ParsedResume
+  editedParsed: ParsedResume,
+  sections?: string[]
 ) {
-  return resumeActions.approveParsedResume(parsedVersionId, editedParsed);
+  return resumeActions.approveParsedResume(parsedVersionId, editedParsed, sections);
+}
+
+export async function getCurrentProfileForReview() {
+  return resumeActions.getCurrentProfileForReview();
+}
+
+export async function reparseResumeDocument(documentId: string) {
+  return resumeActions.reparseResumeDocument(documentId);
 }
 
 export async function uploadResumeText(text: string) {

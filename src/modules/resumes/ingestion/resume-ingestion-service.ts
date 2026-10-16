@@ -15,12 +15,12 @@ import {
   type NormalizedDocument,
 } from "@/modules/resumes/normalize/extracted-document-normalizer";
 import { parseResumeStructure } from "@/modules/resumes/parse/resume-structure-parser";
-import { uploadResumeFile } from "@/modules/resumes/storage";
+import { downloadResumeFile, uploadResumeFile } from "@/modules/resumes/storage";
 import { RESUME_PARSE_PROMPT_VERSION } from "@/modules/resumes/schema/resume-parser-prompts";
 import { emptyParsedResume, type ParsedResume } from "@/modules/resumes/schema/resume-schema";
 import { hashInput } from "@/lib/utils";
 import { measureOperation } from "@/lib/performance/measure-operation";
-import type { ExtractedDocument } from "@/modules/resumes/extract/types";
+import type { DetectedFileType, ExtractedDocument } from "@/modules/resumes/extract/types";
 
 export type IngestResumeResult = {
   documentId: string;
@@ -71,7 +71,13 @@ export async function completeResumeParse(
             model: parseResult.model,
             status: "pending_review",
             parseDurationMs: durationMs,
-            tokenUsageJson: parseResult.tokenUsage ?? null,
+            tokenUsageJson: parseResult.tokenUsage
+              ? {
+                  input: parseResult.tokenUsage.input,
+                  output: parseResult.tokenUsage.output,
+                  costUsd: parseResult.tokenUsage.costUsd,
+                }
+              : null,
           })
           .where(eq(parsedResumeVersions.id, parsedVersionId));
 
@@ -87,10 +93,12 @@ export async function completeResumeParse(
             usedRepair: parseResult.usedRepair,
             usedHeuristicOnly: parseResult.usedHeuristicOnly,
             durationMs,
+            costUsd: parseResult.tokenUsage?.costUsd ?? null,
           },
           status: "completed",
           tokenInputCount: parseResult.tokenUsage?.input,
           tokenOutputCount: parseResult.tokenUsage?.output,
+          costEstimate: parseResult.tokenUsage?.costUsd ?? null,
         });
       } catch (error) {
         await db
@@ -265,4 +273,155 @@ export async function getParsedResumeVersion(
     },
   });
   return row ?? null;
+}
+
+function asFileType(fileType: string): DetectedFileType | null {
+  if (fileType === "pdf" || fileType === "docx" || fileType === "txt") return fileType;
+  return null;
+}
+
+async function recordResumeAiRun(
+  db: Db,
+  userId: string,
+  extractionId: string,
+  parsedVersionId: string,
+  normalized: NormalizedDocument,
+  parseResult: Awaited<ReturnType<typeof parseResumeStructure>>,
+  durationMs: number
+) {
+  await db.insert(aiRuns).values({
+    userId,
+    taskType: "resume.parse_structured",
+    promptVersion: parseResult.promptVersion,
+    model: parseResult.model,
+    inputHash: hashInput(`resume-parse:${normalized.extractionHash}`),
+    inputSummary: `Resume extraction ${extractionId}`,
+    output: {
+      parsedVersionId,
+      usedRepair: parseResult.usedRepair,
+      usedHeuristicOnly: parseResult.usedHeuristicOnly,
+      durationMs,
+      costUsd: parseResult.tokenUsage?.costUsd ?? null,
+    },
+    status: "completed",
+    tokenInputCount: parseResult.tokenUsage?.input,
+    tokenOutputCount: parseResult.tokenUsage?.output,
+    costEstimate: parseResult.tokenUsage?.costUsd ?? null,
+  });
+}
+
+export async function reparseStoredResume(
+  db: Db,
+  userId: string,
+  documentId: string
+): Promise<IngestResumeResult> {
+  const doc = await db.query.resumeDocuments.findFirst({
+    where: and(eq(resumeDocuments.id, documentId), eq(resumeDocuments.userId, userId)),
+  });
+  if (!doc) throw new Error("Resume not found");
+
+  let extraction =
+    (doc.latestExtractionId
+      ? await db.query.resumeExtractions.findFirst({
+          where: and(
+            eq(resumeExtractions.id, doc.latestExtractionId),
+            eq(resumeExtractions.userId, userId)
+          ),
+        })
+      : null) ??
+    (await db.query.resumeExtractions.findFirst({
+      where: and(
+        eq(resumeExtractions.resumeDocumentId, doc.id),
+        eq(resumeExtractions.userId, userId)
+      ),
+      orderBy: [desc(resumeExtractions.createdAt)],
+    }));
+
+  const fileType = asFileType(doc.fileType);
+  if (doc.storagePath && fileType) {
+    const buffer = await downloadResumeFile(doc.storagePath);
+    if (buffer) {
+      const extractedDoc = await extractDocument(buffer, fileType);
+      const refreshed = normalizeExtractedDocument(extractedDoc);
+      const [created] = await db
+        .insert(resumeExtractions)
+        .values({
+          userId,
+          resumeDocumentId: doc.id,
+          sourceType: extractedDoc.sourceType,
+          extractorVersion: extractedDoc.extractorVersion,
+          pageCount: extractedDoc.pageCount,
+          itemCount: extractedDoc.itemCount,
+          extractedDocumentJson: extractedDoc,
+          normalizedText: refreshed.normalizedText,
+          normalizationVersion: refreshed.normalizationVersion,
+          extractionHash: refreshed.extractionHash,
+        })
+        .returning();
+      await db
+        .update(resumeDocuments)
+        .set({
+          latestExtractionId: created.id,
+          extractedText: refreshed.normalizedText,
+          parserVersion: extractedDoc.extractorVersion,
+        })
+        .where(eq(resumeDocuments.id, doc.id));
+      extraction = created;
+    }
+  }
+
+  if (!extraction) {
+    throw new Error("No stored extraction for this resume. Upload it again.");
+  }
+
+  const normalized = normalizeExtractedDocument(extraction.extractedDocumentJson as ExtractedDocument);
+  const parserVersion = computeParserVersion(RESUME_PARSE_PROMPT_VERSION);
+  const start = Date.now();
+  const parseResult = await parseResumeStructure(normalized);
+  const durationMs = Date.now() - start;
+
+  const [parsedVersion] = await db
+    .insert(parsedResumeVersions)
+    .values({
+      userId,
+      resumeExtractionId: extraction.id,
+      schemaVersion: 1,
+      parserVersion,
+      promptVersion: parseResult.promptVersion,
+      model: parseResult.model,
+      parsedJson: parseResult.parsed,
+      confidenceJson: parseResult.parsed.confidence,
+      warningsJson: parseResult.parsed.warnings,
+      status: "pending_review",
+      extractionHash: normalized.extractionHash,
+      parseDurationMs: durationMs,
+      tokenUsageJson: parseResult.tokenUsage
+        ? {
+            input: parseResult.tokenUsage.input,
+            output: parseResult.tokenUsage.output,
+            costUsd: parseResult.tokenUsage.costUsd,
+          }
+        : null,
+    })
+    .returning();
+
+  await recordResumeAiRun(
+    db,
+    userId,
+    extraction.id,
+    parsedVersion.id,
+    normalized,
+    parseResult,
+    durationMs
+  );
+
+  return {
+    documentId: doc.id,
+    extractionId: extraction.id,
+    parsedVersionId: parsedVersion.id,
+    parsed: parseResult.parsed,
+    normalizedText: normalized.normalizedText,
+    fromCache: false,
+    processing: false,
+  };
 }

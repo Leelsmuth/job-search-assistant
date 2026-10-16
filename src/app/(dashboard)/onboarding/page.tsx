@@ -11,6 +11,10 @@ import { ResumeUploadField } from "@/components/resumes/resume-upload-field";
 import { ParsedResumeReview } from "@/components/resumes/review/parsed-resume-review";
 import type { ParsedResume } from "@/modules/resumes/schema/resume-schema";
 import { sanitizeParsedResume } from "@/modules/resumes/schema/resume-schema";
+import {
+  PROFILE_SECTIONS,
+  type ProfileSectionKey,
+} from "@/modules/resumes/review/profile-snapshot";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -21,6 +25,7 @@ export default function OnboardingPage() {
   const [normalizedText, setNormalizedText] = useState("");
   const [parsed, setParsed] = useState<ParsedResume | null>(null);
   const [error, setError] = useState("");
+  const [acceptedSections, setAcceptedSections] = useState<ProfileSectionKey[]>([...PROFILE_SECTIONS]);
 
   async function handleUpload(formData: FormData) {
     setError("");
@@ -68,7 +73,7 @@ export default function OnboardingPage() {
     const cleaned = sanitizeParsedResume(parsed);
     startTransition(async () => {
       try {
-        await approveParsedResume(parsedVersionId, cleaned);
+        await approveParsedResume(parsedVersionId, cleaned, acceptedSections);
         toast({
           title: "Profile saved",
           description: "Your structured resume data is now on your profile.",
@@ -118,6 +123,7 @@ export default function OnboardingPage() {
                 value={parsed}
                 onChange={setParsed}
                 normalizedText={normalizedText}
+                onAcceptedSectionsChange={setAcceptedSections}
               />
             </CardContent>
           </Card>

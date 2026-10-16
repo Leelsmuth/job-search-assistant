@@ -3,6 +3,7 @@ import {
   looksLikeCompanyName,
   looksLikeDateRange,
   looksLikeJobTitle,
+  looksLikeLocation,
 } from "./experience-semantics";
 
 export const DATE_RANGE =
@@ -21,6 +22,20 @@ export type ExperienceBlock = {
 
 export function isBulletLine(text: string, line?: GroupedLine): boolean {
   return BULLET_PREFIX.test(text.trim()) || Boolean(line?.isBullet);
+}
+
+const ROLE_SUBHEADING = /^(key contributions|highlights|selected achievements|responsibilities)$/i;
+
+export function splitLeadingDate(text: string): { dateRange: string; rest: string } | null {
+  const patterns = [
+    /^(\d{1,2}\/\d{4}\s*[-–—]\s*(?:present|current|\d{1,2}\/\d{4}))\s*(.*)$/i,
+    /^((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}\s*[-–—]\s*(?:Present|Current|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}|\d{4}))\s*(.*)$/i,
+  ];
+  for (const pattern of patterns) {
+    const match = text.trim().match(pattern);
+    if (match) return { dateRange: match[1].trim(), rest: match[2].trim() };
+  }
+  return null;
 }
 
 export function parseExperienceHeaderFields(text: string): {
@@ -347,11 +362,28 @@ export function parseExperienceBlocks(lines: GroupedLine[]): ExperienceBlock[] {
       continue;
     }
 
+    if (ROLE_SUBHEADING.test(text)) {
+      if (current) current.lines.push(line);
+      continue;
+    }
+
+    if (
+      current?.dateRange &&
+      looksLikeLocation(text) &&
+      text.length < 40 &&
+      !looksLikeJobTitle(text)
+    ) {
+      current.location = current.location ?? text;
+      current.lines.push(line);
+      continue;
+    }
+
     if (
       current?.dateRange &&
       current.title &&
       !current.company &&
       looksLikeCompanyName(text) &&
+      !looksLikeLocation(text) &&
       !looksLikeDateRange(text) &&
       !looksLikeJobTitle(text)
     ) {
@@ -369,15 +401,34 @@ export function parseExperienceBlocks(lines: GroupedLine[]): ExperienceBlock[] {
     if (
       looksLikeDateRange(text) &&
       !/\|/.test(text) &&
-      text.length < 120
+      text.length < 140
     ) {
+      const leading = splitLeadingDate(text);
       current = flushBlock(current, blocks);
       current = {
         headerLine: text,
         lines: [line],
-        dateRange: text,
+        dateRange: leading?.dateRange ?? text,
+        title:
+          leading?.rest && looksLikeJobTitle(leading.rest) ? leading.rest : undefined,
       };
       pendingCompany = null;
+      continue;
+    }
+
+    if (
+      current?.company &&
+      current.title &&
+      !current.location &&
+      text.length < 32 &&
+      text.split(/\s+/).length <= 3 &&
+      !/[.!?]/.test(text) &&
+      !text.includes("|") &&
+      !looksLikeJobTitle(text) &&
+      !looksLikeDateRange(text)
+    ) {
+      current.location = text;
+      current.lines.push(line);
       continue;
     }
 

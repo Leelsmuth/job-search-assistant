@@ -46,5 +46,5 @@ export async function extractResumeText(
 
 export { extractPdfDocument, extractPdfDocument as extractPdfText } from "./pdf-text-extractor";
 
-export const PARSER_VERSION = "v2";
+export const PARSER_VERSION = "v3";
 export { MAX_RESUME_BYTES, MIN_RESUME_TEXT_LENGTH } from "@/modules/resumes/ingestion/resume-file-validator";

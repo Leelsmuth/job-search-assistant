@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus, Trash2, AlertTriangle } from "lucide-react";
-import type { Dispatch, SetStateAction } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import type {
   ParsedResume,
   Experience,
@@ -16,6 +16,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProfileDiffPanel } from "@/components/resumes/review/profile-diff-panel";
+import {
+  LOW_CONFIDENCE_THRESHOLD,
+  PROFILE_SECTIONS,
+  type ProfileSectionKey,
+} from "@/modules/resumes/review/profile-snapshot";
 
 type ParsedResumeReviewProps = {
   value: ParsedResume;
@@ -23,6 +29,7 @@ type ParsedResumeReviewProps = {
   normalizedText?: string;
   sourcePreviewUrl?: string | null;
   fileName?: string | null;
+  onAcceptedSectionsChange?: (sections: ProfileSectionKey[]) => void;
 };
 
 function getExperienceHeading(experience: Experience): string {
@@ -68,13 +75,25 @@ function FieldWarnings({
   );
 }
 
+function lowConfidenceClass(score: number | undefined): string {
+  if (score === undefined || score >= LOW_CONFIDENCE_THRESHOLD) return "";
+  return "border-amber-400 bg-amber-50/50";
+}
+
 export function ParsedResumeReview({
   value,
   onChange,
   normalizedText,
   sourcePreviewUrl,
   fileName,
+  onAcceptedSectionsChange,
 }: ParsedResumeReviewProps) {
+  const [acceptedSections, setAcceptedSections] = useState<ProfileSectionKey[]>([...PROFILE_SECTIONS]);
+
+  useEffect(() => {
+    onAcceptedSectionsChange?.(acceptedSections);
+  }, [acceptedSections, onAcceptedSectionsChange]);
+
   function patchResume(update: (prev: ParsedResume) => ParsedResume) {
     onChange((prev) => (prev ? update(prev) : prev));
   }
@@ -104,6 +123,12 @@ export function ParsedResumeReview({
 
   return (
     <div className="space-y-4">
+      <ProfileDiffPanel
+        parsed={value}
+        acceptedSections={acceptedSections}
+        onAcceptedSectionsChange={setAcceptedSections}
+      />
+
       {value.warnings.some((w) => !w.fieldPath) && (
         <Card className="border-amber-200 bg-amber-50/50">
           <CardContent className="pt-4 text-sm">
@@ -119,7 +144,7 @@ export function ParsedResumeReview({
         </Card>
       )}
 
-      <Card>
+      <Card className={lowConfidenceClass(value.confidence.contact)}>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Personal information</CardTitle>
         </CardHeader>
@@ -184,7 +209,7 @@ export function ParsedResumeReview({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className={lowConfidenceClass(value.confidence.summary)}>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Professional summary</CardTitle>
         </CardHeader>
@@ -206,11 +231,13 @@ export function ParsedResumeReview({
       <SkillGroupsSection
         groups={value.skillGroups}
         warnings={value.warnings}
+        lowConfidence={value.confidence.skills < LOW_CONFIDENCE_THRESHOLD}
         onChange={(skillGroups) =>
           patchResume((prev) => ({ ...prev, skillGroups }))
         }
       />
 
+      <div className={value.confidence.experience < LOW_CONFIDENCE_THRESHOLD ? "rounded-md border border-amber-400 bg-amber-50/40 p-2" : ""}>
       <ExperienceSection
         experience={value.experience}
         warnings={value.warnings}
@@ -220,20 +247,25 @@ export function ParsedResumeReview({
         updateAchievement={updateAchievement}
         updateExperience={updateExperience}
       />
+      </div>
 
+      <div className={value.confidence.education < LOW_CONFIDENCE_THRESHOLD ? "rounded-md border border-amber-400 bg-amber-50/40 p-2" : ""}>
       <EducationSection
         education={value.education ?? []}
         onChange={(education) =>
           patchResume((prev) => ({ ...prev, education }))
         }
       />
+      </div>
 
+      <div className={value.confidence.certifications < LOW_CONFIDENCE_THRESHOLD ? "rounded-md border border-amber-400 bg-amber-50/40 p-2" : ""}>
       <CertificationsSection
         certifications={value.certifications ?? []}
         onChange={(certifications) =>
           patchResume((prev) => ({ ...prev, certifications }))
         }
       />
+      </div>
 
       {value.unclassified.length > 0 && (
         <Card>
@@ -302,14 +334,16 @@ export function ParsedResumeReview({
 function SkillGroupsSection({
   groups,
   warnings,
+  lowConfidence,
   onChange,
 }: {
   groups: SkillGroup[];
   warnings: ParseWarning[];
+  lowConfidence?: boolean;
   onChange: (groups: SkillGroup[]) => void;
 }) {
   return (
-    <Card>
+    <Card className={lowConfidence ? "border-amber-400 bg-amber-50/40" : ""}>
       <CardHeader className="flex flex-row items-center justify-between pb-3">
         <CardTitle className="text-base">Skills</CardTitle>
         <Button
@@ -350,10 +384,15 @@ function SkillGroupsSection({
               </Button>
             </div>
             <FieldWarnings warnings={warnings} fieldPath={`skillGroups.${gi}`} />
-            {group.skills.map((skill, si) => (
+            {group.skills.map((skill, si) => {
+              const confidence = group.skillConfidence?.[si];
+              const skillLow =
+                confidence !== undefined && confidence < LOW_CONFIDENCE_THRESHOLD;
+              return (
               <div key={si} className="flex gap-2">
                 <Input
                   value={skill}
+                  className={skillLow ? "border-amber-500 bg-amber-50" : ""}
                   onChange={(e) => {
                     const skills = [...group.skills];
                     skills[si] = e.target.value;
@@ -375,8 +414,14 @@ function SkillGroupsSection({
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
+                {skillLow && (
+                  <span className="self-center text-xs text-amber-700">
+                    Low confidence ({Math.round((confidence ?? 0) * 100)}%)
+                  </span>
+                )}
               </div>
-            ))}
+              );
+            })}
             <Button
               type="button"
               variant="ghost"

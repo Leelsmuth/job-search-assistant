@@ -35,11 +35,14 @@ export const contactSchema = z.object({
       })
     )
     .default([]),
+  fieldSourceLines: z.record(z.array(z.number())).optional(),
 });
 
 export const skillGroupSchema = z.object({
   category: z.string().nullable(),
   skills: z.array(z.string()),
+  skillConfidence: z.array(z.number()).optional(),
+  skillSourceLines: z.array(z.array(z.number())).optional(),
 });
 
 export const experienceSchema = z
@@ -57,6 +60,8 @@ export const experienceSchema = z
     achievements: z.array(z.string()),
     technologies: z.array(z.string()),
     sourceEvidence: z.array(sourceEvidenceSchema).default([]),
+    sourceLines: z.array(z.number()).optional(),
+    achievementSourceLines: z.array(z.array(z.number())).optional(),
   })
   .superRefine((experience, ctx) => {
     if (experience.title && DATE_RANGE_PATTERN.test(experience.title)) {
@@ -92,6 +97,7 @@ export const educationSchema = z.object({
   startDateText: z.string().nullable(),
   endDateText: z.string().nullable(),
   location: z.string().nullable(),
+  sourceLines: z.array(z.number()).optional(),
 });
 
 export const certificationSchema = z.object({
@@ -103,6 +109,7 @@ export const certificationSchema = z.object({
   credentialId: z.string().nullable(),
   credentialUrl: z.string().nullable(),
   sourceEvidence: z.array(sourceEvidenceSchema).default([]),
+  sourceLines: z.array(z.number()).optional(),
 });
 
 export const projectSchema = z.object({
@@ -131,6 +138,14 @@ export const parseWarningSchema = z.object({
   fieldPath: z.string().nullable(),
 });
 
+export const fieldProvenanceSchema = z.object({
+  fieldPath: z.string(),
+  value: z.string(),
+  sourceLines: z.array(z.number()),
+  sourceText: z.string(),
+  confidence: z.number().optional(),
+});
+
 export const confidenceScoresSchema = z.object({
   overall: z.number().min(0).max(1),
   contact: z.number().min(0).max(1),
@@ -154,6 +169,7 @@ export const parsedResumeSchema = z.object({
   unclassified: z.array(unclassifiedLineSchema).default([]),
   warnings: z.array(parseWarningSchema).default([]),
   confidence: confidenceScoresSchema,
+  fieldProvenance: z.array(fieldProvenanceSchema).optional(),
 });
 
 export type SourceEvidence = z.infer<typeof sourceEvidenceSchema>;
@@ -163,6 +179,7 @@ export type Experience = z.infer<typeof experienceSchema>;
 export type Education = z.infer<typeof educationSchema>;
 export type Certification = z.infer<typeof certificationSchema>;
 export type Project = z.infer<typeof projectSchema>;
+export type FieldProvenance = z.infer<typeof fieldProvenanceSchema>;
 export type ParseWarning = z.infer<typeof parseWarningSchema>;
 export type ConfidenceScores = z.infer<typeof confidenceScoresSchema>;
 export type ParsedResume = z.infer<typeof parsedResumeSchema>;
@@ -208,19 +225,42 @@ export function sanitizeParsedResume(input: ParsedResume): ParsedResume {
   return parsedResumeSchema.parse({
     ...input,
     skillGroups: input.skillGroups
-      .map((g) => ({
-        category: g.category?.trim() || null,
-        skills: g.skills.map((s) => s.trim()).filter(Boolean),
-      }))
+      .map((g) => {
+        const skills: string[] = [];
+        const skillConfidence: number[] = [];
+        const skillSourceLines: number[][] = [];
+        g.skills.forEach((skill, index) => {
+          const trimmed = skill.trim();
+          if (!trimmed) return;
+          skills.push(trimmed);
+          if (g.skillConfidence) skillConfidence.push(g.skillConfidence[index] ?? 0.5);
+          if (g.skillSourceLines) skillSourceLines.push(g.skillSourceLines[index] ?? []);
+        });
+        return {
+          category: g.category?.trim() || null,
+          skills,
+          ...(skillConfidence.length > 0 ? { skillConfidence } : {}),
+          ...(skillSourceLines.length > 0 ? { skillSourceLines } : {}),
+        };
+      })
       .filter((g) => g.skills.length > 0),
     experience: reconciledExperience
-      .map((exp) => ({
-        ...exp,
-        company: exp.company?.trim() || null,
-        title: exp.title?.trim() || null,
-        achievements: exp.achievements.map((a) => a.trim()).filter(Boolean),
-        technologies: exp.technologies.map((t) => t.trim()).filter(Boolean),
-      }))
+      .map((exp) => {
+        const paired = exp.achievements
+          .map((achievement, index) => ({
+            text: achievement.trim(),
+            sourceLines: exp.achievementSourceLines?.[index] ?? [],
+          }))
+          .filter((achievement) => achievement.text.length > 0);
+        return {
+          ...exp,
+          company: exp.company?.trim() || null,
+          title: exp.title?.trim() || null,
+          achievements: paired.map((achievement) => achievement.text),
+          achievementSourceLines: paired.map((achievement) => achievement.sourceLines),
+          technologies: exp.technologies.map((t) => t.trim()).filter(Boolean),
+        };
+      })
       .filter((exp) => exp.company || exp.title || exp.achievements.length > 0),
     education: input.education.filter((e) => e.institution?.trim()),
     certifications: input.certifications.filter((c) => c.name.trim()),
