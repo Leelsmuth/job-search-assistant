@@ -25,17 +25,17 @@ export function computeConfidenceScores(
       ? 0.62
       : 0.2;
 
-  const experience =
+  const experienceRatio =
     resume.experience.length > 0
-      ? Math.max(
-          0.4,
-          Math.min(
-            1,
-            resume.experience.reduce((n, e) => n + (e.achievements.length > 0 ? 1 : 0.5), 0) /
-              resume.experience.length
-          ) - warningPenalty
-        )
+      ? resume.experience.reduce((n, e) => n + (e.achievements.length > 0 ? 1 : 0.5), 0) /
+        resume.experience.length
+      : 0;
+  const missingRole = resume.experience.some((role) => !role.title?.trim() || !role.company?.trim());
+  let experience =
+    resume.experience.length > 0
+      ? Math.max(0, Math.min(1, experienceRatio) - warningPenalty)
       : 0.2;
+  if (missingRole) experience = Math.min(experience, 0.4);
 
   const education = resume.education.length > 0 ? 0.75 - warningPenalty : 0.3;
   const certifications =
@@ -59,6 +59,28 @@ export function computeConfidenceScores(
 
 function roundScore(n: number): number {
   return Math.round(Math.max(0, Math.min(1, n)) * 100) / 100;
+}
+
+export function experienceGapWarnings(resume: ParsedResume): ParseWarning[] {
+  const warnings: ParseWarning[] = [];
+  resume.experience.forEach((role, index) => {
+    const label = role.company?.trim() || role.title?.trim() || `Role ${index + 1}`;
+    if (!role.title?.trim()) {
+      warnings.push({
+        code: "missing_title",
+        message: `${label} is missing a job title.`,
+        fieldPath: `experience.${index}.title`,
+      });
+    }
+    if (!role.company?.trim()) {
+      warnings.push({
+        code: "missing_company",
+        message: `${label} is missing a company.`,
+        fieldPath: `experience.${index}.company`,
+      });
+    }
+  });
+  return warnings;
 }
 
 export function mergeWarnings(

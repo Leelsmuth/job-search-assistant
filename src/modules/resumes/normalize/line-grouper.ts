@@ -5,6 +5,11 @@ const COLUMN_GAP = 36;
 const WORD_GAP = 1.25;
 
 const ORPHAN_BULLET = /^[•●◦∙·▪‣]\s*$/;
+const ROLE_HEADING = /^(key contributions|highlights|selected achievements|responsibilities)$/i;
+const DATE_LINE =
+  /^(?:\d{1,2}\/\d{4}|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4})\b/i;
+const SECTION_LINE =
+  /^(professional summary|core technical skills|technical skills|work experience|professional experience|education|certifications|projects)\b/i;
 
 export type GroupedLine = {
   text: string;
@@ -84,11 +89,41 @@ function lineFromItems(items: ExtractedTextItem[], text: string): GroupedLine {
   };
 }
 
-function canOwnBullet(text: string): boolean {
-  const trimmed = text.trim();
-  if (trimmed.length < 12) return false;
-  if (/^(key contributions|highlights|responsibilities)$/i.test(trimmed)) return false;
-  return true;
+function contentIndent(line: GroupedLine): number | null {
+  const xs = line.items
+    .filter((item) => !ORPHAN_BULLET.test(item.text.trim()) && typeof item.x === "number")
+    .map((item) => item.x as number);
+  if (xs.length === 0) return null;
+  return Math.min(...xs);
+}
+
+function sameIndent(left: GroupedLine, right: GroupedLine): boolean {
+  const a = contentIndent(left);
+  const b = contentIndent(right);
+  if (a === null || b === null) return false;
+  return Math.abs(a - b) <= 4;
+}
+
+function canOwnBullet(textLine: GroupedLine, bulletLine: GroupedLine): boolean {
+  const trimmed = textLine.text.trim();
+  if (trimmed.length < 8 || ORPHAN_BULLET.test(trimmed)) return false;
+  if (ROLE_HEADING.test(trimmed) || SECTION_LINE.test(trimmed) || DATE_LINE.test(trimmed)) return false;
+  if (textLine.page !== bulletLine.page) return false;
+  const bulletX = contentIndent(bulletLine);
+  const textX = contentIndent(textLine);
+  if (bulletX === null || textX === null) return trimmed.length >= 12;
+  const dx = textX - bulletX;
+  return dx >= -2 && dx <= 30;
+}
+
+function markBullet(textLine: GroupedLine, bulletLine: GroupedLine, glyphFirst: boolean) {
+  textLine.isBullet = true;
+  if (!/^[-•*–—●]\s+/.test(textLine.text.trim())) {
+    textLine.text = `• ${textLine.text.trim()}`;
+  }
+  textLine.items = glyphFirst
+    ? [...bulletLine.items, ...textLine.items]
+    : [...textLine.items, ...bulletLine.items];
 }
 
 export function attachOrphanBullets(lines: GroupedLine[]): GroupedLine[] {
@@ -101,23 +136,16 @@ export function attachOrphanBullets(lines: GroupedLine[]): GroupedLine[] {
       continue;
     }
 
+    // This resume's extractor emits the glyph after the text line.
     const previous = result.at(-1);
-    if (previous && previous.page === line.page && canOwnBullet(previous.text)) {
-      previous.isBullet = true;
-      if (!/^[-•*–—●]\s+/.test(previous.text.trim())) {
-        previous.text = `• ${previous.text.trim()}`;
-      }
-      previous.items = [...previous.items, ...line.items];
+    if (previous && canOwnBullet(previous, line)) {
+      markBullet(previous, line, false);
       continue;
     }
 
     const next = lines[index + 1];
-    if (next && next.page === line.page && !ORPHAN_BULLET.test(next.text.trim())) {
-      next.isBullet = true;
-      if (!/^[-•*–—●]\s+/.test(next.text.trim())) {
-        next.text = `• ${next.text.trim()}`;
-      }
-      next.items = [...line.items, ...next.items];
+    if (next && canOwnBullet(next, line)) {
+      markBullet(next, line, true);
     }
   }
 
@@ -182,48 +210,60 @@ export function groupItemsIntoLines(items: ExtractedTextItem[]): GroupedLine[] {
   return attachOrphanBullets(lines);
 }
 
+function isHandleOrContact(text: string): boolean {
+  return (
+    /^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(text) ||
+    /@/.test(text) ||
+    /^(?:https?:|mailto:)/i.test(text) ||
+    /^(?:\d{4}|\d{1,2}\/\d{4})(?:\s*[-–—]\s*(?:present|current|\d{4}|\d{1,2}\/\d{4}))?$/i.test(text)
+  );
+}
+
+function isBulletWrap(line: GroupedLine, next: GroupedLine): boolean {
+  if (!line.isBullet || next.isBullet || line.page !== next.page) return false;
+  const nextText = next.text.trim();
+  if (!nextText || ROLE_HEADING.test(nextText) || SECTION_LINE.test(nextText) || DATE_LINE.test(nextText)) {
+    return false;
+  }
+  if (isHandleOrContact(nextText)) return false;
+  return sameIndent(line, next);
+}
+
+function joinText(left: string, right: string, hyphen: boolean): string {
+  if (hyphen) return `${left.trim()}${right.trim()}`;
+  return `${left.trim()} ${right.trim()}`.replace(/[ \t]+/g, " ");
+}
+
 export function mergeWrappedLines(lines: GroupedLine[]): GroupedLine[] {
   const merged: GroupedLine[] = [];
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmed = line.text.trim();
-    const next = lines[i + 1];
+    let line = lines[i];
 
-    const endsWithHyphen = /\w-$/.test(trimmed);
-    const nextText = next?.text.trim() ?? "";
-    const isHandleOrContact =
-      /^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(nextText) ||
-      /@/.test(nextText) ||
-      /^(?:https?:|mailto:)/i.test(nextText) ||
-      /^(?:\d{4}|\d{1,2}\/\d{4})(?:\s*[-–—]\s*(?:present|current|\d{4}|\d{1,2}\/\d{4}))?$/i.test(nextText);
-    const isContinuation =
-      next &&
-      next.page === line.page &&
-      !line.isBullet &&
-      !next.isBullet &&
-      !isHandleOrContact &&
-      !/^[A-Z0-9][A-Z0-9\s|@]+$/.test(nextText) &&
-      /^[a-z(0-9]/.test(nextText);
+    while (i + 1 < lines.length) {
+      const next = lines[i + 1];
+      const trimmed = line.text.trim();
+      const nextText = next.text.trim();
+      const hyphen = /\w-$/.test(trimmed) && next.page === line.page;
+      const lowercaseWrap =
+        next.page === line.page &&
+        !line.isBullet &&
+        !next.isBullet &&
+        !isHandleOrContact(nextText) &&
+        !/^[A-Z0-9][A-Z0-9\s|@]+$/.test(nextText) &&
+        /^[a-z(0-9]/.test(nextText) &&
+        trimmed.length > 0 &&
+        !/[.!?:;]$/.test(trimmed);
+      const bulletWrap = isBulletWrap(line, next);
+      if (!hyphen && !lowercaseWrap && !bulletWrap) break;
 
-    if (endsWithHyphen && next) {
-      merged.push({
+      line = {
         ...line,
-        text: trimmed + next.text.trim(),
+        text: joinText(trimmed, nextText, hyphen),
         items: [...line.items, ...next.items],
-      });
+        isBullet: line.isBullet || next.isBullet,
+      };
       i++;
-      continue;
-    }
-
-    if (isContinuation && trimmed.length > 0 && !/[.!?:;]$/.test(trimmed) && next) {
-      merged.push({
-        ...line,
-        text: `${trimmed} ${next.text.trim()}`,
-        items: [...line.items, ...next.items],
-      });
-      i++;
-      continue;
     }
 
     merged.push(line);

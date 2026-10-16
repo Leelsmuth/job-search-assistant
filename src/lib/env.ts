@@ -128,22 +128,49 @@ export function getSupabaseEnv(): { url: string; anonKey: string } {
   return { url, anonKey };
 }
 
+/**
+ * Read a server env var at call time.
+ * Bracket access keeps Next.js from inlining the build-time value.
+ */
+export function readServerEnv(name: string): string | undefined {
+  const value = process.env[name];
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+export type OpenAiKeyRead =
+  | { ok: true; key: string }
+  | { ok: false; reason: "no_key" | "gate"; gate: "missing" | "placeholder" | "format" };
+
+export function readOpenAiApiKey(): OpenAiKeyRead {
+  const key = readServerEnv("OPENAI_API_KEY");
+  if (!key) return { ok: false, reason: "no_key", gate: "missing" };
+  if (/your-key|placeholder|changeme/i.test(key) || /^xxx+$/i.test(key)) {
+    return { ok: false, reason: "gate", gate: "placeholder" };
+  }
+  if (!key.startsWith("sk-")) return { ok: false, reason: "gate", gate: "format" };
+  return { ok: true, key };
+}
+
+export function getOpenAiApiKey(): string | null {
+  const read = readOpenAiApiKey();
+  return read.ok ? read.key : null;
+}
+
 export const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
 
 /** Chat model for every OpenAI call. `OPENAI_MODEL` overrides the default. */
 export function getOpenAiModel(): string {
-  const model = process.env.OPENAI_MODEL?.trim();
+  const model = readServerEnv("OPENAI_MODEL");
   if (!model) return DEFAULT_OPENAI_MODEL;
   if (/your-model|placeholder|changeme/i.test(model)) return DEFAULT_OPENAI_MODEL;
   return model;
 }
 
-/** True when a real OpenAI key is set. Placeholder values do not count. */
+/** True when a real OpenAI key is visible to this server process right now. */
 export function isOpenAiConfigured(): boolean {
-  const key = process.env.OPENAI_API_KEY?.trim();
-  if (!key) return false;
-  if (/your-key|placeholder|changeme|xxx/i.test(key)) return false;
-  return key.startsWith("sk-");
+  return readOpenAiApiKey().ok;
 }
 
 export function isDatabaseConfigured(): boolean {

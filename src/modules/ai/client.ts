@@ -1,22 +1,17 @@
 import OpenAI from "openai";
 import { z } from "zod";
-import { getOpenAiModel } from "@/lib/env";
+import { getOpenAiApiKey, getOpenAiModel } from "@/lib/env";
 import { hashInput } from "@/lib/utils";
 import { validateTailoringSuggestions, validateDraftAnswerResponse, type TailoringSuggestionInput, type DraftAnswerResult } from "@/modules/ai/schemas";
 import { extractTechnologies } from "@/modules/ingestion/extract-requirements";
 import { selectTailoringBullets, isTailorableBullet } from "@/modules/ai/tailoring-eligibility";
 import { filterExtractedBullets } from "@/modules/resumes/resume-line-classifier";
 
-function isOpenAiConfigured(): boolean {
-  const key = process.env.OPENAI_API_KEY?.trim();
-  if (!key) return false;
-  if (/your-key|placeholder|changeme|xxx/i.test(key)) return false;
-  return key.startsWith("sk-");
+function getOpenAi(): OpenAI | null {
+  const key = getOpenAiApiKey();
+  if (!key) return null;
+  return new OpenAI({ apiKey: key });
 }
-
-const openai = isOpenAiConfigured()
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
 
 export const profileExtractionSchema = z.object({
   displayName: z.string().optional(),
@@ -67,6 +62,7 @@ export type ProfileExtraction = z.infer<typeof profileExtractionSchema>;
 export async function extractProfileFromResume(
   resumeText: string
 ): Promise<ProfileExtraction | null> {
+  const openai = getOpenAi();
   if (!openai) {
     return extractProfileHeuristic(resumeText);
   }
@@ -186,6 +182,7 @@ export async function generateTailoringSuggestions(
     }).filter((s) => s.suggestedText.trim() !== s.originalText.trim());
   };
 
+  const openai = getOpenAi();
   if (!openai) {
     return heuristicFallback();
   }
@@ -389,6 +386,7 @@ export async function draftApplicationAnswer(
   const validIds = new Set(evidence.map((e) => e.id));
   const evidenceById = new Map(evidence.map((e) => [e.id, e.evidenceText]));
 
+  const openai = getOpenAi();
   if (!openai) {
     return draftApplicationAnswerHeuristic(
       question,

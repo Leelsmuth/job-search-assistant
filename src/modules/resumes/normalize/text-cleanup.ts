@@ -38,6 +38,7 @@ const SKILL_DICTIONARY = [
   "figma",
   "aria",
   "wcag",
+  "ci/cd",
   "rest",
   "aws",
   "docker",
@@ -100,11 +101,7 @@ function splitCamelBoundaries(token: string): string[] | null {
     .filter(Boolean);
 
   if (parts.length < 2) return null;
-  const safe = parts.every(
-    (part) =>
-      DICTIONARY_SET.has(part.toLowerCase()) ||
-      /^[a-z]{4,}$/i.test(part)
-  );
+  const safe = parts.every((part) => DICTIONARY_SET.has(part.toLowerCase()));
   return safe ? parts : null;
 }
 
@@ -132,13 +129,12 @@ export const SKILL_CATEGORY_HEADING =
 export function isSkillCategoryHeading(text: string): boolean {
   const trimmed = text.trim().replace(/:$/, "");
   if (!trimmed || trimmed.length > 40) return false;
+  if (isKnownSkillToken(trimmed)) return false;
   if (SKILL_CATEGORY_HEADING.test(trimmed)) return true;
-  if (
-    !trimmed.includes(",") &&
-    /&|\b(practices|systems|design|skills)\b/i.test(trimmed) &&
-    !isKnownSkillToken(trimmed)
-  ) {
-    return true;
-  }
+  const tokens = trimmed.split(/\s+/).filter((token) => token !== "&");
+  const mentionsSkill = tokens.some((token) => isKnownSkillToken(token.replace(/[^A-Za-z0-9+#./-]/g, "")));
+  if (mentionsSkill || trimmed.includes(",")) return false;
+  if (/\band\b|&/i.test(trimmed)) return true;
+  if (/\b(practices|systems|design|skills)\b/i.test(trimmed)) return true;
   return false;
 }

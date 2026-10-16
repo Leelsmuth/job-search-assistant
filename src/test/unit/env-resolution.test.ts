@@ -8,6 +8,7 @@ import {
   getSupabaseConfigOrNull,
   formatMissingConfigMessage,
   getOpenAiModel,
+  isOpenAiConfigured,
   DEFAULT_OPENAI_MODEL,
 } from "@/lib/env";
 
@@ -105,5 +106,16 @@ describe("env resolution", () => {
     expect(getOpenAiModel()).toBe("gpt-4.1-mini");
     process.env.OPENAI_MODEL = "placeholder";
     expect(getOpenAiModel()).toBe(DEFAULT_OPENAI_MODEL);
+  });
+
+  it("reads OPENAI_API_KEY at call time and does not reject keys that contain xxx", () => {
+    delete process.env.OPENAI_API_KEY;
+    expect(isOpenAiConfigured()).toBe(false);
+    process.env.OPENAI_API_KEY = "sk-live-key-with-xxx-inside";
+    expect(isOpenAiConfigured()).toBe(true);
+    process.env.OPENAI_API_KEY = "xxx";
+    expect(isOpenAiConfigured()).toBe(false);
+    process.env.OPENAI_API_KEY = "placeholder-key";
+    expect(isOpenAiConfigured()).toBe(false);
   });
 });

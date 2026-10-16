@@ -58,6 +58,10 @@ function dateTextIsValid(text: string | null | undefined): boolean {
   return parseMonthYearToken(text) !== null;
 }
 
+function isCitedUrl(value: string): boolean {
+  return /^(https?:\/\/|mailto:)/i.test(value.trim());
+}
+
 function citedValue(field: { value: string | null; sourceLines: number[] } | undefined): string | null {
   const value = field?.value?.trim();
   return value ? value : null;
@@ -224,6 +228,16 @@ export function verifyParsedResume(resume: ParsedResume, lines: GroupedLine[]): 
       return { keep: !required, match: "none" as const, sourceText: "" };
     }
     sourceLines = citedLines;
+    if (isCitedUrl(value)) {
+      provenance.push({
+        fieldPath,
+        value,
+        sourceLines,
+        sourceText: cited,
+        confidence: 0.9,
+      });
+      return { keep: true, match: "exact" as const, sourceText: cited };
+    }
     const match = fuzzyMatchSource(value, cited);
     if (match === "none") {
       warnings.push({
@@ -362,10 +376,20 @@ export function verifyParsedResume(resume: ParsedResume, lines: GroupedLine[]): 
       if (!dateTextIsValid(endDateText)) endDate = null;
     }
 
+    const companyUrl = role.companyUrl
+      ? cite(
+          `experience.${roleIndex}.companyUrl`,
+          role.companyUrl,
+          (role as { companyUrlSourceLines?: number[] }).companyUrlSourceLines ?? role.sourceLines,
+          false
+        )
+      : null;
+
     return {
       ...role,
       company: company && !company.keep ? null : role.company,
       title: title && !title.keep ? null : role.title,
+      companyUrl: companyUrl && !companyUrl.keep ? null : role.companyUrl,
       achievements,
       achievementSourceLines,
       startDateText,
@@ -395,6 +419,9 @@ export function verifyParsedResume(resume: ParsedResume, lines: GroupedLine[]): 
     cite(`certifications.${index}.name`, cert.name, cert.sourceLines, false);
     if (cert.credentialId) {
       cite(`certifications.${index}.credentialId`, cert.credentialId, cert.sourceLines, false);
+    }
+    if (cert.credentialUrl) {
+      cite(`certifications.${index}.credentialUrl`, cert.credentialUrl, cert.sourceLines, false);
     }
   }
 

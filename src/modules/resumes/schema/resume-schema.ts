@@ -59,6 +59,7 @@ export const experienceSchema = z
     isCurrent: z.boolean(),
     achievements: z.array(z.string()),
     technologies: z.array(z.string()),
+    companyUrl: z.string().nullable().optional(),
     sourceEvidence: z.array(sourceEvidenceSchema).default([]),
     sourceLines: z.array(z.number()).optional(),
     achievementSourceLines: z.array(z.array(z.number())).optional(),

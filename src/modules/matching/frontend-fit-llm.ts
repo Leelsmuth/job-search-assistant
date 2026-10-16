@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { z } from "zod";
-import { getOpenAiModel, isOpenAiConfigured } from "@/lib/env";
+import { getOpenAiApiKey, getOpenAiModel, isOpenAiConfigured } from "@/lib/env";
 import {
   scoreFrontendFit,
   type FrontendFitJob,
@@ -38,7 +38,9 @@ export async function maybeEnhanceFrontendFit(
   if (!isFrontendFitAiAvailable()) return unchanged(deterministic);
 
   try {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const apiKey = getOpenAiApiKey();
+    if (!apiKey) return unchanged(deterministic);
+    const openai = new OpenAI({ apiKey });
     const response = await openai.chat.completions.create(
       {
         model: getOpenAiModel(),
