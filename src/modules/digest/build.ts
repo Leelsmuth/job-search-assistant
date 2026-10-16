@@ -8,6 +8,8 @@ import {
   type SearchPreferences,
 } from "@/modules/matching/search-preferences";
 import type { FrontendFitProfile } from "@/modules/matching/frontend-fit";
+import { loadDefaultResumeText } from "@/modules/resume-score/load";
+import { scoreResumeMatch } from "@/modules/resume-score/score";
 import {
   digestHasContent,
   digestSubject,
@@ -106,7 +108,9 @@ export async function buildDigestForUser(db: Db, userId: string, now: Date): Pro
     preferredSeniority: prefs.preferredSeniority,
     minimumSalaryCad: prefs.minimumSalaryCad,
   };
-  if (rows.some((row) => row.fitScore == null)) {
+  const needsProfile = rows.some((row) => row.fitScore == null);
+  const resumeDocument = await loadDefaultResumeText(db, userId);
+  if (needsProfile || resumeDocument) {
     const profileRow = await db.query.candidateProfiles.findFirst({
       where: eq(candidateProfiles.userId, userId),
       columns: { preferredSeniority: true, minimumSalary: true, yearsExperience: true, targetTitles: true },
@@ -119,6 +123,24 @@ export async function buildDigestForUser(db: Db, userId: string, now: Date): Pro
       yearsExperience: profileRow?.yearsExperience,
       minimumSalaryCad: prefs.minimumSalaryCad ?? profileRow?.minimumSalary ?? null,
     };
+  }
+
+  const resumeScores = new Map<string, number>();
+  if (resumeDocument) {
+    for (const row of rows) {
+      resumeScores.set(
+        row.id,
+        scoreResumeMatch(
+          {
+            title: row.title,
+            description: row.description,
+            technologies: row.technologies,
+          },
+          { text: resumeDocument.text, fileType: resumeDocument.fileType },
+          { skills: profile.skills, yearsExperience: profile.yearsExperience }
+        ).overall
+      );
+    }
   }
 
   const matches = selectDigestJobs({
@@ -142,6 +164,7 @@ export async function buildDigestForUser(db: Db, userId: string, now: Date): Pro
       frontendFitReasons: row.frontendFitReasons,
       fitScore: row.fitScore,
       fitEligible: row.fitEligible,
+      resumeScore: resumeScores.get(row.id) ?? null,
     })),
     visibility: prefs,
     gtaCities: prefs.gtaCities,

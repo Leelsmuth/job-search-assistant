@@ -1,0 +1,16 @@
+Alex Chen
+alex@example.com
+
+Summary
+Senior frontend engineer.
+
+Experience
+Senior Frontend Engineer, Northwind
+Jan 2020 - Present
+- Built React and TypeScript interfaces for product teams.
+
+Skills
+React, TypeScript, JavaScript, CSS, HTML
+
+Education
+University of Toronto, 2018

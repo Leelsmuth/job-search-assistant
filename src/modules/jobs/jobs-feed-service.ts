@@ -21,6 +21,8 @@ import {
   type JobsFeedCursor,
   type JobsFeedResult,
 } from "./job-list-item";
+import { loadDefaultResumeText } from "@/modules/resume-score/load";
+import { scoreResumeMatch } from "@/modules/resume-score/score";
 import { estimatePayloadBytes } from "@/lib/performance/measure-operation";
 import { measureOperation } from "@/lib/performance/measure-operation";
 import { DISCOVERY_SOURCE_IDS } from "@/modules/discovery/source-catalog";
@@ -123,6 +125,9 @@ function applyInMemoryFilters(
       const scoreA = freshnessRankScore(feedScore(a), a.postedAt ?? a.dateDiscovered, now);
       const scoreB = freshnessRankScore(feedScore(b), b.postedAt ?? b.dateDiscovered, now);
       if (scoreB !== scoreA) return scoreB - scoreA;
+      const resumeA = a.resumeScore ?? -1;
+      const resumeB = b.resumeScore ?? -1;
+      if (resumeB !== resumeA) return resumeB - resumeA;
       return feedScore(b) - feedScore(a);
     });
   } else if (filters?.sort === "newest") {
@@ -272,6 +277,7 @@ export async function fetchJobsFeed(
       const preferences =
         filters?.locationView ?? (await loadSearchPreferences(db, userId));
       const profile = await loadFitProfile(db, userId);
+      const resumeDocument = await loadDefaultResumeText(db, userId);
       let mapped: JobListItem[] = rows.map((row) => {
         const item = mapRowToJobListItem(row);
         const location = classifyLocationEligibility(
@@ -316,6 +322,21 @@ export async function fetchJobsFeed(
             : item.frontendFit,
           fitEligible: fit ? fit.eligible : item.fitEligible,
           fitIneligibleReason: fit ? fit.ineligibleReason : item.fitIneligibleReason,
+          resumeScore: resumeDocument
+            ? scoreResumeMatch(
+                {
+                  title: item.title,
+                  description: row.description,
+                  technologies: item.technologies,
+                  requirements: item.requirements,
+                },
+                { text: resumeDocument.text, fileType: resumeDocument.fileType },
+                {
+                  skills: profile.skills,
+                  yearsExperience: profile.yearsExperience,
+                }
+              ).overall
+            : null,
         };
       });
       const minFitToShow = preferences.minFitToShow;

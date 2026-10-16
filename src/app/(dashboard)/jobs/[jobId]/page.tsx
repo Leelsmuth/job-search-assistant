@@ -19,6 +19,8 @@ import { LazyApplicationQAPanel } from "./lazy-application-qa-panel";
 import { MatchTabActions } from "./match-tab-actions";
 import { MatchHistoryPanel } from "@/components/jobs/match-history-panel";
 import { FrontendFitCard } from "@/components/jobs/frontend-fit-card";
+import { ResumeMatchPanel } from "@/components/jobs/resume-match-panel";
+import { ResumeScoreBadge } from "@/components/jobs/resume-score-badge";
 import { isOpenAiConfigured } from "@/lib/env";
 import { JobSourceBadge } from "@/components/jobs/job-source-badge";
 import { sourceCredit } from "@/modules/discovery/source-catalog";
@@ -68,7 +70,7 @@ export default async function JobDetailPage({
   const pageData = await getJobDetailPageData(jobId);
   if (!pageData) notFound();
 
-  const { job, application, profileUpdatedAt, matchHistory, frontendFit, location } = pageData;
+  const { job, application, profileUpdatedAt, matchHistory, frontendFit, location, resumeMatch } = pageData;
 
   const match = job.matchAnalyses[0];
   const credit = sourceCredit(job.source?.provider);
@@ -128,12 +130,21 @@ export default async function JobDetailPage({
           <div className="flex shrink-0 flex-col items-end gap-2 text-right">
             <div className="text-3xl font-bold leading-none">{frontendFit.score}</div>
             <span className="text-xs text-muted-foreground">fit</span>
+            {resumeMatch ? (
+              <>
+                <div className="text-xl font-bold leading-none">{resumeMatch.score.overall}</div>
+                <span className="text-xs text-muted-foreground">ATS</span>
+                <ResumeScoreBadge score={resumeMatch.score.overall} />
+              </>
+            ) : null}
             {frontendFit.eligible === false ? (
               <Badge className="bg-amber-100 text-amber-900">Ineligible</Badge>
             ) : null}
           </div>
         </div>
       </div>
+
+      <ResumeMatchPanel jobId={job.id} initial={resumeMatch} />
 
       <FrontendFitCard
         jobId={job.id}

@@ -47,6 +47,32 @@ function reminder(overrides: Partial<DigestReminderSource> = {}): DigestReminder
 }
 
 describe("digest selection", () => {
+  it("breaks a fit-score tie with the resume ATS score", () => {
+    const selected = selectDigestJobs({
+      jobs: [
+        job({
+          id: "lower-ats",
+          title: "Frontend Engineer",
+          fitScore: 80,
+          resumeScore: 40,
+          dateDiscovered: new Date("2026-10-14T11:00:00.000Z"),
+        }),
+        job({
+          id: "higher-ats",
+          title: "Frontend Engineer",
+          fitScore: 80,
+          resumeScore: 90,
+          dateDiscovered: new Date("2026-10-14T11:00:00.000Z"),
+        }),
+      ],
+      visibility: VISIBILITY,
+      gtaCities: VISIBILITY.gtaCities,
+      profile: { targetTitles: ["Frontend Engineer"] },
+    });
+    expect(selected.map((item) => item.id)).toEqual(["higher-ats", "lower-ats"]);
+    expect(selected[0]?.resumeScore).toBe(90);
+  });
+
   it("uses the Toronto calendar date", () => {
     expect(torontoCalendarDate(new Date("2026-10-14T03:30:00.000Z"))).toBe("2026-10-13");
     expect(torontoCalendarDate(NOW)).toBe("2026-10-14");

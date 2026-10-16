@@ -61,6 +61,7 @@ import { mapParsedResumeToProfile } from "@/modules/resumes/map/candidate-profil
 import * as resumeActions from "@/server/actions/resume-actions";
 import type { ParsedResume } from "@/modules/resumes/schema/resume-schema";
 import { fetchJobsFeed, countAllUserJobs, type JobsFeedFilters } from "@/modules/jobs/jobs-feed-service";
+import { loadResumeMatch } from "@/modules/resume-score/load";
 import { scoreJobFit } from "@/modules/matching/fit-score";
 import { resolveSharedTargets } from "@/modules/matching/shared-targets";
 import { replaceCandidateSkills, rescoreUserJobs } from "@/modules/matching/rescore-jobs";
@@ -648,6 +649,33 @@ export async function getJobDetailPageData(jobId: string) {
       };
       const location = fit.location;
 
+      const resumeMatch = await loadResumeMatch(
+        db,
+        user.id,
+        {
+          id: job.id,
+          title: job.title,
+          companyName: job.company?.name ?? null,
+          description: job.description,
+          technologies: job.technologies,
+          requiredQualifications: job.requiredQualifications,
+          preferredQualifications: job.preferredQualifications,
+          requirements: job.requirements.map((requirement) => ({
+            text: requirement.text,
+            normalizedSkill: requirement.normalizedSkill,
+            importance: requirement.importance,
+          })),
+        },
+        profile
+          ? {
+              id: profile.id,
+              yearsExperience: profile.yearsExperience,
+              skills: profile.skills.map((skill) => skill.name),
+              titles: [],
+            }
+          : null
+      );
+
       const application = await getApplicationForJob(db, user.id, jobId);
       const profileUpdatedAt = await getProfileUpdatedAt(db, user.id);
       const matchHistory = await db.query.matchAnalyses.findMany({
@@ -670,6 +698,7 @@ export async function getJobDetailPageData(jobId: string) {
         matchHistory,
         frontendFit,
         location,
+        resumeMatch,
       };
 
       return {
