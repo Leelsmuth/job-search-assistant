@@ -77,6 +77,8 @@ const CANADA_ELIGIBLE = [
   /\ball countries\b/i,
 ];
 
+const UNITED_STATES = /\b(?:united states|u\.s\.a\.|usa)\b/i;
+
 const US_ONLY = [
   /\b(?:us|u\.s\.|usa|united states)[\s-]*only\b/i,
   /\bonly[\s-]+(?:in[\s-]+)?(?:the[\s-]+)?(?:us|u\.s\.|usa|united states)\b/i,
@@ -108,10 +110,13 @@ const REGION_LOCKED = [
 ];
 
 export type LocationEligibilityInput = {
+  title?: string | null;
   location?: string | null;
   workplaceType?: string | null;
   description?: string | null;
 };
+
+export type WorkMode = "remote" | "hybrid" | "onsite" | "unknown";
 
 export type LocationEligibilityOptions = {
   gtaCities?: readonly string[];
@@ -134,25 +139,30 @@ function locationHaystack(location: string, description: string): string {
   return `${location}\n${description.slice(0, 1600)}\n${description.slice(-900)}`;
 }
 
-function arrangement(input: LocationEligibilityInput): "remote" | "hybrid" | "onsite" {
+function headingText(input: LocationEligibilityInput): string {
+  return `${input.title ?? ""}\n${input.location ?? ""}`;
+}
+
+/** Explicit remote / hybrid / on-site signal from the title, location, workplace, or description. */
+export function inferWorkMode(input: LocationEligibilityInput): WorkMode {
   const workplace = (input.workplaceType ?? "").toLowerCase();
-  const location = input.location ?? "";
+  const heading = headingText(input);
   const description = input.description ?? "";
 
   if (
     workplace === "remote" ||
-    /\bremote\b/i.test(location) ||
-    /\bwork from anywhere\b/i.test(location) ||
-    /\bworldwide\b/i.test(location)
+    /\bremote\b/i.test(heading) ||
+    /\bwork from anywhere\b/i.test(heading) ||
+    /\bworldwide\b/i.test(heading)
   ) {
     return "remote";
   }
-  if (workplace === "hybrid" || /\bhybrid\b/i.test(location)) return "hybrid";
+  if (workplace === "hybrid" || /\bhybrid\b/i.test(heading)) return "hybrid";
   if (
     workplace === "on_site" ||
     workplace === "onsite" ||
-    /\bon-?site\b/i.test(location) ||
-    /\bin[- ]office\b/i.test(location)
+    /\bon-?site\b/i.test(heading) ||
+    /\bin[- ]office\b/i.test(heading)
   ) {
     return "onsite";
   }
@@ -165,6 +175,20 @@ function arrangement(input: LocationEligibilityInput): "remote" | "hybrid" | "on
   ) {
     return "remote";
   }
+  if (/\bon-?site\b/i.test(description) || /\bin[- ]office\b/i.test(description)) return "onsite";
+  return "unknown";
+}
+
+export function workplaceTypeFromMode(mode: WorkMode): "remote" | "hybrid" | "on_site" | null {
+  if (mode === "remote") return "remote";
+  if (mode === "hybrid") return "hybrid";
+  if (mode === "onsite") return "on_site";
+  return null;
+}
+
+function arrangement(input: LocationEligibilityInput): "remote" | "hybrid" | "onsite" {
+  const mode = inferWorkMode(input);
+  if (mode === "remote" || mode === "hybrid" || mode === "onsite") return mode;
   return "onsite";
 }
 
@@ -187,7 +211,7 @@ export function classifyLocationEligibility(
 ): LocationEligibility {
   const location = input.location ?? "";
   const description = input.description ?? "";
-  const text = locationHaystack(location, description);
+  const text = locationHaystack(`${input.title ?? ""}\n${location}`, description);
   const mode = arrangement(input);
   const cities = options?.gtaCities?.length ? options.gtaCities : DEFAULT_GTA_CITIES;
   const usOrCanada = US_OR_CANADA.test(text);
@@ -211,6 +235,13 @@ export function classifyLocationEligibility(
         "remote_other",
         ["us_work_authorization"],
         "Remote role requires US work authorization"
+      );
+    }
+    if (UNITED_STATES.test(text) && !canadaEligible && !usOrCanada) {
+      return result(
+        "remote_other",
+        ["us_only"],
+        "Remote role is limited to the United States"
       );
     }
     if (regionLocked) {

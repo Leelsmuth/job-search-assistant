@@ -21,6 +21,8 @@ export default async function JobsPage({
     search?: string;
     discoveredSince?: "24h" | "7d";
     strongUnseen?: string;
+    showLowFit?: string;
+    showIneligible?: string;
     showRemoteOther?: string;
     showOutOfArea?: string;
     includeHybrid?: string;
@@ -49,6 +51,8 @@ export default async function JobsPage({
     search: params.search,
     discoveredSince: params.discoveredSince,
     strongUnseenOnly: params.strongUnseen === "true",
+    showLowFit: params.showLowFit === "true",
+    showIneligible: params.showIneligible === "true",
     locationView,
   };
 
@@ -79,6 +83,11 @@ export default async function JobsPage({
           includeHybridGta: locationView.includeHybridGta,
           includeOnsiteGta: locationView.includeOnsiteGta,
         }}
+        lowFitCount={feed.lowFitCount}
+        ineligibleCount={feed.ineligibleCount}
+        minFitToShow={feed.minFitToShow}
+        showLowFit={params.showLowFit === "true"}
+        showIneligible={params.showIneligible === "true"}
       />
 
       {jobs.length === 0 ? (

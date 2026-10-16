@@ -38,6 +38,8 @@ export async function buildDigestForUser(db: Db, userId: string, now: Date): Pro
       targetTitles: true,
       preferredSeniority: true,
       minimumSalaryCad: true,
+      minFitToShow: true,
+      digestMinFit: true,
       includeHybridGta: true,
       includeOnsiteGta: true,
       showRemoteOther: true,
@@ -90,6 +92,8 @@ export async function buildDigestForUser(db: Db, userId: string, now: Date): Pro
       locationEligibility: true,
       frontendFitScore: true,
       frontendFitReasons: true,
+      fitScore: true,
+      fitEligible: true,
     },
     with: {
       company: { columns: { name: true } },
@@ -101,16 +105,17 @@ export async function buildDigestForUser(db: Db, userId: string, now: Date): Pro
     preferredSeniority: prefs.preferredSeniority,
     minimumSalaryCad: prefs.minimumSalaryCad,
   };
-  if (rows.some((row) => row.frontendFitScore == null)) {
+  if (rows.some((row) => row.fitScore == null)) {
     const profileRow = await db.query.candidateProfiles.findFirst({
       where: eq(candidateProfiles.userId, userId),
-      columns: { preferredSeniority: true, minimumSalary: true },
+      columns: { preferredSeniority: true, minimumSalary: true, yearsExperience: true, targetTitles: true },
       with: { skills: { columns: { name: true } } },
     });
     profile = {
       skills: profileRow?.skills.map((skill) => skill.name) ?? [],
-      targetTitles: prefs.targetTitles,
+      targetTitles: prefs.targetTitles.length > 0 ? prefs.targetTitles : (profileRow?.targetTitles as string[] | undefined),
       preferredSeniority: prefs.preferredSeniority ?? profileRow?.preferredSeniority,
+      yearsExperience: profileRow?.yearsExperience,
       minimumSalaryCad: prefs.minimumSalaryCad ?? profileRow?.minimumSalary ?? null,
     };
   }
@@ -133,10 +138,13 @@ export async function buildDigestForUser(db: Db, userId: string, now: Date): Pro
       locationEligibility: row.locationEligibility,
       frontendFitScore: row.frontendFitScore,
       frontendFitReasons: row.frontendFitReasons,
+      fitScore: row.fitScore,
+      fitEligible: row.fitEligible,
     })),
     visibility: prefs,
     gtaCities: prefs.gtaCities,
     profile,
+    minScore: prefs.digestMinFit,
   });
 
   const tracked = await listTrackedApplications(db, userId, now);

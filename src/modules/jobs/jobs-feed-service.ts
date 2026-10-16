@@ -10,6 +10,7 @@ import {
   type LocationClass,
 } from "@/modules/location/eligibility";
 import { scoreFrontendFit } from "@/modules/matching/frontend-fit";
+import { nonEngineeringReason } from "@/modules/matching/fit-score";
 import { loadSearchPreferences } from "@/modules/matching/load-search-preferences";
 import type { SearchPreferences } from "@/modules/matching/search-preferences";
 import {
@@ -36,6 +37,8 @@ export type JobsFeedFilters = {
   discoveredSince?: "24h" | "7d";
   includeDismissed?: boolean;
   strongUnseenOnly?: boolean;
+  showLowFit?: boolean;
+  showIneligible?: boolean;
   limit?: number;
   cursor?: JobsFeedCursor;
   /** When set, hide locations the user has not opted into and rank Remote-Canada first. */
@@ -60,9 +63,17 @@ function applyInMemoryFilters(
 
   if (filters?.locationView) {
     const view = filters.locationView;
-    filtered = filtered.filter((job) =>
-      isLocationVisible(resolveLocationClass(job, view), view)
-    );
+    filtered = filtered.filter((job) => {
+      if (isRoleIneligible(job) && !filters.showIneligible) return false;
+      return isLocationVisible(resolveLocationClass(job, view), view);
+    });
+  } else if (!filters?.showIneligible) {
+    filtered = filtered.filter((job) => !isRoleIneligible(job));
+  }
+
+  const minFit = filters?.locationView?.minFitToShow ?? 50;
+  if (!filters?.showLowFit) {
+    filtered = filtered.filter((job) => feedScore(job) >= Math.max(minFit, filters?.minScore ?? 0));
   }
 
   if (filters?.minScore) {
@@ -189,6 +200,12 @@ export async function fetchJobsFeed(
           technologies: true,
           locationEligibility: true,
           locationFlags: true,
+          description: true,
+          fitScore: true,
+          fitEligible: true,
+          fitIneligibleReason: true,
+          frontendFitScore: true,
+          frontendFitReasons: true,
           isSaved: true,
           status: true,
           dateDiscovered: true,
@@ -227,35 +244,58 @@ export async function fetchJobsFeed(
       const profile = await loadFitProfile(db, userId);
       let mapped: JobListItem[] = rows.map((row) => {
         const item = mapRowToJobListItem(row);
-        const location = isLocationClass(item.locationClass)
-          ? { class: item.locationClass, flags: item.locationFlags }
-          : classifyLocationEligibility(
-              { location: item.location, workplaceType: item.workplaceType },
-              { gtaCities: preferences.gtaCities }
-            );
-        const fit = scoreFrontendFit(
+        const location = classifyLocationEligibility(
           {
             title: item.title,
-            technologies: item.technologies,
-            requirements: item.requirements,
-            salaryMin: item.salaryMin,
-            salaryMax: item.salaryMax,
-            salaryCurrency: item.salaryCurrency,
+            location: item.location,
+            workplaceType: item.workplaceType,
+            description: row.description,
           },
-          {
-            skills: profile.skills,
-            targetTitles: preferences.targetTitles,
-            preferredSeniority: preferences.preferredSeniority ?? profile.preferredSeniority,
-            minimumSalaryCad: preferences.minimumSalaryCad ?? profile.minimumSalary,
-          }
+          { gtaCities: preferences.gtaCities }
         );
+        const storedScore = item.frontendFit?.score;
+        const fit =
+          storedScore == null
+            ? scoreFrontendFit(
+                {
+                  title: item.title,
+                  description: row.description,
+                  location: item.location,
+                  workplaceType: item.workplaceType,
+                  technologies: item.technologies,
+                  requirements: item.requirements,
+                  salaryMin: item.salaryMin,
+                  salaryMax: item.salaryMax,
+                  salaryCurrency: item.salaryCurrency,
+                },
+                {
+                  skills: profile.skills,
+                  targetTitles: preferences.targetTitles,
+                  yearsExperience: profile.yearsExperience,
+                  minimumSalaryCad: preferences.minimumSalaryCad ?? profile.minimumSalary,
+                },
+                preferences.gtaCities
+              )
+            : null;
         return {
           ...item,
           locationClass: location.class,
           locationFlags: location.flags,
-          frontendFit: { score: fit.score, reasons: fit.reasons },
+          frontendFit: fit
+            ? { score: fit.score, reasons: fit.reasons }
+            : item.frontendFit,
+          fitEligible: fit ? fit.eligible : item.fitEligible,
+          fitIneligibleReason: fit ? fit.ineligibleReason : item.fitIneligibleReason,
         };
       });
+      const minFitToShow = preferences.minFitToShow;
+      const lowFitCount = mapped.filter(
+        (job) =>
+          !isRoleIneligible(job) &&
+          isLocationVisible(resolveLocationClass(job, preferences), preferences) &&
+          feedScore(job) < minFitToShow
+      ).length;
+      const ineligibleCount = mapped.filter((job) => isRoleIneligible(job)).length;
       mapped = applyInMemoryFilters(mapped, filters);
 
       const hasMore = mapped.length > limit;
@@ -278,6 +318,9 @@ export async function fetchJobsFeed(
         totalCount: page.length,
         hasMore,
         nextCursor,
+        lowFitCount,
+        ineligibleCount,
+        minFitToShow,
       };
       result.payloadBytes = estimatePayloadBytes(result);
       return result;
@@ -291,7 +334,12 @@ export async function fetchJobsFeed(
 }
 
 function feedScore(job: JobListItem): number {
-  return job.frontendFit?.score ?? job.match?.overallScore ?? 0;
+  return job.frontendFit?.score ?? 0;
+}
+
+function isRoleIneligible(job: JobListItem): boolean {
+  if (job.fitIneligibleReason?.startsWith("Not an engineering role")) return true;
+  return nonEngineeringReason(job.title) != null;
 }
 
 function resolveLocationClass(job: JobListItem, prefs?: SearchPreferences): LocationClass {
@@ -306,10 +354,11 @@ async function loadFitProfile(db: Db, userId: string): Promise<{
   skills: string[];
   preferredSeniority: string | null;
   minimumSalary: number | null;
+  yearsExperience: number | null;
 }> {
   const row = await db.query.candidateProfiles.findFirst({
     where: eq(candidateProfiles.userId, userId),
-    columns: { preferredSeniority: true, minimumSalary: true },
+    columns: { preferredSeniority: true, minimumSalary: true, yearsExperience: true },
     with: { skills: { columns: { name: true } } },
   });
   const skills = row?.skills?.map((skill) => skill.name) ?? [];
@@ -317,6 +366,7 @@ async function loadFitProfile(db: Db, userId: string): Promise<{
     skills,
     preferredSeniority: row?.preferredSeniority ?? null,
     minimumSalary: row?.minimumSalary ?? null,
+    yearsExperience: row?.yearsExperience ?? null,
   };
 }
 

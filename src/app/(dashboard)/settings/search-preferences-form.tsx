@@ -67,13 +67,43 @@ export function SearchPreferencesForm({ initial }: { initial: SearchPreferences 
             <Input
               id="salary"
               inputMode="numeric"
-              placeholder="Optional"
+              placeholder="140000"
               value={prefs.minimumSalaryCad ?? ""}
               onChange={(event) => {
                 const raw = event.target.value.trim();
                 setPrefs((current) => ({
                   ...current,
                   minimumSalaryCad: raw === "" ? null : Number(raw),
+                }));
+              }}
+            />
+          </div>
+          <div>
+            <Label htmlFor="min-fit">Minimum fit to show</Label>
+            <Input
+              id="min-fit"
+              inputMode="numeric"
+              value={prefs.minFitToShow}
+              onChange={(event) => {
+                const raw = Number(event.target.value);
+                setPrefs((current) => ({
+                  ...current,
+                  minFitToShow: Number.isNaN(raw) ? current.minFitToShow : raw,
+                }));
+              }}
+            />
+          </div>
+          <div>
+            <Label htmlFor="digest-min">Digest minimum</Label>
+            <Input
+              id="digest-min"
+              inputMode="numeric"
+              value={prefs.digestMinFit}
+              onChange={(event) => {
+                const raw = Number(event.target.value);
+                setPrefs((current) => ({
+                  ...current,
+                  digestMinFit: Number.isNaN(raw) ? current.digestMinFit : raw,
                 }));
               }}
             />
@@ -123,6 +153,8 @@ export function SearchPreferencesForm({ initial }: { initial: SearchPreferences 
               targetTitles: titlesText,
               preferredSeniority: prefs.preferredSeniority,
               minimumSalaryCad: prefs.minimumSalaryCad,
+              minFitToShow: prefs.minFitToShow,
+              digestMinFit: prefs.digestMinFit,
               includeHybridGta: prefs.includeHybridGta,
               includeOnsiteGta: prefs.includeOnsiteGta,
               showRemoteOther: prefs.showRemoteOther,

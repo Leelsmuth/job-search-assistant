@@ -112,6 +112,7 @@ export type TrackedApplication = {
   location: string | null;
   workplaceType: string | null;
   locationLabel: string;
+  fitScore: number | null;
   attention: AttentionFlag[];
 };
 

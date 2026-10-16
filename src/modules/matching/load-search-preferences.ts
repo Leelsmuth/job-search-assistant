@@ -12,6 +12,20 @@ const PREFERENCE_COLUMNS = {
   targetTitles: true,
   preferredSeniority: true,
   minimumSalaryCad: true,
+  minFitToShow: true,
+  digestMinFit: true,
+  includeHybridGta: true,
+  includeOnsiteGta: true,
+  showRemoteOther: true,
+  showOutOfArea: true,
+  discoverCuratedBoards: true,
+  gtaCities: true,
+} as const;
+
+const PREFERENCE_COLUMNS_WITHOUT_THRESHOLDS = {
+  targetTitles: true,
+  preferredSeniority: true,
+  minimumSalaryCad: true,
   includeHybridGta: true,
   includeOnsiteGta: true,
   showRemoteOther: true,
@@ -62,11 +76,23 @@ export async function loadSearchPreferences(db: Db, userId: string): Promise<Sea
     });
     return row ? searchPreferencesFromRow(row) : defaultSearchPreferences();
   } catch (error) {
-    if (!isMissingSearchPreferenceColumn(error, "excluded_curated_board_urls")) throw error;
-    const row = await table.findFirst({
-      where: eq(searchPreferences.userId, userId),
-      columns: PREFERENCE_COLUMNS,
-    });
-    return row ? searchPreferencesFromRow(row) : defaultSearchPreferences();
+    if (isMissingSearchPreferenceColumn(error, "excluded_curated_board_urls")) {
+      const row = await table.findFirst({
+        where: eq(searchPreferences.userId, userId),
+        columns: PREFERENCE_COLUMNS,
+      });
+      return row ? searchPreferencesFromRow(row) : defaultSearchPreferences();
+    }
+    if (
+      isMissingSearchPreferenceColumn(error, "min_fit_to_show") ||
+      isMissingSearchPreferenceColumn(error, "digest_min_fit")
+    ) {
+      const row = await table.findFirst({
+        where: eq(searchPreferences.userId, userId),
+        columns: { ...PREFERENCE_COLUMNS_WITHOUT_THRESHOLDS, excludedCuratedBoardUrls: true },
+      });
+      return row ? searchPreferencesFromRow(row) : defaultSearchPreferences();
+    }
+    throw error;
   }
 }

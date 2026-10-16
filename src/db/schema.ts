@@ -12,6 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import type { DigestPayload, DigestSkipReason } from "@/modules/digest/types";
+import type { FitBreakdown } from "@/modules/matching/fit-score";
 
 export const skillCategoryEnum = pgEnum("skill_category", [
   "language",
@@ -334,6 +335,8 @@ export const searchPreferences = pgTable("search_preferences", {
   discoverCuratedBoards: boolean("discover_curated_boards").notNull().default(true),
   excludedCuratedBoardUrls: jsonb("excluded_curated_board_urls").$type<string[]>().notNull().default([]),
   gtaCities: jsonb("gta_cities").$type<string[]>().notNull().default([]),
+  minFitToShow: integer("min_fit_to_show").notNull().default(50),
+  digestMinFit: integer("digest_min_fit").notNull().default(55),
   digestEmailsEnabled: boolean("digest_emails_enabled").notNull().default(true),
   digestLastSentAt: timestamp("digest_last_sent_at"),
   digestLastGeneratedAt: timestamp("digest_last_generated_at"),
@@ -486,6 +489,10 @@ export const jobs = pgTable("jobs", {
   locationFlags: jsonb("location_flags").$type<string[]>().default([]),
   frontendFitScore: real("frontend_fit_score"),
   frontendFitReasons: jsonb("frontend_fit_reasons").$type<string[]>().default([]),
+  fitScore: real("fit_score"),
+  fitBreakdown: jsonb("fit_breakdown").$type<FitBreakdown>().default({} as FitBreakdown),
+  fitEligible: boolean("fit_eligible").notNull().default(true),
+  fitIneligibleReason: text("fit_ineligible_reason"),
   isSaved: boolean("is_saved").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

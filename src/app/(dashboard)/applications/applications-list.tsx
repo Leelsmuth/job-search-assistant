@@ -36,7 +36,10 @@ function ApplicationCard({ application }: { application: TrackedApplication }) {
           <Link href={`/applications/${application.id}`} className="font-semibold leading-snug hover:underline">
             {application.title}
           </Link>
-          <p className="mt-1 text-sm text-muted-foreground">{application.companyName}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {application.companyName}
+            {application.fitScore != null ? ` · Fit ${application.fitScore}` : ""}
+          </p>
           <p className="text-sm text-muted-foreground">{application.locationLabel}</p>
           <JobLinks application={application} />
         </div>
@@ -115,6 +118,9 @@ export function ApplicationsList({ applications }: { applications: TrackedApplic
                   >
                     {application.title}
                   </Link>
+                  {application.fitScore != null ? (
+                    <p className="text-xs text-muted-foreground">Fit {application.fitScore}</p>
+                  ) : null}
                   <JobLinks application={application} />
                   <div className="mt-2">
                     <AttentionBadges flags={application.attention} />

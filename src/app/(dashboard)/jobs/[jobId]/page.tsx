@@ -5,8 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { classificationColor, formatSalary, humanizeMatchStatus } from "@/lib/utils";
-import type { MatchClassification } from "@/lib/utils";
+import { formatSalary, humanizeMatchStatus } from "@/lib/utils";
 import { resolveDisplayTitle } from "@/modules/ingestion/html-text";
 import { computeExtractionQuality } from "@/modules/ingestion/extract-requirements";
 import { isAnalysisStale } from "@/modules/matching/stale";
@@ -69,7 +68,6 @@ export default async function JobDetailPage({
   const { job, application, profileUpdatedAt, matchHistory, frontendFit, location } = pageData;
 
   const match = job.matchAnalyses[0];
-  const classification = match?.classification as MatchClassification | undefined;
   const displayTitle = resolveDisplayTitle(job.title, job.description ?? "");
   const hardFilter = match?.hardFilterResult as
     | { warnings?: string[]; blocks?: string[] }
@@ -113,14 +111,13 @@ export default async function JobDetailPage({
               </a>
             )}
           </div>
-          {match ? (
-            <div className="flex shrink-0 flex-col items-end gap-2 text-right">
-              <div className="text-3xl font-bold leading-none">{Math.round(match.overallScore)}%</div>
-              {classification ? (
-                <Badge className={classificationColor(classification)}>{classification}</Badge>
-              ) : null}
-            </div>
-          ) : null}
+          <div className="flex shrink-0 flex-col items-end gap-2 text-right">
+            <div className="text-3xl font-bold leading-none">{frontendFit.score}</div>
+            <span className="text-xs text-muted-foreground">fit</span>
+            {frontendFit.eligible === false ? (
+              <Badge className="bg-amber-100 text-amber-900">Ineligible</Badge>
+            ) : null}
+          </div>
         </div>
       </div>
 

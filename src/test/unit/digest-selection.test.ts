@@ -116,11 +116,28 @@ describe("digest selection", () => {
     expect(selected[0]?.locationLabel).toContain("Hybrid-GTA");
   });
 
+  it("drops jobs under the digest minimum and ineligible roles", () => {
+    const selected = selectDigestJobs({
+      jobs: [
+        job({ id: "high", title: "Frontend Engineer", fitScore: 80, frontendFitScore: 10 }),
+        job({ id: "edge", title: "UI Engineer", fitScore: 55 }),
+        job({ id: "low", title: "Frontend Engineer", fitScore: 40 }),
+        job({ id: "pm", title: "Product Manager", fitScore: 90, fitEligible: false }),
+      ],
+      visibility: VISIBILITY,
+      gtaCities: VISIBILITY.gtaCities,
+      profile: {},
+      minScore: 55,
+    });
+    expect(selected.map((item) => item.id)).toEqual(["high", "edge"]);
+  });
+
   it("ranks by frontend-fit score and keeps the top 10", () => {
     const jobs = Array.from({ length: 12 }, (_, index) =>
       job({
         id: `job-${index}`,
         title: `Frontend Engineer ${index}`,
+        fitScore: index,
         frontendFitScore: index,
         dateDiscovered: new Date(`2026-10-14T0${index < 10 ? index : 0}:00:00.000Z`),
       })

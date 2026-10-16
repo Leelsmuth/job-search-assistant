@@ -17,6 +17,8 @@ import {
   type ParsedResume,
 } from "@/modules/resumes/schema/resume-schema";
 import { normalizeSkillCategory, extractEvidenceSkills } from "@/modules/candidate/skills";
+import { sanitizeSkills } from "@/modules/candidate/sanitize-skills";
+import { categoryForCanonicalSkill } from "@/modules/candidate/skill-dictionary";
 import { wipeExtractedProfileData } from "@/modules/resumes/profile-wipe";
 import { getOrCreateProfileDb } from "@/server/actions/helpers";
 
@@ -43,13 +45,12 @@ export async function mapParsedResumeToProfile(
     })
     .where(eq(candidateProfiles.id, profile.id));
 
-  const skillRows = cleaned.skillGroups.flatMap((group) =>
-    group.skills.map((skillName) => ({
-      profileId: profile.id,
-      name: skillName,
-      category: normalizeSkillCategory(group.category ?? "other", skillName),
-    }))
-  );
+  const rawSkillNames = cleaned.skillGroups.flatMap((group) => group.skills);
+  const skillRows = sanitizeSkills(rawSkillNames).map((skillName) => ({
+    profileId: profile.id,
+    name: skillName,
+    category: categoryForCanonicalSkill(skillName) ?? normalizeSkillCategory(undefined, skillName),
+  }));
   if (skillRows.length > 0) {
     await db.insert(candidateSkills).values(skillRows);
   }

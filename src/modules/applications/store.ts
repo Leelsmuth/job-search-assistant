@@ -50,6 +50,7 @@ type ApplicationRow = {
     jobUrl: string | null;
     location: string | null;
     workplaceType: string | null;
+    fitScore?: number | null;
     company: { name: string } | null;
   } | null;
   events: Array<{ createdAt: Date; eventDate: Date | null }>;
@@ -78,6 +79,7 @@ function toTracked(row: ApplicationRow, now: Date): TrackedApplication {
     location: job?.location ?? null,
     workplaceType: job?.workplaceType ?? null,
     locationLabel: formatWorkLocation(job?.location, job?.workplaceType),
+    fitScore: job?.fitScore ?? null,
     attention: attentionFor({
       status: row.status,
       dateApplied: row.dateApplied,
