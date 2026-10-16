@@ -217,6 +217,25 @@ async function loadProfileForFilter(db: Db, userId: string): Promise<CandidatePr
   };
 }
 
+export async function fetchBoardListing(board: {
+  boardUrl: string;
+  provider: JobSourceProvider;
+  companyName: string;
+}): Promise<{ boardUrl: string; jobs: NormalizedJob[] }> {
+  const parsed = normalizeBoardUrl(board.boardUrl, board.provider);
+  const adapter =
+    getAdapterForProvider(board.provider) ?? (await detectBestAdapter(parsed.boardUrl));
+  // Adapters enforce the SSRF guard (public http(s) only, Workday host check).
+  const raw = await measureOperation("ats.adapter.fetch", () => adapter.fetch(parsed.boardUrl), {
+    source: "ats",
+    recordCount: 1,
+  });
+  const jobs = normalizeBoardJobs(raw).map((job) =>
+    board.provider === "workday" ? { ...job, company: board.companyName || job.company } : job
+  );
+  return { boardUrl: parsed.boardUrl, jobs };
+}
+
 export async function pollSavedBoard(
   db: Db,
   userId: string,
@@ -225,6 +244,7 @@ export async function pollSavedBoard(
     boardUrl: string;
     provider: JobSourceProvider;
     companyName: string;
+    listing?: { boardUrl: string; jobs: NormalizedJob[] };
   },
   caps: { remainingNewJobs: number },
   profile?: CandidateProfile,
@@ -242,20 +262,13 @@ export async function pollSavedBoard(
         filtered: 0,
       };
 
-      const parsed = normalizeBoardUrl(board.boardUrl, board.provider);
-      const adapter =
-        getAdapterForProvider(board.provider) ?? (await detectBestAdapter(parsed.boardUrl));
-
-      const raw = await measureOperation(
-        "ats.adapter.fetch",
-        () => adapter.fetch(parsed.boardUrl),
-        { source: "ats", recordCount: 1 }
-      );
-      const normalizedJobs = normalizeBoardJobs(raw).map((job) =>
-        board.provider === "workday"
-          ? { ...job, company: board.companyName || job.company }
-          : job
-      );
+      const listing = board.listing;
+      const parsed = listing
+        ? { boardUrl: listing.boardUrl }
+        : normalizeBoardUrl(board.boardUrl, board.provider);
+      const normalizedJobs = listing
+        ? listing.jobs
+        : (await fetchBoardListing(board)).jobs;
 
       if (board.provider === "workday") {
         await importWorkdayJobs(
@@ -314,6 +327,7 @@ export async function pollBoardsForUser(
     boardUrl: string;
     provider: JobSourceProvider;
     companyName: string;
+    listing?: { boardUrl: string; jobs: NormalizedJob[] };
   }>,
   globalCaps: { remainingNewJobs: number },
   options?: { trackSavedBoard?: boolean }

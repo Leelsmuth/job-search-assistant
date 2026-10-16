@@ -2,6 +2,17 @@ export const CRON_MAX_BOARDS_PER_RUN = 20;
 /** One match at a time. The cron runs inside a single pooled connection. */
 export const CRON_MATCH_CONCURRENCY = 1;
 export const CRON_BOARD_DELAY_MS = 500;
+/**
+ * Hobby functions can run for 300s. Stay under that so the follow-up request
+ * still starts after the batch, and so a slow Workday board cannot fill the cap.
+ */
+export const DISCOVER_BATCH_BUDGET_MS = 240_000;
+/** Greenhouse, Lever, and Ashby board fetches. */
+export const FAST_BOARD_ESTIMATE_MS = 10_000;
+/** Workday keyword search plus detail fetches. Observed around 16–45s, sometimes longer. */
+export const WORKDAY_BOARD_ESTIMATE_MS = 70_000;
+/** Extra users attach jobs from a listing that was already fetched. */
+export const EXTRA_RECIPIENT_ESTIMATE_MS = 2_000;
 export const CRON_MAX_NEW_JOBS_PER_RUN = Number(
   process.env.CRON_MAX_NEW_JOBS_PER_RUN ?? 50
 );

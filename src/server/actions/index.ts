@@ -346,7 +346,19 @@ export async function saveSearchPreferences(input: SearchPreferenceInput): Promi
   const user = await requireUser();
   const prefs = normalizeSearchPreferences(input);
   await withUserDb(user.id, async (db) => {
-    const values = {
+    const values: {
+      targetTitles: string[];
+      preferredSeniority: SearchPreferences["preferredSeniority"];
+      minimumSalaryCad: number | null;
+      includeHybridGta: boolean;
+      includeOnsiteGta: boolean;
+      showRemoteOther: boolean;
+      showOutOfArea: boolean;
+      gtaCities: string[];
+      updatedAt: Date;
+      discoverCuratedBoards?: boolean;
+      excludedCuratedBoardUrls?: string[];
+    } = {
       targetTitles: prefs.targetTitles,
       preferredSeniority: prefs.preferredSeniority,
       minimumSalaryCad: prefs.minimumSalaryCad,
@@ -354,13 +366,22 @@ export async function saveSearchPreferences(input: SearchPreferenceInput): Promi
       includeOnsiteGta: prefs.includeOnsiteGta,
       showRemoteOther: prefs.showRemoteOther,
       showOutOfArea: prefs.showOutOfArea,
-      discoverCuratedBoards: prefs.discoverCuratedBoards,
       gtaCities: prefs.gtaCities,
       updatedAt: new Date(),
     };
+    if (typeof input.discoverCuratedBoards === "boolean") {
+      values.discoverCuratedBoards = input.discoverCuratedBoards;
+    }
+    if (input.excludedCuratedBoardUrls !== undefined) {
+      values.excludedCuratedBoardUrls = prefs.excludedCuratedBoardUrls;
+    }
     await db
       .insert(searchPreferences)
-      .values({ userId: user.id, ...values })
+      .values({
+        userId: user.id,
+        discoverCuratedBoards: values.discoverCuratedBoards ?? true,
+        ...values,
+      })
       .onConflictDoUpdate({
         target: searchPreferences.userId,
         set: values,
@@ -1268,7 +1289,8 @@ export async function getDiscoveryPageData() {
     const profile = await getOrCreateProfileDb(db, user.id);
     const followingUrls = new Set(boards.map((board) => board.boardUrl));
     const suggestions = suggestBoardsForProfile(catalog, profile, followingUrls, 8);
-    return { boards, catalog, suggestions };
+    const preferences = await loadSearchPreferences(db, user.id);
+    return { boards, catalog, suggestions, preferences };
   });
 }
 

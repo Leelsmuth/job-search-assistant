@@ -7,7 +7,7 @@ export type CuratedBoard = {
   why: string;
 };
 
-/** Verified public boards from the company catalog. Polled only when the setting is on. */
+/** Verified public boards from the company catalog. Polled for every user unless they opt out. */
 export const CURATED_CANADA_BOARDS: CuratedBoard[] = [
   {
     companyName: "Wealthsimple",
@@ -475,18 +475,26 @@ export const CURATED_CANADA_BOARDS: CuratedBoard[] = [
 
 export const CURATED_BOARDS_PER_CRON_RUN = 2;
 
-function canonical(url: string): string {
+/** Compare board URLs without trailing slashes or case differences. */
+export function canonicalBoardUrl(url: string): string {
   return url.trim().replace(/\/+$/, "").toLowerCase();
 }
 
-/** Rotate a couple of unsaved boards per day so a cron run stays small. */
+export function isCuratedBoardUrl(url: string): boolean {
+  const key = canonicalBoardUrl(url);
+  return CURATED_CANADA_BOARDS.some((board) => canonicalBoardUrl(board.boardUrl) === key);
+}
+
+/** Rotate a small slice of unsaved boards. The daily cron polls the full list in batches. */
 export function pickCuratedBoards(
   savedBoardUrls: Iterable<string>,
   limit = CURATED_BOARDS_PER_CRON_RUN,
   now = new Date()
 ): CuratedBoard[] {
-  const saved = new Set([...savedBoardUrls].map(canonical));
-  const available = CURATED_CANADA_BOARDS.filter((board) => !saved.has(canonical(board.boardUrl)));
+  const saved = new Set([...savedBoardUrls].map(canonicalBoardUrl));
+  const available = CURATED_CANADA_BOARDS.filter(
+    (board) => !saved.has(canonicalBoardUrl(board.boardUrl))
+  );
   if (available.length === 0 || limit <= 0) return [];
 
   const start = Math.floor(now.getTime() / 86_400_000) % available.length;
