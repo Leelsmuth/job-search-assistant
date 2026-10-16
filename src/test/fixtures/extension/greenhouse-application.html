@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+  <body>
+    <h1>Software Engineer</h1>
+    <form id="application">
+      <label for="first_name">First Name*</label>
+      <input id="first_name" name="job_application[first_name]" required />
+
+      <label for="last_name">Last Name*</label>
+      <input id="last_name" name="job_application[last_name]" required />
+
+      <label for="email">Email*</label>
+      <input id="email" name="job_application[email]" type="email" required />
+
+      <label for="phone">Phone</label>
+      <input id="phone" name="job_application[phone]" type="tel" />
+
+      <label for="job_application_location">Location</label>
+      <input id="job_application_location" name="job_application[location]" />
+
+      <label for="job_application_linkedin">LinkedIn Profile</label>
+      <input id="job_application_linkedin" name="job_application[linkedin_profile]" type="url" />
+
+      <label for="job_application_github">GitHub</label>
+      <input id="job_application_github" name="job_application[github]" />
+
+      <label for="job_application_website">Website</label>
+      <input id="job_application_website" name="job_application[website]" type="url" />
+
+      <label for="work_authorization">Are you legally authorized to work in Canada?</label>
+      <select id="work_authorization" name="job_application[work_authorization]" required>
+        <option value="">Select</option>
+        <option value="yes">Yes</option>
+        <option value="no">No</option>
+      </select>
+
+      <label for="sponsorship">Will you now or in the future require sponsorship?</label>
+      <select id="sponsorship" name="job_application[sponsorship]" required>
+        <option value="">Select</option>
+        <option value="yes">Yes</option>
+        <option value="no">No</option>
+      </select>
+
+      <label for="salary">Salary expectation</label>
+      <input id="salary" name="job_application[salary]" />
+
+      <label for="start_date">Earliest start date</label>
+      <input id="start_date" name="job_application[start_date]" type="date" />
+
+      <label for="gender">Gender</label>
+      <select id="gender" name="job_application[gender]">
+        <option value="">Select</option>
+        <option value="woman">Woman</option>
+        <option value="decline">Prefer not to say</option>
+      </select>
+
+      <label for="why_role">Why do you want this role?</label>
+      <textarea id="why_role" name="job_application[why]" required></textarea>
+
+      <label for="employee_id">Employee ID</label>
+      <input id="employee_id" name="job_application[employee_id]" required />
+
+      <label for="resume">Resume/CV</label>
+      <input id="resume" name="job_application[resume]" type="file" required />
+
+      <label for="cover_letter">Cover letter</label>
+      <input id="cover_letter" name="job_application[cover_letter]" type="file" />
+
+      <label for="cover_letter_text">Cover letter</label>
+      <textarea id="cover_letter_text" name="job_application[cover_letter_text]"></textarea>
+
+      <button type="submit">Submit application</button>
+    </form>
+  </body>
+</html>

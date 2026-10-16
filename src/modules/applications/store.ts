@@ -314,10 +314,11 @@ export async function addManualApplication(db: Db, userId: string, input: Manual
       .returning();
     if (!source) throw new Error("Could not save the job source");
 
+    const description = input.description?.trim() || MANUAL_DESCRIPTION;
     const eligibility = classifyLocationEligibility({
       location: input.location,
       workplaceType: input.workplaceType,
-      description: MANUAL_DESCRIPTION,
+      description,
     });
 
     const [created] = await db
@@ -330,8 +331,8 @@ export async function addManualApplication(db: Db, userId: string, input: Manual
         location: input.location,
         workplaceType: input.workplaceType,
         jobUrl: input.jobUrl,
-        description: MANUAL_DESCRIPTION,
-        descriptionHash: hashJobDescription(MANUAL_DESCRIPTION),
+        description,
+        descriptionHash: hashJobDescription(description),
         status: "active",
         isSaved: true,
         matchPipelineStatus: "manual",
@@ -389,6 +390,19 @@ export async function addManualApplication(db: Db, userId: string, input: Manual
   }
 
   return { applicationId: application.id, jobId: job.id };
+}
+
+/** Same manual-entry path. An existing application for the URL is returned instead of rejected. */
+export async function addOrReuseManualApplication(db: Db, userId: string, input: ManualApplicationInput) {
+  const existingJob = await findJobByUrl(db, userId, input.jobUrl);
+  if (existingJob) {
+    const existingApplication = await getApplicationForJob(db, userId, existingJob.id);
+    if (existingApplication) {
+      return { applicationId: existingApplication.id, jobId: existingJob.id, deduped: true as const };
+    }
+  }
+  const created = await addManualApplication(db, userId, input);
+  return { applicationId: created.applicationId, jobId: created.jobId, deduped: false as const };
 }
 
 export function followUpFromUnknown(value: unknown): Date | null {

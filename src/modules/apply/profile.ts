@@ -100,6 +100,63 @@ export function emptyToNull(value: string): string | null {
   return trimmed ? trimmed : null;
 }
 
+type ApplicationProfileRow = {
+  legalName: string | null;
+  email: string | null;
+  phone: string | null;
+  city: string | null;
+  province: string | null;
+  linkedinUrl: string | null;
+  githubUrl: string | null;
+  portfolioUrl: string | null;
+  workAuthorization: string | null;
+  requiresSponsorship: boolean;
+  willingToRelocate: boolean;
+  earliestStartDate: string | null;
+  salaryExpectationCad: number | null;
+  pronouns: string | null;
+  howDidYouHear: string | null;
+  eeoGender: string | null;
+  eeoRace: string | null;
+  eeoVeteran: string | null;
+  eeoDisability: string | null;
+  savedAnswers: unknown;
+};
+
+export function applicationProfileFromRow(row: ApplicationProfileRow | null | undefined): ApplicationProfile {
+  if (!row) return defaultApplicationProfile();
+  const saved = Array.isArray(row.savedAnswers) ? row.savedAnswers : [];
+  return {
+    legalName: row.legalName ?? "",
+    email: row.email ?? "",
+    phone: row.phone ?? "",
+    city: row.city ?? "",
+    province: row.province ?? "",
+    linkedinUrl: row.linkedinUrl ?? "",
+    githubUrl: row.githubUrl ?? "",
+    portfolioUrl: row.portfolioUrl ?? "",
+    workAuthorization: row.workAuthorization || defaultApplicationProfile().workAuthorization,
+    requiresSponsorship: row.requiresSponsorship,
+    willingToRelocate: row.willingToRelocate,
+    earliestStartDate: row.earliestStartDate ?? "",
+    salaryExpectationCad: row.salaryExpectationCad,
+    pronouns: row.pronouns ?? "",
+    howDidYouHear: row.howDidYouHear ?? "",
+    eeoGender: row.eeoGender || DEFAULT_EEO,
+    eeoRace: row.eeoRace || DEFAULT_EEO,
+    eeoVeteran: row.eeoVeteran || DEFAULT_EEO,
+    eeoDisability: row.eeoDisability || DEFAULT_EEO,
+    savedAnswers: saved.flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const record = item as { id?: unknown; question?: unknown; answer?: unknown };
+      if (typeof record.id !== "string" || typeof record.question !== "string" || typeof record.answer !== "string") {
+        return [];
+      }
+      return [{ id: record.id, question: record.question, answer: record.answer }];
+    }),
+  };
+}
+
 export function savedAnswersForStorage(answers: SavedAnswerInput[]): SavedAnswerInput[] {
   return answers
     .map((answer) => ({

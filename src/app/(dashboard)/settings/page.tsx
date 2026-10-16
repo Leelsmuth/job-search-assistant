@@ -1,6 +1,7 @@
 import { getCandidateSkillNames, getSavedBoardsWithHealth, getSearchPreferences } from "@/server/actions";
 import { getApplicationProfile } from "@/server/actions/apply-actions";
 import { getDigestSettings } from "@/server/actions/digest-actions";
+import { getExtensionSettings } from "@/server/actions/extension-actions";
 import { checkOpenAiHealth } from "@/modules/ai/openai-health";
 import { SettingsClient } from "./settings-client";
 
@@ -12,10 +13,13 @@ export default async function SettingsPage() {
   const skills = await getCandidateSkillNames();
   const applicationProfile = await getApplicationProfile();
   const digest = await getDigestSettings();
+  const extension = await getExtensionSettings();
   const openAi = await checkOpenAiHealth();
   return (
     <SettingsClient
       openAi={openAi}
+      extensionTokens={extension.tokens}
+      extensionSchemaReady={extension.schemaReady}
       initialBoards={boards}
       preferences={preferences}
       skills={skills}

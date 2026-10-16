@@ -159,6 +159,12 @@ A bookmarklet at `/settings/apply-assist` can fill known Greenhouse, Lever, and 
 
 Before using this, apply [`drizzle/migrations/0013_assisted_apply.sql`](drizzle/migrations/0013_assisted_apply.sql) in the Supabase SQL editor. Do not run it from CI. No new environment variables are required.
 
+## Browser extension
+
+A Chrome extension in [`extension/`](extension/README.md) fills the current application page from the application profile and from answers already saved by Prepare application. It can save a posting to the tracker and mark a matched job applied. It never clicks Submit and never advances a form past the final review step.
+
+Create a token in **Settings → Browser extension**, then load the unpacked build. Apply [`drizzle/migrations/0020_extension_tokens.sql`](drizzle/migrations/0020_extension_tokens.sql) in the Supabase SQL editor before using or merging this. Do not run it from CI. The original uploaded resume file is attached when `SUPABASE_SERVICE_ROLE_KEY` is set on the server; otherwise the extension attaches a PDF rendered from the saved resume text. The key stays on the server.
+
 ## Daily workflow
 
 1. **Profile** — confirm skills, experience, preferences at `/profile`
