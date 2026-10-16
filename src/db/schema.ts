@@ -8,6 +8,7 @@ import {
   jsonb,
   real,
   pgEnum,
+  primaryKey,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -363,6 +364,11 @@ export const searchPreferences = pgTable("search_preferences", {
   digestEmailsEnabled: boolean("digest_emails_enabled").notNull().default(true),
   digestLastSentAt: timestamp("digest_last_sent_at"),
   digestLastGeneratedAt: timestamp("digest_last_generated_at"),
+  instantAlertsEnabled: boolean("instant_alerts_enabled").notNull().default(true),
+  instantAlertDailyCap: integer("instant_alert_daily_cap").notNull().default(10),
+  hideJobsOlderThanDays: integer("hide_jobs_older_than_days"),
+  alertQuietStartMinute: integer("alert_quiet_start_minute").notNull().default(22 * 60),
+  alertQuietEndMinute: integer("alert_quiet_end_minute").notNull().default(7 * 60),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -442,6 +448,9 @@ export const savedBoards = pgTable("saved_boards", {
   lastPollNewJobs: integer("last_poll_new_jobs").default(0),
   lastPollSkipped: integer("last_poll_skipped").default(0),
   lastPollFiltered: integer("last_poll_filtered").default(0),
+  httpEtag: text("http_etag"),
+  httpLastModified: text("http_last_modified"),
+  lastSeenCursor: text("last_seen_cursor"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -456,6 +465,10 @@ export const curatedBoardPollState = pgTable("curated_board_poll_state", {
   lastPolledAt: timestamp("last_polled_at"),
   lastStatus: text("last_status"),
   lastRunId: text("last_run_id"),
+  httpEtag: text("http_etag"),
+  httpLastModified: text("http_last_modified"),
+  lastSeenCursor: text("last_seen_cursor"),
+  lastNewJobs: integer("last_new_jobs"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -517,6 +530,8 @@ export const jobs = pgTable("jobs", {
   dedupeKey: text("dedupe_key"),
   sourceJobId: text("source_job_id"),
   datePosted: timestamp("date_posted"),
+  postedAt: timestamp("posted_at"),
+  postedAtSource: text("posted_at_source").$type<"provider" | "first_seen">(),
   dateDiscovered: timestamp("date_discovered").defaultNow().notNull(),
   employmentType: text("employment_type"),
   description: text("description"),
@@ -565,6 +580,50 @@ export const jobApplicationForms = pgTable(
     uniqueIndex("job_application_forms_user_job_unique").on(table.userId, table.jobId),
   ]
 );
+
+/** One row per user and job. A job is never alerted twice. */
+export const jobAlerts = pgTable(
+  "job_alerts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    status: text("status").$type<"queued" | "sent">().notNull(),
+    fitScore: real("fit_score"),
+    postedAt: timestamp("posted_at"),
+    queuedUntil: timestamp("queued_until"),
+    sentAt: timestamp("sent_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("job_alerts_user_job_unique").on(table.userId, table.jobId)]
+);
+
+/** Background match rescore after a profile change. Owner-scoped. */
+export const profileRescoreQueue = pgTable(
+  "profile_rescore_queue",
+  {
+    userId: uuid("user_id").notNull(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    queuedAt: timestamp("queued_at").defaultNow().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.jobId] })]
+);
+
+/**
+ * Single discovery tick lease. No user_id. The tick route writes it on the
+ * owner connection. API roles have no policy.
+ */
+export const discoveryTickLock = pgTable("discovery_tick_lock", {
+  id: text("id").primaryKey(),
+  owner: text("owner"),
+  leasedUntil: timestamp("leased_until"),
+  cursor: integer("cursor").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
 
 export const jobRequirements = pgTable("job_requirements", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -862,6 +921,10 @@ export const applicationAnswersRelations = relations(applicationAnswers, ({ one 
     fields: [applicationAnswers.applicationId],
     references: [applications.id],
   }),
+}));
+
+export const jobAlertsRelations = relations(jobAlerts, ({ one }) => ({
+  job: one(jobs, { fields: [jobAlerts.jobId], references: [jobs.id] }),
 }));
 
 export const jobsRelations = relations(jobs, ({ one, many }) => ({

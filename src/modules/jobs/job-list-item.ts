@@ -10,6 +10,8 @@ export type JobListItem = {
   isSaved: boolean;
   status: string | null;
   dateDiscovered: Date;
+  postedAt: Date | null;
+  postedAtSource: "provider" | "first_seen" | null;
   company: { name: string } | null;
   sourceProvider: string | null;
   requirements: Array<{
@@ -69,6 +71,8 @@ export function mapRowToJobListItem(row: {
   isSaved: boolean;
   status: string | null;
   dateDiscovered: Date;
+  postedAt?: Date | null;
+  postedAtSource?: "provider" | "first_seen" | null;
   company: { name: string } | null;
   source: { provider: string } | null;
   technologies?: string[] | null;
@@ -106,6 +110,8 @@ export function mapRowToJobListItem(row: {
     isSaved: row.isSaved,
     status: row.status,
     dateDiscovered: row.dateDiscovered,
+    postedAt: row.postedAt ?? null,
+    postedAtSource: row.postedAtSource ?? null,
     company: row.company,
     sourceProvider: row.source?.provider ?? null,
     requirements: row.requirements,

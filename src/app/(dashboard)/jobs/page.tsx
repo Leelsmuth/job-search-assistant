@@ -20,6 +20,8 @@ export default async function JobsPage({
     sort?: string;
     search?: string;
     discoveredSince?: "24h" | "7d";
+    postedSince?: "24h";
+    showOlder?: string;
     strongUnseen?: string;
     showLowFit?: string;
     showIneligible?: string;
@@ -30,7 +32,7 @@ export default async function JobsPage({
   }>;
 }) {
   const params = await searchParams;
-  const sort = (params.sort as "match" | "recent" | "salary") ?? "match";
+  const sort = (params.sort as "match" | "recent" | "newest" | "salary") ?? "match";
   const preferences = await getSearchPreferences();
   const counts = await getJobsFeedCounts();
   const locationView = {
@@ -50,6 +52,9 @@ export default async function JobsPage({
     sort,
     search: params.search,
     discoveredSince: params.discoveredSince,
+    postedSince: params.postedSince,
+    showOlder: params.showOlder === "true",
+    hideOlderThanDays: preferences.hideJobsOlderThanDays,
     strongUnseenOnly: params.strongUnseen === "true",
     showLowFit: params.showLowFit === "true",
     showIneligible: params.showIneligible === "true",
@@ -88,6 +93,7 @@ export default async function JobsPage({
         minFitToShow={feed.minFitToShow}
         showLowFit={params.showLowFit === "true"}
         showIneligible={params.showIneligible === "true"}
+        hideJobsOlderThanDays={preferences.hideJobsOlderThanDays}
       />
 
       {jobs.length === 0 ? (

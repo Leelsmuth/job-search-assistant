@@ -88,6 +88,7 @@ export async function buildDigestForUser(db: Db, userId: string, now: Date): Pro
       salaryCurrency: true,
       jobUrl: true,
       dateDiscovered: true,
+      postedAt: true,
       status: true,
       locationEligibility: true,
       frontendFitScore: true,
@@ -134,6 +135,7 @@ export async function buildDigestForUser(db: Db, userId: string, now: Date): Pro
       salaryCurrency: row.salaryCurrency,
       jobUrl: row.jobUrl,
       dateDiscovered: row.dateDiscovered,
+      postedAt: row.postedAt,
       status: row.status,
       locationEligibility: row.locationEligibility,
       frontendFitScore: row.frontendFitScore,
@@ -145,6 +147,7 @@ export async function buildDigestForUser(db: Db, userId: string, now: Date): Pro
     gtaCities: prefs.gtaCities,
     profile,
     minScore: prefs.digestMinFit,
+    now,
   });
 
   const tracked = await listTrackedApplications(db, userId, now);

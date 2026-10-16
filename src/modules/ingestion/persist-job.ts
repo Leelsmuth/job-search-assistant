@@ -15,6 +15,7 @@ import { fitSnapshot, scoreJobFit } from "@/modules/matching/fit-score";
 import { loadFitProfile } from "@/modules/matching/rescore-jobs";
 import { incomingSourceWins } from "@/modules/discovery/source-catalog";
 import { canonicalApplyUrl, jobDedupeKey } from "./job-dedupe";
+import { resolveStoredPostedAt } from "./posted-date";
 
 export type JobImportMeta = {
   provider: string;
@@ -24,11 +25,8 @@ export type JobImportMeta = {
   rawPayload?: unknown;
 };
 
-function datePostedValue(value?: string): Date | undefined {
-  if (!value) return undefined;
-  const time = Date.parse(value);
-  if (Number.isNaN(time)) return undefined;
-  return new Date(time);
+function storedPosting(value: string | undefined, discoveredAt: Date) {
+  return resolveStoredPostedAt({ providerDate: value, discoveredAt });
 }
 
 async function findOrCreateCompany(db: Db, name: string, atsProvider?: string) {
@@ -157,7 +155,8 @@ export async function persistDiscoveredJob(
     return { jobId: existing.id, isNew: false, contentUnchanged: true };
   }
 
-  const postedAt = datePostedValue(validatedJob.datePosted);
+  const discoveredAt = existing?.dateDiscovered ?? new Date();
+  const posting = storedPosting(validatedJob.datePosted, discoveredAt);
   const scoring = await loadFitProfile(db, userId);
   const inferredWorkplace = workplaceTypeFromMode(
     inferWorkMode({
@@ -191,12 +190,21 @@ export async function persistDiscoveredJob(
 
   if (existing) {
     if (existing.descriptionHash === nextHash) {
-      if (existing.fitScore == null) {
+      const postingUpgrade =
+        posting.postedAtSource === "provider" && existing.postedAtSource !== "provider"
+          ? {
+              postedAt: posting.postedAt,
+              postedAtSource: posting.postedAtSource,
+              datePosted: posting.datePosted,
+            }
+          : {};
+      if (existing.fitScore == null || Object.keys(postingUpgrade).length > 0) {
         await db
           .update(jobs)
           .set({
-            ...scored,
-            ...(workplaceType ? { workplaceType } : {}),
+            ...(existing.fitScore == null ? scored : {}),
+            ...(workplaceType && existing.fitScore == null ? { workplaceType } : {}),
+            ...postingUpgrade,
             updatedAt: new Date(),
           })
           .where(eq(jobs.id, existing.id));
@@ -215,7 +223,18 @@ export async function persistDiscoveredJob(
         salaryCurrency: validatedJob.salaryCurrency,
         description: validatedJob.description,
         descriptionHash: nextHash,
-        ...(postedAt ? { datePosted: postedAt } : {}),
+        ...(posting.postedAtSource === "provider"
+          ? {
+              datePosted: posting.datePosted,
+              postedAt: posting.postedAt,
+              postedAtSource: posting.postedAtSource,
+            }
+          : existing.postedAt
+            ? {}
+            : {
+                postedAt: existing.dateDiscovered,
+                postedAtSource: "first_seen" as const,
+              }),
         canonicalApplyUrl: applyUrl,
         dedupeKey,
         matchPipelineStatus: "match_pending",
@@ -281,8 +300,10 @@ export async function persistDiscoveredJob(
       technologies: validatedJob.technologies,
       experienceRequirements: validatedJob.experienceRequirements,
       educationRequirements: validatedJob.educationRequirements,
-      ...(postedAt ? { datePosted: postedAt } : {}),
-      dateDiscovered: new Date(),
+      ...(posting.datePosted ? { datePosted: posting.datePosted } : {}),
+      postedAt: posting.postedAt,
+      postedAtSource: posting.postedAtSource,
+      dateDiscovered: discoveredAt,
       discoveredBoardUrl: validatedMeta.boardUrl,
       descriptionHash: nextHash,
       matchPipelineStatus: "match_pending",

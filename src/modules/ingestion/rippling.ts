@@ -5,6 +5,7 @@ import {
   titleDetailRank,
 } from "./ats-http";
 import { listingToNormalizedJob } from "./listing-job";
+import { providerPostedDate } from "./posted-date";
 import type { JobSourceAdapter, NormalizedJob, RawJobSource } from "./types";
 
 const HOST = /^api\.rippling\.com$/i;
@@ -19,6 +20,8 @@ export type RipplingListJob = {
 
 export type RipplingDetail = RipplingListJob & {
   description?: { company?: string; role?: string } | string;
+  createdAt?: string;
+  postedDate?: string;
 };
 
 function locationLabel(job: RipplingListJob): string {
@@ -69,6 +72,7 @@ export function normalizeRipplingJob(detail: RipplingDetail, companyName: string
     jobUrl: detail.url,
     sourceJobId: detail.uuid,
     employmentType: departmentLabel(detail),
+    datePosted: providerPostedDate("rippling", detail),
     provider: "rippling",
   });
 }

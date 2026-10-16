@@ -76,10 +76,36 @@ export async function loadSearchPreferences(db: Db, userId: string): Promise<Sea
         ...PREFERENCE_COLUMNS,
         excludedCuratedBoardUrls: true,
         enabledDiscoverySources: true,
+        instantAlertsEnabled: true,
+        instantAlertDailyCap: true,
+        hideJobsOlderThanDays: true,
+        alertQuietStartMinute: true,
+        alertQuietEndMinute: true,
       },
     });
     return row ? searchPreferencesFromRow(row) : defaultSearchPreferences();
   } catch (error) {
+    if (
+      isMissingSearchPreferenceColumn(error, "instant_alerts_enabled") ||
+      isMissingSearchPreferenceColumn(error, "instant_alert_daily_cap") ||
+      isMissingSearchPreferenceColumn(error, "hide_jobs_older_than_days") ||
+      isMissingSearchPreferenceColumn(error, "alert_quiet_start_minute") ||
+      isMissingSearchPreferenceColumn(error, "alert_quiet_end_minute")
+    ) {
+      try {
+        const row = await table.findFirst({
+          where: eq(searchPreferences.userId, userId),
+          columns: {
+            ...PREFERENCE_COLUMNS,
+            excludedCuratedBoardUrls: true,
+            enabledDiscoverySources: true,
+          },
+        });
+        return row ? searchPreferencesFromRow(row) : defaultSearchPreferences();
+      } catch (inner) {
+        error = inner;
+      }
+    }
     if (isMissingSearchPreferenceColumn(error, "enabled_discovery_sources")) {
       try {
         const row = await table.findFirst({

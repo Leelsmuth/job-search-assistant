@@ -94,6 +94,22 @@ export function SearchPreferencesForm({ initial }: { initial: SearchPreferences 
             />
           </div>
           <div>
+            <Label htmlFor="hide-older">Hide jobs older than (days)</Label>
+            <Input
+              id="hide-older"
+              inputMode="numeric"
+              placeholder="Off"
+              value={prefs.hideJobsOlderThanDays ?? ""}
+              onChange={(event) => {
+                const raw = event.target.value.trim();
+                setPrefs((current) => ({
+                  ...current,
+                  hideJobsOlderThanDays: raw === "" ? null : Number(raw),
+                }));
+              }}
+            />
+          </div>
+          <div>
             <Label htmlFor="digest-min">Digest minimum</Label>
             <Input
               id="digest-min"
@@ -155,6 +171,7 @@ export function SearchPreferencesForm({ initial }: { initial: SearchPreferences 
               minimumSalaryCad: prefs.minimumSalaryCad,
               minFitToShow: prefs.minFitToShow,
               digestMinFit: prefs.digestMinFit,
+              hideJobsOlderThanDays: prefs.hideJobsOlderThanDays,
               includeHybridGta: prefs.includeHybridGta,
               includeOnsiteGta: prefs.includeOnsiteGta,
               showRemoteOther: prefs.showRemoteOther,

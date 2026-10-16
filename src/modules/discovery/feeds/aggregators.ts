@@ -1,5 +1,6 @@
 import { fetchAllowlisted } from "@/modules/ingestion/ats-http";
 import { annualSalary, listingToNormalizedJob } from "@/modules/ingestion/listing-job";
+import { parseProviderInstant } from "@/modules/ingestion/posted-date";
 import type { NormalizedJob } from "@/modules/ingestion/types";
 import { classifyLocationEligibility } from "@/modules/location/eligibility";
 
@@ -189,6 +190,7 @@ export type RemoteOkJob = {
   url?: string;
   apply_url?: string;
   date?: string;
+  created?: string;
   salary_min?: number;
   salary_max?: number;
   tags?: string[];
@@ -205,7 +207,7 @@ export function normalizeRemoteOkJob(job: RemoteOkJob): NormalizedJob | null {
     description: job.description,
     jobUrl: job.url || (job.id != null ? `https://remoteok.com/remote-jobs/${job.id}` : undefined),
     sourceJobId: job.id != null ? `remoteok:${job.id}` : undefined,
-    datePosted: job.date,
+    datePosted: parseProviderInstant(job.date) ?? parseProviderInstant(job.created),
     salaryMin: annualSalary(job.salary_min),
     salaryMax: annualSalary(job.salary_max),
     salaryCurrency: "USD",

@@ -7,6 +7,8 @@ import {
 import { extractRequirementsFromText } from "./extract-requirements";
 import { htmlToPlainText, sanitizeJobTitle } from "./html-text";
 import { extractAshbyBoardSlug, parseBoardUrl } from "./board-url";
+import { providerPostedDate } from "./posted-date";
+import { fetchWithTimeout } from "@/lib/performance/fetch-with-timeout";
 
 export type AshbyJob = {
   id: string;
@@ -62,15 +64,15 @@ export function normalizeAshbyJob(
     jobUrl: job.jobUrl,
     sourceJobId: job.id,
     employmentType: job.employmentType,
-    datePosted: job.publishedAt,
+    datePosted: providerPostedDate("ashby", job),
   });
 }
 
 async function fetchAshbyBoard(board: string): Promise<AshbyBoardResponse> {
   const apiUrl = `https://api.ashbyhq.com/posting-api/job-board/${board}`;
-  const response = await fetch(apiUrl, {
+  const response = await fetchWithTimeout(apiUrl, {
     headers: { "User-Agent": "JobSearchAssistant/1.0" },
-    signal: AbortSignal.timeout(15000),
+    timeoutMs: 15000,
   });
   if (!response.ok) {
     throw new Error(`Ashby board fetch failed: HTTP ${response.status}`);

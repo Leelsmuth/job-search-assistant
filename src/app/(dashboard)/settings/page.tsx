@@ -1,6 +1,7 @@
 import { getCandidateSkillNames, getSavedBoardsWithHealth, getSearchPreferences } from "@/server/actions";
 import { getApplicationProfile } from "@/server/actions/apply-actions";
 import { getDigestSettings } from "@/server/actions/digest-actions";
+import { getAlertSettings } from "@/server/actions/alert-actions";
 import { getExtensionSettings } from "@/server/actions/extension-actions";
 import { checkOpenAiHealth } from "@/modules/ai/openai-health";
 import { SettingsClient } from "./settings-client";
@@ -13,6 +14,7 @@ export default async function SettingsPage() {
   const skills = await getCandidateSkillNames();
   const applicationProfile = await getApplicationProfile();
   const digest = await getDigestSettings();
+  const alerts = await getAlertSettings();
   const extension = await getExtensionSettings();
   const openAi = await checkOpenAiHealth();
   return (
@@ -28,6 +30,9 @@ export default async function SettingsPage() {
       digestEmailsEnabled={digest.emailsEnabled}
       digestSchemaReady={digest.schemaReady}
       digestLastSentAt={digest.lastSentAt}
+      alertsEnabled={alerts.enabled}
+      alertsDailyCap={alerts.dailyCap}
+      alertsSchemaReady={alerts.schemaReady}
     />
   );
 }

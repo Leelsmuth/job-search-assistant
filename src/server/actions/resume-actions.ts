@@ -21,6 +21,8 @@ import {
   reparseStoredResume,
 } from "@/modules/resumes/ingestion/resume-ingestion-service";
 import { approveParsedResumeVersion } from "@/modules/resumes/map/candidate-profile-mapper";
+import { drainProfileRescore, queueProfileRescore } from "@/modules/matching/profile-rescore";
+import { isMissingDatabaseRelation } from "@/modules/matching/load-search-preferences";
 import { getResumeSignedUrl } from "@/modules/resumes/storage";
 import {
   sanitizeParsedResume,
@@ -229,6 +231,21 @@ export async function approveParsedResume(
             sections: accepted,
           })
         );
+        try {
+          await withUserDb(user.id, (db) => queueProfileRescore(db, user.id));
+          after(async () => {
+            try {
+              await drainProfileRescore(user.id);
+            } catch (error) {
+              if (!isMissingDatabaseRelation(error, "profile_rescore_queue")) {
+                console.error("[rescore] background batch failed", error);
+              }
+            }
+          });
+        } catch (error) {
+          if (!isMissingDatabaseRelation(error, "profile_rescore_queue")) throw error;
+          console.error("[rescore] apply migration 0023 before profile rescores can queue");
+        }
         revalidatePath("/profile");
         revalidatePath("/resumes");
         revalidatePath("/onboarding");

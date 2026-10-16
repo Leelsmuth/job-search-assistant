@@ -8,6 +8,7 @@ import { extractRequirementsFromText } from "./extract-requirements";
 import { htmlToPlainText, sanitizeJobTitle } from "./html-text";
 import { extractGreenhouseBoardSlug, normalizeBoardUrl } from "./board-url";
 import { fetchWithTimeout } from "@/lib/performance/fetch-with-timeout";
+import { providerPostedDate } from "./posted-date";
 
 type GreenhouseJob = {
   id: number;
@@ -15,7 +16,8 @@ type GreenhouseJob = {
   location: { name: string };
   absolute_url: string;
   content: string;
-  updated_at: string;
+  updated_at?: string;
+  first_published?: string;
   departments: Array<{ name: string }>;
 };
 
@@ -111,7 +113,7 @@ export const greenhouseAdapter: JobSourceAdapter = {
         technologies: reqs.technologies,
         jobUrl: job.absolute_url,
         sourceJobId: String(job.id),
-        datePosted: job.updated_at,
+        datePosted: providerPostedDate("greenhouse", job),
       });
     }
 
@@ -131,7 +133,7 @@ export const greenhouseAdapter: JobSourceAdapter = {
         technologies: reqs.technologies,
         jobUrl: job.absolute_url,
         sourceJobId: String(job.id),
-        datePosted: job.updated_at,
+        datePosted: providerPostedDate("greenhouse", job),
       });
     }
 

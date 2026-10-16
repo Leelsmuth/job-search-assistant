@@ -42,7 +42,7 @@ export function MatchTabActions({
     <div className="flex flex-wrap items-center gap-2">
       {isStale && (
         <Badge className="bg-amber-100 text-amber-900">
-          Profile updated since last analysis
+          Needs rescore
         </Badge>
       )}
       <Button

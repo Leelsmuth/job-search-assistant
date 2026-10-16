@@ -33,6 +33,7 @@ import { SkillsChipEditor } from "@/components/profile/skills-chip-editor";
 import { SearchPreferencesForm } from "./search-preferences-form";
 import { ApplicationProfileForm } from "./application-profile-form";
 import { DigestSettingsForm } from "./digest-settings-form";
+import { AlertSettingsForm } from "./alert-settings-form";
 import { BrowserExtensionPanel } from "./browser-extension-panel";
 import type { ExtensionTokenSummary } from "@/modules/extension/token-summary";
 import type { SearchPreferences } from "@/modules/matching/search-preferences";
@@ -76,6 +77,9 @@ export function SettingsClient({
   digestEmailsEnabled,
   digestSchemaReady,
   digestLastSentAt,
+  alertsEnabled,
+  alertsDailyCap,
+  alertsSchemaReady,
   openAi,
   extensionTokens,
   extensionSchemaReady,
@@ -88,6 +92,9 @@ export function SettingsClient({
   digestEmailsEnabled: boolean;
   digestSchemaReady: boolean;
   digestLastSentAt: string | null;
+  alertsEnabled: boolean;
+  alertsDailyCap: number;
+  alertsSchemaReady: boolean;
   openAi: OpenAiHealthReport;
   extensionTokens: ExtensionTokenSummary[];
   extensionSchemaReady: boolean;
@@ -238,6 +245,12 @@ export function SettingsClient({
         emailsEnabled={digestEmailsEnabled}
         schemaReady={digestSchemaReady}
         lastSentAt={digestLastSentAt}
+      />
+
+      <AlertSettingsForm
+        enabled={alertsEnabled}
+        dailyCap={alertsDailyCap}
+        schemaReady={alertsSchemaReady}
       />
 
       <ApplicationProfileForm initial={applicationProfile} schemaReady={applicationProfileReady} />

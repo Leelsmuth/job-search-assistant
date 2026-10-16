@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { eq, desc, and, inArray } from "drizzle-orm";
 import { withUserDb } from "@/db/user-context";
@@ -63,6 +64,8 @@ import { fetchJobsFeed, countAllUserJobs, type JobsFeedFilters } from "@/modules
 import { scoreJobFit } from "@/modules/matching/fit-score";
 import { resolveSharedTargets } from "@/modules/matching/shared-targets";
 import { replaceCandidateSkills, rescoreUserJobs } from "@/modules/matching/rescore-jobs";
+import { drainProfileRescore, queueProfileRescore } from "@/modules/matching/profile-rescore";
+import { isMissingDatabaseRelation } from "@/modules/matching/load-search-preferences";
 import { sanitizeSkills } from "@/modules/candidate/sanitize-skills";
 import { maybeEnhanceFrontendFit } from "@/modules/matching/frontend-fit-llm";
 import { loadSearchPreferences } from "@/modules/matching/load-search-preferences";
@@ -103,6 +106,18 @@ async function logConfiguredModel(
       fallbackReason: isOpenAiConfigured() ? null : "OPENAI_API_KEY missing",
     },
     status: "completed",
+  });
+}
+
+function kickProfileRescore(userId: string) {
+  after(async () => {
+    try {
+      await drainProfileRescore(userId);
+    } catch (error) {
+      if (!isMissingDatabaseRelation(error, "profile_rescore_queue")) {
+        console.error("[rescore] background batch failed", error);
+      }
+    }
   });
 }
 
@@ -171,12 +186,14 @@ export async function updateProfile(data: {
     }
 
     await rescoreUserJobs(db, user.id);
+    await queueProfileRescore(db, user.id);
 
     revalidatePath("/profile");
     revalidatePath("/settings");
     revalidatePath("/jobs");
     return { success: true, profileUpdated: true };
   });
+  kickProfileRescore(user.id);
 }
 
 export async function uploadResume(formData: FormData) {
@@ -397,6 +414,7 @@ export async function saveSearchPreferences(input: SearchPreferenceInput): Promi
       showOutOfArea: boolean;
       gtaCities: string[];
       updatedAt: Date;
+      hideJobsOlderThanDays: number | null;
       discoverCuratedBoards?: boolean;
       excludedCuratedBoardUrls?: string[];
     } = {
@@ -410,6 +428,7 @@ export async function saveSearchPreferences(input: SearchPreferenceInput): Promi
       showRemoteOther: prefs.showRemoteOther,
       showOutOfArea: prefs.showOutOfArea,
       gtaCities: prefs.gtaCities,
+      hideJobsOlderThanDays: prefs.hideJobsOlderThanDays,
       updatedAt: new Date(),
     };
     if (typeof input.discoverCuratedBoards === "boolean") {
@@ -444,7 +463,9 @@ export async function saveSearchPreferences(input: SearchPreferenceInput): Promi
         .where(eq(candidateProfiles.id, profile.id));
     }
     await rescoreUserJobs(db, user.id);
+    await queueProfileRescore(db, user.id);
   });
+  kickProfileRescore(user.id);
   revalidatePath("/settings");
   revalidatePath("/jobs");
   return prefs;
@@ -468,8 +489,10 @@ export async function saveCandidateSkills(names: string[]): Promise<string[]> {
     const profile = await getOrCreateProfileDb(db, user.id);
     const cleaned = await replaceCandidateSkills(db, profile.id, names);
     await rescoreUserJobs(db, user.id);
+    await queueProfileRescore(db, user.id);
     return cleaned;
   });
+  kickProfileRescore(user.id);
   revalidatePath("/profile");
   revalidatePath("/settings");
   revalidatePath("/jobs");
@@ -478,7 +501,12 @@ export async function saveCandidateSkills(names: string[]): Promise<string[]> {
 
 export async function rescoreAllJobsAction() {
   const user = await requireUser();
-  const result = await withUserDb(user.id, (db) => rescoreUserJobs(db, user.id));
+  const result = await withUserDb(user.id, async (db) => {
+    const scored = await rescoreUserJobs(db, user.id);
+    await queueProfileRescore(db, user.id);
+    return scored;
+  });
+  kickProfileRescore(user.id);
   revalidatePath("/jobs");
   revalidatePath("/settings");
   revalidatePath("/profile");

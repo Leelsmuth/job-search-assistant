@@ -21,6 +21,7 @@ import { JobDeleteButton } from "./job-delete-button";
 import { ApplyLink } from "@/components/jobs/apply-link";
 import { JobSourceBadge } from "@/components/jobs/job-source-badge";
 import type { JobListItem } from "@/modules/jobs/job-list-item";
+import { postingAgeClass, postingAgeLabel } from "@/modules/jobs/posting-age";
 
 export function JobFeedRow({
   job,
@@ -42,6 +43,11 @@ export function JobFeedRow({
   const [saved, setSaved] = useState(job.isSaved);
   const match = job.match;
   const actionKey = `feed-${job.id}`;
+  const age = postingAgeLabel({
+    postedAt: job.postedAt,
+    postedAtSource: job.postedAtSource,
+    dateDiscovered: new Date(job.dateDiscovered),
+  });
 
   return (
     <Card
@@ -82,7 +88,7 @@ export function JobFeedRow({
                 <Badge className="border border-blue-300 bg-transparent text-blue-700">saved</Badge>
               )}
               {isNew && <Badge className="bg-green-100 text-green-900">new</Badge>}
-              {isStale && <Badge className="bg-amber-100 text-amber-900">stale</Badge>}
+              {isStale && <Badge className="bg-amber-100 text-amber-900">Needs rescore</Badge>}
               {lowExtraction && (
                 <Badge className="border border-amber-300 bg-transparent text-amber-800">
                   low extraction
@@ -95,6 +101,7 @@ export function JobFeedRow({
             <p className="mt-1 text-sm text-muted-foreground">
               {job.company?.name ?? "Unknown"} · {job.location ?? "—"} · {job.workplaceType ?? "—"}
             </p>
+            <p className={cn("mt-1 text-xs font-medium", postingAgeClass(age.tone))}>{age.text}</p>
             <p className="mt-1 text-xs text-muted-foreground sm:hidden">
               {formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency ?? "CAD") ?? "—"}
             </p>
