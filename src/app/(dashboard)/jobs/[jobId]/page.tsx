@@ -24,6 +24,7 @@ import { ResumeScoreBadge } from "@/components/jobs/resume-score-badge";
 import { isOpenAiConfigured } from "@/lib/env";
 import { JobSourceBadge } from "@/components/jobs/job-source-badge";
 import { sourceCredit } from "@/modules/discovery/source-catalog";
+import { postingAgeClass, postingAgeLabel } from "@/modules/jobs/posting-age";
 
 function MatchGroupSection({
   title,
@@ -91,6 +92,11 @@ export default async function JobDetailPage({
   const sparseExtraction = isSparseExtraction(requirementInputs);
   const extractionQuality = computeExtractionQuality(job.requirements);
   const groupedMatches = groupRequirementMatches(match?.requirementMatches ?? []);
+  const age = postingAgeLabel({
+    postedAt: job.postedAt,
+    postedAtSource: job.postedAtSource,
+    dateDiscovered: job.dateDiscovered,
+  });
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -105,6 +111,7 @@ export default async function JobDetailPage({
             <p className="mt-2 text-sm text-muted-foreground">
               {job.company?.name} · {job.location} · {job.workplaceType}
             </p>
+            <p className={`mt-1 text-sm font-medium ${postingAgeClass(age.tone)}`}>{age.text}</p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <JobSourceBadge provider={job.source?.provider} />
               {credit ? <span className="text-xs text-muted-foreground">{credit.applyNote}</span> : null}

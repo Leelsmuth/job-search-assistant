@@ -12,6 +12,7 @@ export function JobsFeedFilters({
   minFitToShow,
   showLowFit,
   showIneligible,
+  hideJobsOlderThanDays,
 }: {
   view: {
     showRemoteOther: boolean;
@@ -24,6 +25,7 @@ export function JobsFeedFilters({
   minFitToShow: number;
   showLowFit: boolean;
   showIneligible: boolean;
+  hideJobsOlderThanDays: number | null;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -101,6 +103,7 @@ export function JobsFeedFilters({
           >
             <option value="match">Best Match</option>
             <option value="recent">Most Recent</option>
+            <option value="newest">Newest posted</option>
             <option value="salary">Highest Salary</option>
           </select>
         </div>
@@ -128,6 +131,24 @@ export function JobsFeedFilters({
         >
           New today
         </Button>
+        <Button
+          variant={params.get("postedSince") === "24h" ? "default" : "outline"}
+          size="sm"
+          onClick={() => update("postedSince", params.get("postedSince") === "24h" ? "" : "24h")}
+        >
+          Last 24h
+        </Button>
+        {hideJobsOlderThanDays ? (
+          <Button
+            variant={params.get("showOlder") === "true" ? "default" : "outline"}
+            size="sm"
+            onClick={() => update("showOlder", params.get("showOlder") === "true" ? "" : "true")}
+          >
+            {params.get("showOlder") === "true"
+              ? "Showing older jobs"
+              : `Older than ${hideJobsOlderThanDays}d hidden`}
+          </Button>
+        ) : null}
         <Button
           variant={showLowFit ? "default" : "outline"}
           size="sm"

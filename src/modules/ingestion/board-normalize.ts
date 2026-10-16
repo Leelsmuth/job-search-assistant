@@ -3,6 +3,7 @@ import { extractRequirementsFromText } from "./extract-requirements";
 import { htmlToPlainText, sanitizeJobTitle } from "./html-text";
 import { normalizeAshbyJob, type AshbyJob } from "./ashby";
 import { normalizeWorkdayListJob, type WorkdayListJob } from "./workday";
+import { providerPostedDate } from "./posted-date";
 
 type GreenhouseJob = {
   id: number;
@@ -10,7 +11,8 @@ type GreenhouseJob = {
   location: { name: string };
   absolute_url: string;
   content: string;
-  updated_at: string;
+  updated_at?: string;
+  first_published?: string;
   departments: Array<{ name: string }>;
 };
 
@@ -57,7 +59,7 @@ function normalizeGreenhouseJob(
     technologies: reqs.technologies,
     jobUrl: job.absolute_url,
     sourceJobId: String(job.id),
-    datePosted: job.updated_at,
+    datePosted: providerPostedDate("greenhouse", job),
   });
 }
 
@@ -82,7 +84,7 @@ function normalizeLeverPosting(
     jobUrl: posting.hostedUrl,
     sourceJobId: posting.id,
     employmentType: posting.categories.commitment,
-    datePosted: new Date(posting.createdAt).toISOString(),
+    datePosted: providerPostedDate("lever", posting),
   });
 }
 

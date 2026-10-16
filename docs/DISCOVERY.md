@@ -174,6 +174,28 @@ Match analysis runs only when `isNew === true`.
 
 Requires `CRON_SECRET` in environment (you generate this; Vercel sends it automatically on scheduled invocations when set).
 
+Hobby plans can only schedule Vercel crons once a day, so those two routes stay as the fallback. A Supabase `pg_cron` job calls `POST /api/discovery/tick` every 30 minutes. The route uses the same `CRON_SECRET` bearer (compared in constant time) and a lease row so overlapping ticks do not double-process. Each tick stays inside a 90 second budget: saved boards, then high-signal curated boards, then fast aggregator feeds, then a rotating slice of the rest. Apply [`0023_discovery_tick_and_alerts.sql`](../drizzle/migrations/0023_discovery_tick_and_alerts.sql) before merge.
+
+One-time setup:
+
+1. Set `CRON_SECRET` on the Vercel project (Production).
+2. In the Supabase dashboard Vault (or SQL editor), store the tick URL and the same secret. Do not commit the values:
+
+```sql
+select vault.create_secret(
+  'https://<your-app>.vercel.app/api/discovery/tick',
+  'discovery_tick_url',
+  'Absolute URL of the discovery tick route'
+);
+select vault.create_secret(
+  '<same value as Vercel CRON_SECRET>',
+  'discovery_tick_secret',
+  'Bearer token for /api/discovery/tick'
+);
+```
+
+The schedule reads `vault.decrypted_secrets` for those names. Enable `pg_cron` and `pg_net` if the migration cannot create them.
+
 ---
 
 ## Discovery V2 — Company Source Registry

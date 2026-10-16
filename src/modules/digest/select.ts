@@ -26,6 +26,7 @@ import {
   isFollowUpDueInToronto,
   torontoCalendarDate,
 } from "@/modules/digest/time";
+import { freshnessRankScore } from "@/modules/matching/freshness";
 
 export {
   formatTorontoDateTime,
@@ -65,9 +66,11 @@ export function selectDigestJobs(input: {
   limit?: number;
   /** Jobs below this score stay stored and out of the digest. */
   minScore?: number;
+  now?: Date;
 }): DigestMatch[] {
   const limit = input.limit ?? DIGEST_JOB_LIMIT;
-  const ranked: Array<DigestMatch & { discoveredAt: number }> = [];
+  const now = input.now ?? new Date();
+  const ranked: Array<DigestMatch & { discoveredAt: number; postedAt: number }> = [];
 
   for (const job of input.jobs) {
     if (job.status === "dismissed") continue;
@@ -95,6 +98,7 @@ export function selectDigestJobs(input: {
     const score = useStored ? storedScore : fit!.score;
     if (input.minScore != null && score < input.minScore) continue;
     const reason = (useStored ? job.frontendFitReasons?.[0] : fit!.reasons[0]) ?? null;
+    const postedAt = job.postedAt ?? job.dateDiscovered;
 
     ranked.push({
       id: job.id,
@@ -107,14 +111,18 @@ export function selectDigestJobs(input: {
       href: `/jobs/${job.id}`,
       postingUrl: safeHttpUrl(job.jobUrl),
       discoveredAt: job.dateDiscovered.getTime(),
+      postedAt: postedAt.getTime(),
     });
   }
 
   ranked.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
+    const rankA = freshnessRankScore(a.score, new Date(a.postedAt), now);
+    const rankB = freshnessRankScore(b.score, new Date(b.postedAt), now);
+    if (rankB !== rankA) return rankB - rankA;
     const resumeA = a.resumeScore ?? -1;
     const resumeB = b.resumeScore ?? -1;
     if (resumeB !== resumeA) return resumeB - resumeA;
+    if (b.postedAt !== a.postedAt) return b.postedAt - a.postedAt;
     if (b.discoveredAt !== a.discoveredAt) return b.discoveredAt - a.discoveredAt;
     return a.title.localeCompare(b.title, "en");
   });

@@ -26,6 +26,7 @@ import { scoreResumeMatch } from "@/modules/resume-score/score";
 import { estimatePayloadBytes } from "@/lib/performance/measure-operation";
 import { measureOperation } from "@/lib/performance/measure-operation";
 import { DISCOVERY_SOURCE_IDS } from "@/modules/discovery/source-catalog";
+import { freshnessRankScore } from "@/modules/matching/freshness";
 
 const DISCOVERY_PROVIDERS = new Set<string>(DISCOVERY_SOURCE_IDS);
 
@@ -35,9 +36,12 @@ export type JobsFeedFilters = {
   canadaOnly?: boolean;
   classification?: string;
   source?: "discovered" | "manual";
-  sort?: "match" | "recent" | "salary";
+  sort?: "match" | "recent" | "newest" | "salary";
   search?: string;
   discoveredSince?: "24h" | "7d";
+  postedSince?: "24h";
+  showOlder?: boolean;
+  hideOlderThanDays?: number | null;
   includeDismissed?: boolean;
   strongUnseenOnly?: boolean;
   showLowFit?: boolean;
@@ -113,12 +117,23 @@ function applyInMemoryFilters(
   }
 
   if (filters?.sort === "match" || !filters?.sort) {
+    const now = new Date();
     filtered = [...filtered].sort((a, b) => {
       const rankA = LOCATION_FEED_RANK[resolveLocationClass(a, filters?.locationView)];
       const rankB = LOCATION_FEED_RANK[resolveLocationClass(b, filters?.locationView)];
       if (rankA !== rankB) return rankA - rankB;
+      const scoreA = freshnessRankScore(feedScore(a), a.postedAt ?? a.dateDiscovered, now);
+      const scoreB = freshnessRankScore(feedScore(b), b.postedAt ?? b.dateDiscovered, now);
+      if (scoreB !== scoreA) return scoreB - scoreA;
+      const resumeA = a.resumeScore ?? -1;
+      const resumeB = b.resumeScore ?? -1;
+      if (resumeB !== resumeA) return resumeB - resumeA;
       return feedScore(b) - feedScore(a);
     });
+  } else if (filters?.sort === "newest") {
+    filtered = [...filtered].sort(
+      (a, b) => (b.postedAt ?? b.dateDiscovered).getTime() - (a.postedAt ?? a.dateDiscovered).getTime()
+    );
   } else if (filters?.sort === "salary") {
     filtered = [...filtered].sort(
       (a, b) => (b.salaryMax ?? 0) - (a.salaryMax ?? 0)
@@ -143,6 +158,7 @@ export async function fetchJobsFeed(
       const fetchLimit =
         filters?.sort === "match" ||
         filters?.sort === "salary" ||
+        filters?.sort === "newest" ||
         filters?.minScore ||
         filters?.classification ||
         filters?.strongUnseenOnly ||
@@ -168,6 +184,20 @@ export async function fetchJobsFeed(
             ? 24 * 60 * 60 * 1000
             : 7 * 24 * 60 * 60 * 1000;
         conditions.push(gte(jobs.dateDiscovered, new Date(Date.now() - ms)));
+      }
+
+      if (filters?.postedSince === "24h") {
+        conditions.push(gte(jobs.postedAt, new Date(Date.now() - 24 * 60 * 60 * 1000)));
+      }
+
+      if (
+        filters?.hideOlderThanDays &&
+        filters.hideOlderThanDays > 0 &&
+        !filters.showOlder
+      ) {
+        conditions.push(
+          gte(jobs.postedAt, new Date(Date.now() - filters.hideOlderThanDays * 24 * 60 * 60 * 1000))
+        );
       }
 
       if (filters?.search) {
@@ -212,6 +242,8 @@ export async function fetchJobsFeed(
           isSaved: true,
           status: true,
           dateDiscovered: true,
+          postedAt: true,
+          postedAtSource: true,
         },
         with: {
           company: {

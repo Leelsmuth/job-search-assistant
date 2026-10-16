@@ -1,5 +1,6 @@
 import { fetchTenant } from "./ats-http";
 import { listingToNormalizedJob } from "./listing-job";
+import { providerPostedDate } from "./posted-date";
 import type { JobSourceAdapter, NormalizedJob, RawJobSource } from "./types";
 
 const HOST = /^[a-z0-9-]+\.jobs\.personio\.(?:de|com)$/i;
@@ -11,6 +12,7 @@ export type PersonioPosition = {
   office?: string;
   department?: string;
   employmentType?: string;
+  createdAt?: string;
   descriptions: string[];
 };
 
@@ -40,6 +42,7 @@ export function parsePersonioXml(xml: string): PersonioPosition[] {
       office: inner(block, "office"),
       department: inner(block, "department"),
       employmentType: inner(block, "employmentType"),
+      createdAt: inner(block, "createdAt") || inner(block, "created_at"),
       descriptions,
     });
   }
@@ -66,6 +69,7 @@ export function normalizePersonioPosition(
     jobUrl: personioJobUrl(host, position.id),
     sourceJobId: position.id,
     employmentType: position.employmentType || position.department,
+    datePosted: providerPostedDate("personio", position),
     provider: "personio",
   });
 }

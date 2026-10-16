@@ -1,6 +1,9 @@
 export type JobWithRelations = {
   id: string;
   title: string;
+  postedAt: Date | null;
+  postedAtSource: "provider" | "first_seen" | null;
+  dateDiscovered: Date;
   location: string | null;
   workplaceType: string | null;
   salaryMin: number | null;

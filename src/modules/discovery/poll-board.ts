@@ -30,6 +30,7 @@ import {
   sleep,
   type CronDiscoverResult,
 } from "@/lib/cron-discover";
+import { NotModifiedError, withBoardValidators } from "@/modules/discovery/board-validators";
 
 export type BoardPollStats = {
   newJobs: number;
@@ -37,6 +38,7 @@ export type BoardPollStats = {
   updated: number;
   queuedForMatch: number;
   filtered: number;
+  newJobIds: string[];
 };
 
 const WORKDAY_DETAIL_CONCURRENCY = 3;
@@ -80,6 +82,8 @@ async function importNormalizedJob(
       }),
     { source: "ingestion" }
   );
+
+  if (result.isNew) stats.newJobIds.push(result.jobId);
 
   if (!result.isNew) {
     if (result.contentUnchanged) {
@@ -219,35 +223,80 @@ async function loadProfileForFilter(db: Db, userId: string): Promise<CandidatePr
   };
 }
 
-export async function fetchBoardListing(board: {
+export type BoardListing = {
   boardUrl: string;
-  provider: JobSourceProvider;
-  companyName: string;
-}): Promise<{ boardUrl: string; jobs: NormalizedJob[] }> {
-  if (isFeedProvider(board.provider)) {
-    const jobs = await fetchDiscoveryFeed(board.provider);
-    return { boardUrl: feedPublicUrl(board.provider) || board.boardUrl, jobs };
-  }
+  jobs: NormalizedJob[];
+  notModified: boolean;
+  etag: string | null;
+  lastModified: string | null;
+};
 
-  const parsed = normalizeBoardUrl(board.boardUrl, board.provider);
-  const adapter =
-    getAdapterForProvider(board.provider) ?? (await detectBestAdapter(parsed.boardUrl));
-  // Adapters enforce the SSRF guard (public http(s) only, Workday host check).
-  const raw = await measureOperation("ats.adapter.fetch", () => adapter.fetch(parsed.boardUrl), {
-    source: "ats",
-    recordCount: 1,
-  });
-  const jobs = normalizeBoardJobs(raw).map((job) => {
-    if (board.provider === "workday") return { ...job, company: board.companyName || job.company };
-    if (
-      board.companyName &&
-      job.company.toLowerCase() === parsed.boardSlug.toLowerCase()
-    ) {
-      return { ...job, company: board.companyName };
+export async function fetchBoardListing(
+  board: {
+    boardUrl: string;
+    provider: JobSourceProvider;
+    companyName: string;
+  },
+  validators?: { etag?: string | null; lastModified?: string | null }
+): Promise<BoardListing> {
+  const slot = {
+    etag: validators?.etag ?? null,
+    lastModified: validators?.lastModified ?? null,
+    observedEtag: null as string | null,
+    observedLastModified: null as string | null,
+  };
+
+  try {
+    return await withBoardValidators(slot, async () => {
+      if (isFeedProvider(board.provider)) {
+        const jobs = await fetchDiscoveryFeed(board.provider);
+        return {
+          boardUrl: feedPublicUrl(board.provider) || board.boardUrl,
+          jobs,
+          notModified: false,
+          etag: slot.observedEtag,
+          lastModified: slot.observedLastModified,
+        };
+      }
+
+      const parsed = normalizeBoardUrl(board.boardUrl, board.provider);
+      const adapter =
+        getAdapterForProvider(board.provider) ?? (await detectBestAdapter(parsed.boardUrl));
+      // Adapters enforce the SSRF guard (public http(s) only, Workday host check).
+      const raw = await measureOperation("ats.adapter.fetch", () => adapter.fetch(parsed.boardUrl), {
+        source: "ats",
+        recordCount: 1,
+      });
+      const jobs = normalizeBoardJobs(raw).map((job) => {
+        if (board.provider === "workday") return { ...job, company: board.companyName || job.company };
+        if (
+          board.companyName &&
+          job.company.toLowerCase() === parsed.boardSlug.toLowerCase()
+        ) {
+          return { ...job, company: board.companyName };
+        }
+        return job;
+      });
+      return {
+        boardUrl: parsed.boardUrl,
+        jobs,
+        notModified: false,
+        etag: slot.observedEtag,
+        lastModified: slot.observedLastModified,
+      };
+    });
+  } catch (error) {
+    if (error instanceof NotModifiedError) {
+      return {
+        boardUrl: board.boardUrl,
+        jobs: [],
+        notModified: true,
+        etag: error.etag,
+        lastModified: error.lastModified,
+      };
     }
-    return job;
-  });
-  return { boardUrl: parsed.boardUrl, jobs };
+    throw error;
+  }
 }
 
 export async function pollSavedBoard(
@@ -274,6 +323,7 @@ export async function pollSavedBoard(
         updated: 0,
         queuedForMatch: 0,
         filtered: 0,
+        newJobIds: [],
       };
 
       const listing = board.listing;
@@ -355,6 +405,7 @@ export async function pollBoardsForUser(
     updated: 0,
     queuedForMatch: 0,
     filtered: 0,
+    newJobIds: [],
   };
   const results: Array<{ boardId: string; status: "success" | "error" }> = [];
   const profile = await loadProfileForFilter(db, userId);
@@ -377,6 +428,7 @@ export async function pollBoardsForUser(
       stats.updated += boardStats.updated;
       stats.queuedForMatch += boardStats.queuedForMatch;
       stats.filtered += boardStats.filtered;
+      stats.newJobIds.push(...boardStats.newJobIds);
       results.push({ boardId: board.id, status: "success" });
     } catch (error) {
       console.error(

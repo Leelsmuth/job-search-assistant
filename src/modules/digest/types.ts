@@ -80,6 +80,7 @@ export type DigestJobSource = {
   salaryCurrency?: string | null;
   jobUrl: string | null;
   dateDiscovered: Date;
+  postedAt?: Date | null;
   status: string | null;
   locationEligibility: string | null;
   frontendFitScore: number | null;

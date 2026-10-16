@@ -18,6 +18,9 @@ export const DEFAULT_TARGET_TITLES = [
 
 export const DEFAULT_MIN_FIT_TO_SHOW = 50;
 export const DEFAULT_DIGEST_MIN_FIT = 55;
+export const DEFAULT_ALERT_DAILY_CAP = 10;
+export const DEFAULT_QUIET_START_MINUTE = 22 * 60;
+export const DEFAULT_QUIET_END_MINUTE = 7 * 60;
 
 export type SearchPreferences = LocationVisibility & {
   targetTitles: string[];
@@ -29,6 +32,11 @@ export type SearchPreferences = LocationVisibility & {
   excludedCuratedBoardUrls: string[];
   enabledDiscoverySources: Record<DiscoverySourceId, boolean>;
   gtaCities: string[];
+  instantAlertsEnabled: boolean;
+  instantAlertDailyCap: number;
+  hideJobsOlderThanDays: number | null;
+  alertQuietStartMinute: number;
+  alertQuietEndMinute: number;
 };
 
 export type SearchPreferenceInput = {
@@ -45,6 +53,11 @@ export type SearchPreferenceInput = {
   excludedCuratedBoardUrls?: string[] | string;
   enabledDiscoverySources?: unknown;
   gtaCities?: string[] | string;
+  instantAlertsEnabled?: boolean;
+  instantAlertDailyCap?: number | null;
+  hideJobsOlderThanDays?: number | null;
+  alertQuietStartMinute?: number | null;
+  alertQuietEndMinute?: number | null;
 };
 
 export function defaultSearchPreferences(): SearchPreferences {
@@ -62,6 +75,11 @@ export function defaultSearchPreferences(): SearchPreferences {
     excludedCuratedBoardUrls: [],
     enabledDiscoverySources: normalizeEnabledDiscoverySources(undefined),
     gtaCities: [...DEFAULT_GTA_CITIES],
+    instantAlertsEnabled: true,
+    instantAlertDailyCap: DEFAULT_ALERT_DAILY_CAP,
+    hideJobsOlderThanDays: null,
+    alertQuietStartMinute: DEFAULT_QUIET_START_MINUTE,
+    alertQuietEndMinute: DEFAULT_QUIET_END_MINUTE,
   };
 }
 
@@ -72,6 +90,21 @@ export function normalizeExcludedCuratedBoardUrls(value: string[] | string | und
     .map((item) => canonicalBoardUrl(item))
     .filter((item) => item.length > 0);
   return [...new Set(cleaned)].slice(0, 200);
+}
+
+function clampMinute(value: number | null | undefined, fallback: number): number {
+  if (value == null || Number.isNaN(value)) return fallback;
+  return Math.min(1439, Math.max(0, Math.round(value)));
+}
+
+function clampCap(value: number | null | undefined): number {
+  if (value == null || Number.isNaN(value)) return DEFAULT_ALERT_DAILY_CAP;
+  return Math.min(100, Math.max(0, Math.round(value)));
+}
+
+function clampHideDays(value: number | null | undefined): number | null {
+  if (value == null || Number.isNaN(value) || value <= 0) return null;
+  return Math.min(365, Math.round(value));
 }
 
 function clampFitThreshold(value: number | null | undefined, fallback: number): number {
@@ -108,6 +141,11 @@ export function normalizeSearchPreferences(input: SearchPreferenceInput = {}): S
         ? defaults.enabledDiscoverySources
         : normalizeEnabledDiscoverySources(input.enabledDiscoverySources),
     gtaCities: splitList(input.gtaCities, defaults.gtaCities).slice(0, 40),
+    instantAlertsEnabled: input.instantAlertsEnabled ?? defaults.instantAlertsEnabled,
+    instantAlertDailyCap: clampCap(input.instantAlertDailyCap),
+    hideJobsOlderThanDays: clampHideDays(input.hideJobsOlderThanDays),
+    alertQuietStartMinute: clampMinute(input.alertQuietStartMinute, defaults.alertQuietStartMinute),
+    alertQuietEndMinute: clampMinute(input.alertQuietEndMinute, defaults.alertQuietEndMinute),
   };
 }
 
@@ -125,6 +163,11 @@ export type SearchPreferenceRow = {
   excludedCuratedBoardUrls?: unknown;
   enabledDiscoverySources?: unknown;
   gtaCities: unknown;
+  instantAlertsEnabled?: boolean | null;
+  instantAlertDailyCap?: number | null;
+  hideJobsOlderThanDays?: number | null;
+  alertQuietStartMinute?: number | null;
+  alertQuietEndMinute?: number | null;
 };
 
 export function searchPreferencesFromRow(row: SearchPreferenceRow): SearchPreferences {
@@ -144,5 +187,10 @@ export function searchPreferencesFromRow(row: SearchPreferenceRow): SearchPrefer
       : undefined,
     enabledDiscoverySources: row.enabledDiscoverySources,
     gtaCities: Array.isArray(row.gtaCities) ? (row.gtaCities as string[]) : undefined,
+    instantAlertsEnabled: row.instantAlertsEnabled ?? undefined,
+    instantAlertDailyCap: row.instantAlertDailyCap,
+    hideJobsOlderThanDays: row.hideJobsOlderThanDays,
+    alertQuietStartMinute: row.alertQuietStartMinute,
+    alertQuietEndMinute: row.alertQuietEndMinute,
   });
 }

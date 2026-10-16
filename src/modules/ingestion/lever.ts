@@ -8,6 +8,7 @@ import { extractRequirementsFromText } from "./extract-requirements";
 import { htmlToPlainText, sanitizeJobTitle } from "./html-text";
 import { extractLeverCompanySlug, normalizeBoardUrl } from "./board-url";
 import { fetchWithTimeout } from "@/lib/performance/fetch-with-timeout";
+import { providerPostedDate } from "./posted-date";
 
 type LeverPosting = {
   id: string;
@@ -98,7 +99,7 @@ export const leverAdapter: JobSourceAdapter = {
         jobUrl: posting.hostedUrl ?? raw.sourceUrl,
         sourceJobId: posting.id,
         employmentType: posting.categories.commitment,
-        datePosted: new Date(posting.createdAt).toISOString(),
+        datePosted: providerPostedDate("lever", posting),
       });
     }
 

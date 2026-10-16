@@ -1,5 +1,6 @@
 import { fetchAllowlisted } from "@/modules/ingestion/ats-http";
 import { annualSalary, listingToNormalizedJob } from "@/modules/ingestion/listing-job";
+import { providerPostedDate } from "@/modules/ingestion/posted-date";
 import type { NormalizedJob } from "@/modules/ingestion/types";
 
 const OPEN_CANADA = /^(?:open|ouvert)\.canada\.ca$/i;
@@ -79,6 +80,9 @@ export function parseJobBankTable(text: string): NormalizedJob[] {
   const salaryMinIndex = headerIndex(header, "Salary Minimum");
   const salaryMaxIndex = headerIndex(header, "Salary Maximum");
   const nocIndex = headerIndex(header, "NOC21 Code Name");
+  const postedIndex = ["Date Posted", "Posting Date", "Job Posting Date"]
+    .map((name) => headerIndex(header, name))
+    .find((index) => index >= 0) ?? -1;
   if (titleIndex < 0) return [];
 
   const jobs: NormalizedJob[] = [];
@@ -126,6 +130,7 @@ export function parseJobBankTable(text: string): NormalizedJob[] {
         salaryMin: min,
         salaryMax: max,
         salaryCurrency: "CAD",
+        datePosted: providerPostedDate("jobbank", { datePosted: cell(row, postedIndex) }),
         provider: "jobbank",
       })
     );

@@ -6,6 +6,7 @@ import {
   Briefcase,
   FileText,
   LayoutDashboard,
+  Bell,
   Mail,
   Settings,
   User,
@@ -23,6 +24,7 @@ export const navItems: Array<{
 }> = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/digest", label: "Digest", icon: Mail },
+  { href: "/alerts", label: "Alerts", icon: Bell },
   { href: "/jobs", label: "Jobs", icon: Briefcase, exact: true },
   { href: "/jobs/import", label: "Import Job", icon: PlusCircle, exact: true },
   { href: "/discovery", label: "Discovery", icon: Radar },
