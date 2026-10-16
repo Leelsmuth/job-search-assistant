@@ -10,6 +10,15 @@ import { useToast } from "@/components/ui/use-toast";
 type Fit = {
   score: number;
   reasons: string[];
+  components?: Array<{
+    id: string;
+    label: string;
+    score: number;
+    max: number;
+    reason: string;
+  }>;
+  eligible?: boolean;
+  ineligibleReason?: string | null;
 };
 
 type LocationInfo = {
@@ -46,7 +55,7 @@ export function FrontendFitCard({
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
-          <span>Frontend fit</span>
+          <span>Fit score</span>
           <span className="text-2xl font-bold">{display.score}</span>
         </CardTitle>
       </CardHeader>
@@ -60,11 +69,31 @@ export function FrontendFitCard({
           ))}
         </div>
         <p className="text-muted-foreground">{location.reason}</p>
-        <ul className="list-disc space-y-1 pl-5">
-          {display.reasons.map((reason) => (
-            <li key={reason}>{reason}</li>
-          ))}
-        </ul>
+        {display.eligible === false && display.ineligibleReason ? (
+          <p className="rounded-md bg-amber-50 px-3 py-2 text-amber-950">
+            Hidden from the feed: {display.ineligibleReason}
+          </p>
+        ) : null}
+        {display.components && display.components.length > 0 ? (
+          <ul className="space-y-2">
+            {display.components.map((component) => (
+              <li key={component.id} className="flex items-start justify-between gap-3">
+                <span>
+                  <span className="font-medium">{component.label}.</span> {component.reason}
+                </span>
+                <span className="shrink-0 tabular-nums text-muted-foreground">
+                  {component.score}/{component.max}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <ul className="list-disc space-y-1 pl-5">
+            {display.reasons.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        )}
         {note ? <p className="text-xs text-muted-foreground">{note}</p> : null}
         {aiAvailable ? (
           <Button

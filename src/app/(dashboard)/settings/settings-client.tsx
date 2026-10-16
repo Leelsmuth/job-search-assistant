@@ -9,6 +9,8 @@ import {
   detectBoardProviderAction,
   pollSavedBoardNow,
   getBoardPollRunStatus,
+  rescoreAllJobsAction,
+  saveCandidateSkills,
   signOut,
   updateSavedBoard,
 } from "@/server/actions";
@@ -20,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { useKeyedPending } from "@/components/layout/action-pending-provider";
 import { CuratedBoardsPanel } from "@/components/discovery/curated-boards-panel";
+import { SkillsChipEditor } from "@/components/profile/skills-chip-editor";
 import { SearchPreferencesForm } from "./search-preferences-form";
 import { ApplicationProfileForm } from "./application-profile-form";
 import { DigestSettingsForm } from "./digest-settings-form";
@@ -57,6 +60,7 @@ function formatLastPolled(lastPolledAt: Date | null) {
 export function SettingsClient({
   initialBoards,
   preferences,
+  skills,
   applicationProfile,
   applicationProfileReady,
   digestEmailsEnabled,
@@ -65,6 +69,7 @@ export function SettingsClient({
 }: {
   initialBoards: Board[];
   preferences: SearchPreferences;
+  skills: string[];
   applicationProfile: ApplicationProfile;
   applicationProfileReady: boolean;
   digestEmailsEnabled: boolean;
@@ -74,6 +79,7 @@ export function SettingsClient({
   const router = useRouter();
   const { toast } = useToast();
   const { run, isKeyPending } = useKeyedPending();
+  const [skillNames, setSkillNames] = useState(skills);
   const [companyName, setCompanyName] = useState("");
   const [boardUrl, setBoardUrl] = useState("");
   const [boardError, setBoardError] = useState<string | null>(null);
@@ -113,6 +119,74 @@ export function SettingsClient({
       </div>
 
       <SearchPreferencesForm initial={preferences} />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Skills</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <SkillsChipEditor skills={skillNames} onChange={setSkillNames} id="settings-skills" />
+          <Button
+            type="button"
+            variant="outline"
+            loading={isKeyPending("save-skills")}
+            onClick={() =>
+              run("save-skills", async () => {
+                try {
+                  const saved = await saveCandidateSkills(skillNames);
+                  setSkillNames(saved);
+                  toast({ title: "Skills saved" });
+                  router.refresh();
+                } catch (error) {
+                  toast({
+                    title: "Could not save skills",
+                    description: error instanceof Error ? error.message : "Unknown error",
+                    variant: "destructive",
+                  });
+                }
+              })
+            }
+          >
+            Save skills
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Rescore jobs</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Scores every saved job again from your skills, titles, and minimum salary. Low-fit and
+            ineligible roles stay stored.
+          </p>
+          <Button
+            type="button"
+            loading={isKeyPending("rescore")}
+            onClick={() =>
+              run("rescore", async () => {
+                try {
+                  const result = await rescoreAllJobsAction();
+                  toast({
+                    title: "Jobs rescored",
+                    description: `${result.jobsScored} jobs scored. Skills ${result.skillsBefore} → ${result.skillsAfter}.`,
+                  });
+                  router.refresh();
+                } catch (error) {
+                  toast({
+                    title: "Could not rescore",
+                    description: error instanceof Error ? error.message : "Unknown error",
+                    variant: "destructive",
+                  });
+                }
+              })
+            }
+          >
+            Rescore all
+          </Button>
+        </CardContent>
+      </Card>
 
       <CuratedBoardsPanel
         includeCurated={preferences.discoverCuratedBoards}

@@ -1,4 +1,4 @@
-import { getSavedBoardsWithHealth, getSearchPreferences } from "@/server/actions";
+import { getCandidateSkillNames, getSavedBoardsWithHealth, getSearchPreferences } from "@/server/actions";
 import { getApplicationProfile } from "@/server/actions/apply-actions";
 import { getDigestSettings } from "@/server/actions/digest-actions";
 import { SettingsClient } from "./settings-client";
@@ -8,12 +8,14 @@ export default async function SettingsPage() {
   // they do not compete for the shared postgres.js pool.
   const boards = await getSavedBoardsWithHealth();
   const preferences = await getSearchPreferences();
+  const skills = await getCandidateSkillNames();
   const applicationProfile = await getApplicationProfile();
   const digest = await getDigestSettings();
   return (
     <SettingsClient
       initialBoards={boards}
       preferences={preferences}
+      skills={skills}
       applicationProfile={applicationProfile.profile}
       applicationProfileReady={applicationProfile.schemaReady}
       digestEmailsEnabled={digest.emailsEnabled}

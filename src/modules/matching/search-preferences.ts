@@ -12,10 +12,15 @@ export const DEFAULT_TARGET_TITLES = [
   "Web Platform Engineer",
 ];
 
+export const DEFAULT_MIN_FIT_TO_SHOW = 50;
+export const DEFAULT_DIGEST_MIN_FIT = 55;
+
 export type SearchPreferences = LocationVisibility & {
   targetTitles: string[];
   preferredSeniority: SeniorityLevel;
   minimumSalaryCad: number | null;
+  minFitToShow: number;
+  digestMinFit: number;
   discoverCuratedBoards: boolean;
   excludedCuratedBoardUrls: string[];
   gtaCities: string[];
@@ -29,6 +34,8 @@ export type SearchPreferenceInput = {
   includeOnsiteGta?: boolean;
   showRemoteOther?: boolean;
   showOutOfArea?: boolean;
+  minFitToShow?: number | null;
+  digestMinFit?: number | null;
   discoverCuratedBoards?: boolean;
   excludedCuratedBoardUrls?: string[] | string;
   gtaCities?: string[] | string;
@@ -39,6 +46,8 @@ export function defaultSearchPreferences(): SearchPreferences {
     targetTitles: [...DEFAULT_TARGET_TITLES],
     preferredSeniority: "senior",
     minimumSalaryCad: null,
+    minFitToShow: DEFAULT_MIN_FIT_TO_SHOW,
+    digestMinFit: DEFAULT_DIGEST_MIN_FIT,
     includeHybridGta: true,
     includeOnsiteGta: true,
     showRemoteOther: false,
@@ -58,6 +67,11 @@ export function normalizeExcludedCuratedBoardUrls(value: string[] | string | und
   return [...new Set(cleaned)].slice(0, 200);
 }
 
+function clampFitThreshold(value: number | null | undefined, fallback: number): number {
+  if (value == null || Number.isNaN(value)) return fallback;
+  return Math.min(100, Math.max(0, Math.round(value)));
+}
+
 function splitList(value: string[] | string | undefined, fallback: string[]): string[] {
   const source = Array.isArray(value) ? value : typeof value === "string" ? value.split(/[\n,]/) : fallback;
   const cleaned = source.map((item) => item.trim()).filter((item) => item.length > 0);
@@ -74,6 +88,8 @@ export function normalizeSearchPreferences(input: SearchPreferenceInput = {}): S
     targetTitles: splitList(input.targetTitles, defaults.targetTitles).slice(0, 12),
     preferredSeniority: normalizeSeniority(input.preferredSeniority ?? defaults.preferredSeniority),
     minimumSalaryCad: salary != null && salary > 2_000_000 ? 2_000_000 : salary,
+    minFitToShow: clampFitThreshold(input.minFitToShow, defaults.minFitToShow),
+    digestMinFit: clampFitThreshold(input.digestMinFit, defaults.digestMinFit),
     includeHybridGta: input.includeHybridGta ?? defaults.includeHybridGta,
     includeOnsiteGta: input.includeOnsiteGta ?? defaults.includeOnsiteGta,
     showRemoteOther: input.showRemoteOther ?? defaults.showRemoteOther,
@@ -88,6 +104,8 @@ export type SearchPreferenceRow = {
   targetTitles: unknown;
   preferredSeniority: string;
   minimumSalaryCad: number | null;
+  minFitToShow?: number | null;
+  digestMinFit?: number | null;
   includeHybridGta: boolean;
   includeOnsiteGta: boolean;
   showRemoteOther: boolean;
@@ -102,6 +120,8 @@ export function searchPreferencesFromRow(row: SearchPreferenceRow): SearchPrefer
     targetTitles: Array.isArray(row.targetTitles) ? (row.targetTitles as string[]) : undefined,
     preferredSeniority: row.preferredSeniority,
     minimumSalaryCad: row.minimumSalaryCad,
+    minFitToShow: row.minFitToShow,
+    digestMinFit: row.digestMinFit,
     includeHybridGta: row.includeHybridGta,
     includeOnsiteGta: row.includeOnsiteGta,
     showRemoteOther: row.showRemoteOther,

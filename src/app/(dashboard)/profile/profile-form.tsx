@@ -15,11 +15,11 @@ import {
   WORK_AUTHORIZATION_OPTIONS,
   PRIMARY_LOCATION_OPTIONS,
   PREFERRED_LOCATION_OPTIONS,
-  TARGET_TITLE_OPTIONS,
   normalizeWorkAuthorization,
   normalizeSeniority,
   normalizeRemotePreference,
 } from "@/modules/candidate/profile-options";
+import { SkillsChipEditor } from "@/components/profile/skills-chip-editor";
 
 type Profile = {
   id: string;
@@ -141,6 +141,9 @@ export function ProfileForm({ profile }: { profile: Profile }) {
 
   const initialLocation = resolveLocationValue(profile.location);
 
+  const [titlesText, setTitlesText] = useState(
+    ((profile.targetTitles as string[]) ?? []).join(", ")
+  );
   const [form, setForm] = useState({
     displayName: profile.displayName ?? "",
     locationPreset: initialLocation.preset,
@@ -160,6 +163,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
         : "",
     summary: profile.summary ?? "",
     dealBreakers: ((profile.dealBreakers as string[]) ?? []).join(", "),
+    skills: profile.skills?.map((skill) => skill.name) ?? [],
   });
 
   const resolvedLocation =
@@ -174,7 +178,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
           displayName: form.displayName,
           location: resolvedLocation || undefined,
           workAuthorization: form.workAuthorization || undefined,
-          targetTitles: form.targetTitles,
+          targetTitles: titlesText.split(",").map((title) => title.trim()).filter(Boolean),
           preferredSeniority: form.preferredSeniority || undefined,
           remotePreference: form.remotePreference || undefined,
           preferredLocations: form.preferredLocations,
@@ -182,6 +186,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
           yearsExperience: parseOptionalInt(form.yearsExperience),
           summary: form.summary,
           dealBreakers: form.dealBreakers.split(",").map((s) => s.trim()).filter(Boolean),
+          skills: form.skills,
         });
         setSaved(true);
         toast({
@@ -278,12 +283,17 @@ export function ProfileForm({ profile }: { profile: Profile }) {
             />
           </div>
 
-          <CheckboxGroup
-            label="Target Titles"
-            options={TARGET_TITLE_OPTIONS}
-            selected={form.targetTitles}
-            onChange={(targetTitles) => setForm({ ...form, targetTitles })}
-          />
+          <div className="sm:col-span-2">
+            <Label>Target titles</Label>
+            <Input
+              value={titlesText}
+              onChange={(event) => setTitlesText(event.target.value)}
+              placeholder="Frontend Engineer, UI Engineer, React Developer"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Same list as Settings. Saving either page updates both.
+            </p>
+          </div>
 
           <CheckboxGroup
             label="Preferred Locations"
@@ -312,20 +322,14 @@ export function ProfileForm({ profile }: { profile: Profile }) {
         </CardContent>
       </Card>
 
-      {profile.skills && profile.skills.length > 0 && (
-        <Card>
-          <CardContent className="pt-6">
-            <h3 className="mb-2 font-medium">Skills</h3>
-            <div className="flex flex-wrap gap-2">
-              {profile.skills.map((s, i) => (
-                <span key={i} className="rounded-full bg-secondary px-2 py-1 text-xs">
-                  {s.name}
-                </span>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <Card>
+        <CardContent className="pt-6">
+          <SkillsChipEditor
+            skills={form.skills}
+            onChange={(skills) => setForm({ ...form, skills })}
+          />
+        </CardContent>
+      </Card>
 
       {profile.experiences?.map((exp, i) => (
         <Card key={i}>

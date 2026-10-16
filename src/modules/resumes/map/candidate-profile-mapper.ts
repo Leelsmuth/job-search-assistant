@@ -17,6 +17,8 @@ import {
   type ParsedResume,
 } from "@/modules/resumes/schema/resume-schema";
 import { normalizeSkillCategory, extractEvidenceSkills } from "@/modules/candidate/skills";
+import { sanitizeSkills } from "@/modules/candidate/sanitize-skills";
+import { categoryForCanonicalSkill, extractCanonicalSkills } from "@/modules/candidate/skill-dictionary";
 import { wipeExtractedProfileData } from "@/modules/resumes/profile-wipe";
 import { getOrCreateProfileDb } from "@/server/actions/helpers";
 import {
@@ -64,31 +66,42 @@ export async function mapParsedResumeToProfile(
     })
     .where(eq(candidateProfiles.id, profile.id));
 
-  const skillRows = selected.has("skills")
-    ? cleaned.skillGroups.flatMap((group) =>
-        group.skills.map((skillName) => ({
-          profileId: profile.id,
-          name: skillName,
-          category: normalizeSkillCategory(group.category ?? "other", skillName),
-        }))
-      )
+  const rawSkillNames = selected.has("skills")
+    ? cleaned.skillGroups.flatMap((group) => group.skills)
     : [];
+  const canonicalSkillNames = sanitizeSkills(rawSkillNames);
+  const skillRows = canonicalSkillNames.map((skillName) => ({
+    profileId: profile.id,
+    name: skillName,
+    category: categoryForCanonicalSkill(skillName) ?? normalizeSkillCategory(undefined, skillName),
+  }));
   if (skillRows.length > 0) {
     await db.insert(candidateSkills).values(skillRows);
-    const skillEvidence = cleaned.skillGroups.flatMap((group, groupIndex) =>
-      group.skills.map((skillName, skillIndex) => ({
+    const skillEvidence = canonicalSkillNames.map((skillName) => {
+      const needle = skillName.toLowerCase();
+      let fieldPath = "skillGroups";
+      for (const [groupIndex, group] of cleaned.skillGroups.entries()) {
+        const skillIndex = group.skills.findIndex((raw) => {
+          const text = raw.toLowerCase();
+          return (
+            text === needle ||
+            extractCanonicalSkills(raw).some((name) => name.toLowerCase() === needle)
+          );
+        });
+        if (skillIndex >= 0) {
+          fieldPath = `skillGroups.${groupIndex}.skills.${skillIndex}`;
+          break;
+        }
+      }
+      return {
         profileId: profile.id,
         sourceType: "skill" as const,
         sourceId: null,
         evidenceText: skillName,
-        normalizedSkills: [skillName.toLowerCase()],
-        provenanceJson: provenanceFor(
-          cleaned,
-          `skillGroups.${groupIndex}.skills.${skillIndex}`,
-          skillName
-        ),
-      }))
-    );
+        normalizedSkills: [needle],
+        provenanceJson: provenanceFor(cleaned, fieldPath, skillName),
+      };
+    });
     if (skillEvidence.length > 0) {
       await db.insert(profileEvidence).values(skillEvidence);
     }
