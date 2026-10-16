@@ -18,6 +18,7 @@ export type DigestMatch = {
   companyName: string;
   locationLabel: string;
   score: number;
+  resumeScore?: number | null;
   reason: string | null;
   href: string;
   postingUrl: string | null;
@@ -85,6 +86,7 @@ export type DigestJobSource = {
   frontendFitReasons: string[] | null;
   fitScore?: number | null;
   fitEligible?: boolean | null;
+  resumeScore?: number | null;
 };
 
 export type DigestReminderSource = {

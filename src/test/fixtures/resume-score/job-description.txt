@@ -1,0 +1,18 @@
+Senior Frontend Engineer
+
+About the team
+We build product interfaces for customers across Canada.
+
+Required
+- 5+ years of experience building web applications
+- Strong experience with React and TypeScript
+- Bachelor's degree in Computer Science or equivalent
+- Must be authorized to work in Canada
+
+Preferred
+- Next.js and Tailwind CSS
+- Experience with Playwright
+
+Responsibilities
+- Build accessible interfaces
+- Mentor other engineers

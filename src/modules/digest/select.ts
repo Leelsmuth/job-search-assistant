@@ -102,6 +102,7 @@ export function selectDigestJobs(input: {
       companyName: job.companyName,
       locationLabel: locationLabel(job.location, locationClass),
       score: Math.round(score),
+      resumeScore: job.resumeScore ?? null,
       reason,
       href: `/jobs/${job.id}`,
       postingUrl: safeHttpUrl(job.jobUrl),
@@ -111,6 +112,9 @@ export function selectDigestJobs(input: {
 
   ranked.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
+    const resumeA = a.resumeScore ?? -1;
+    const resumeB = b.resumeScore ?? -1;
+    if (resumeB !== resumeA) return resumeB - resumeA;
     if (b.discoveredAt !== a.discoveredAt) return b.discoveredAt - a.discoveredAt;
     return a.title.localeCompare(b.title, "en");
   });
@@ -121,6 +125,7 @@ export function selectDigestJobs(input: {
     companyName: job.companyName,
     locationLabel: job.locationLabel,
     score: job.score,
+    resumeScore: job.resumeScore,
     reason: job.reason,
     href: job.href,
     postingUrl: job.postingUrl,

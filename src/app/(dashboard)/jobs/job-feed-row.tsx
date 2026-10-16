@@ -20,6 +20,7 @@ import { useKeyedPending } from "@/components/layout/action-pending-provider";
 import { JobDeleteButton } from "./job-delete-button";
 import { ApplyLink } from "@/components/jobs/apply-link";
 import { JobSourceBadge } from "@/components/jobs/job-source-badge";
+import { ResumeScoreBadge } from "@/components/jobs/resume-score-badge";
 import type { JobListItem } from "@/modules/jobs/job-list-item";
 
 export function JobFeedRow({
@@ -81,6 +82,7 @@ export function JobFeedRow({
               {saved && (
                 <Badge className="border border-blue-300 bg-transparent text-blue-700">saved</Badge>
               )}
+              <ResumeScoreBadge score={job.resumeScore} />
               {isNew && <Badge className="bg-green-100 text-green-900">new</Badge>}
               {isStale && <Badge className="bg-amber-100 text-amber-900">stale</Badge>}
               {lowExtraction && (
