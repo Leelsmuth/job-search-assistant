@@ -1,6 +1,16 @@
 import { chooseOption, splitLegalName } from "@/modules/apply/map-questions";
 import { normalizeQuestionLabel } from "@/modules/apply/questions";
 import type { ApplicationProfile } from "@/modules/apply/types";
+import {
+  bestComboboxOption,
+  isPhoneCountryField,
+  isWorkIntentLabel,
+  phoneCountryPlan,
+  placePlan,
+  workIntentAnswer,
+  workIntentPlan,
+  type ComboboxPlan,
+} from "@/modules/extension/combobox";
 import type {
   AttentionItem,
   ExtensionDocuments,
@@ -23,9 +33,11 @@ type FieldKind =
   | "legalName"
   | "email"
   | "phone"
+  | "phoneCountry"
   | "city"
   | "province"
   | "location"
+  | "workIntent"
   | "linkedin"
   | "github"
   | "portfolio"
@@ -58,6 +70,7 @@ function classifyText(label: string): FieldKind {
   if (!label) return "unmapped";
   if (/\b(agree|consent|terms of|privacy policy|acknowledge|certify)\b/.test(label)) return "consent";
   if (/\bemail\b/.test(label)) return "email";
+  if (isWorkIntentLabel(label)) return "workIntent";
   if (/\b(phone|mobile|telephone)\b/.test(label)) return "phone";
   if (/\blinkedin\b|\blinked in\b/.test(label)) return "linkedin";
   if (/\bgithub\b|\bgit hub\b/.test(label)) return "github";
@@ -73,11 +86,11 @@ function classifyText(label: string): FieldKind {
   }
   if (/\bpronouns?\b/.test(label)) return "pronouns";
   if (/\bcity\b/.test(label) && /\b(province|state)\b/.test(label)) return "location";
-  if (/\bcity\b/.test(label)) return "city";
-  if (/\b(province|state|region)\b/.test(label)) return "province";
   if (/\b(location|current location|address)\b/.test(label) || /where (are|do) you (live|based)/.test(label)) {
     return "location";
   }
+  if (/\bcity\b/.test(label)) return "city";
+  if (/\b(province|state|region)\b/.test(label)) return "province";
   const sponsorship = /\bsponsor|\bvisa\b/.test(label);
   const authorization = /authoriz|authoris|eligible to work|right to work|\bcitizen|work permit|legally entitled/.test(label);
   if (sponsorship && !authorization) return "sponsorship";
@@ -102,10 +115,15 @@ function classifyText(label: string): FieldKind {
   return "unmapped";
 }
 
+function isCombobox(field: PageField): boolean {
+  return field.control === "combobox" || field.type === "combobox";
+}
+
 function classify(field: PageField): FieldKind {
   const label = signalText(field.label);
-  const technical = signalText(`${field.name} ${field.id}`);
+  const technical = signalText(`${field.name} ${field.id} ${field.groupLabel ?? ""}`);
   const combined = `${label} ${technical}`.trim();
+  if (isPhoneCountryField(field)) return "phoneCountry";
   if (field.type === "file") {
     if (/\b(cover letter|coverletter)\b/.test(combined)) return "coverLetter";
     if (/\b(resume|cv)\b/.test(combined)) return "resume";
@@ -179,6 +197,10 @@ function profileValue(kind: FieldKind, profile: ApplicationProfile, field: PageF
       return profile.email;
     case "phone":
       return profile.phone;
+    case "phoneCountry":
+      return phoneCountryPlan(profile)?.value ?? "";
+    case "workIntent":
+      return "";
     case "city":
       return profile.city;
     case "province":
@@ -192,7 +214,7 @@ function profileValue(kind: FieldKind, profile: ApplicationProfile, field: PageF
     case "portfolio":
       return profile.portfolioUrl;
     case "workAuthorization": {
-      if (yesNoOptions(field)) {
+      if (yesNoOptions(field) || isCombobox(field)) {
         const text = profile.workAuthorization.toLowerCase();
         if (!text.trim() || (text.includes("require") && text.includes("sponsor"))) return "No";
         return "Yes";
@@ -251,6 +273,68 @@ function shapeValue(field: PageField, desired: string): string | null {
 
 function attention(field: PageField, reason: string): AttentionItem {
   return { key: field.key, label: field.label || field.name || field.key, reason };
+}
+
+function selectValue(field: PageField, plan: ComboboxPlan): string | null {
+  const picked = bestComboboxOption(
+    field.options.map((option) => option.text),
+    plan.queries,
+    plan.match
+  );
+  if (!picked) return null;
+  return field.options.find((option) => option.text === picked.option)?.value ?? null;
+}
+
+function controlFill(field: PageField, plan: ComboboxPlan | null): FillInstruction | null {
+  if (!plan) return null;
+  if (field.tag === "select") {
+    const value = selectValue(field, plan);
+    if (!value) return null;
+    return {
+      key: field.key,
+      name: field.name,
+      label: field.label || field.name || field.key,
+      value,
+      mode: "select",
+      match: plan.match,
+    };
+  }
+  if (!isCombobox(field)) return null;
+  return {
+    key: field.key,
+    name: field.name,
+    label: field.label || field.name || field.key,
+    value: plan.value,
+    mode: "combobox",
+    queries: plan.queries,
+    match: plan.match,
+  };
+}
+
+function yesNoPlan(value: string): ComboboxPlan {
+  return { value, queries: [value], match: "yesNo" };
+}
+
+function specialPlan(
+  kind: FieldKind,
+  field: PageField,
+  profile: ApplicationProfile,
+  desired: string,
+  profileAnswer: boolean
+): ComboboxPlan | null {
+  if (kind === "phoneCountry") return phoneCountryPlan(profile);
+  if (kind === "workIntent") {
+    if (!profileAnswer && desired) return { value: desired, queries: [desired], match: "text" };
+    return workIntentPlan(profile, field.description ?? "");
+  }
+  if ((kind === "location" || kind === "city") && isCombobox(field)) {
+    if (!profileAnswer && desired) return { value: desired, queries: [desired], match: "text" };
+    return placePlan(profile);
+  }
+  if ((kind === "sponsorship" || kind === "relocate" || kind === "workAuthorization") && isCombobox(field) && desired) {
+    return yesNoPlan(desired);
+  }
+  return null;
 }
 
 export function planPageFill(input: {
@@ -329,12 +413,34 @@ export function planPageFill(input: {
     const prepared = textMatch(field.label, input.preparedAnswers);
     const remembered = textMatch(field.label, saved);
     let desired = "";
-    if (prepared) desired = prepared;
-    else if (remembered && (kind === "openEnded" || kind === "unmapped" || isEeo(kind))) desired = remembered;
+    if (kind === "workIntent" && !prepared && !remembered) {
+      desired = workIntentAnswer(input.profile, field.description ?? "");
+    } else if (prepared) desired = prepared;
+    else if (remembered && (kind === "openEnded" || kind === "unmapped" || kind === "workIntent" || isEeo(kind))) desired = remembered;
     else if (kind === "coverLetter") desired = input.documents.coverLetterBody?.trim() ?? remembered ?? "";
     else if (isEeo(kind)) desired = remembered || profileValue(kind, input.profile, field);
     else if (kind === "openEnded" || kind === "unmapped") desired = "";
     else desired = profileValue(kind, input.profile, field);
+
+    const profileAnswer = !prepared && !remembered;
+    const planned = controlFill(field, specialPlan(kind, field, input.profile, desired, profileAnswer));
+    if (planned) {
+      fills.push(planned);
+      continue;
+    }
+    if (isCombobox(field) || (field.tag === "select" && (kind === "phoneCountry" || kind === "workIntent"))) {
+      if (field.required) {
+        needs.push(
+          attention(
+            field,
+            kind === "workIntent"
+              ? "No option matches where you intend to work."
+              : "Required field was not filled."
+          )
+        );
+      }
+      continue;
+    }
 
     const value = shapeValue(field, desired);
     if (!value) {

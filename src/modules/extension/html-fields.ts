@@ -1,3 +1,4 @@
+import { isComboboxControl } from "@/modules/extension/combobox";
 import type { PageField, PageSnapshot } from "@/modules/extension/page-types";
 
 type Node = {
@@ -126,6 +127,37 @@ function legend(nodes: Node[], html: string, index: number): string {
   return "";
 }
 
+function nodeById(nodes: Node[], id: string): Node | null {
+  if (!id) return null;
+  return nodes.find((node) => node.attrs.id === id) ?? null;
+}
+
+function referencedText(nodes: Node[], html: string, ids: string): string {
+  const parts: string[] = [];
+  for (const id of ids.split(/\s+/)) {
+    if (!id || /-error$|-help$/.test(id)) continue;
+    const node = nodeById(nodes, id);
+    const text = node ? textOf(html, node) : "";
+    if (text) parts.push(text);
+  }
+  return parts.join(" ").replace(/\s+/g, " ").trim();
+}
+
+function groupLabel(nodes: Node[], html: string, index: number): string {
+  const legendText = legend(nodes, html, index);
+  if (legendText) return legendText.replace(/\s*\*\s*/g, " ").replace(/\s+/g, " ").trim();
+  let parent = nodes[index]?.parent ?? -1;
+  while (parent >= 0) {
+    const node = nodes[parent];
+    if (node.attrs.role === "group" && node.attrs["aria-labelledby"]) {
+      const text = referencedText(nodes, html, node.attrs["aria-labelledby"]);
+      if (text) return text.replace(/\s*\*\s*/g, " ").replace(/\s+/g, " ").trim();
+    }
+    parent = node.parent;
+  }
+  return "";
+}
+
 function previousLabel(nodes: Node[], html: string, index: number): string {
   const parent = nodes[index].parent;
   for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
@@ -142,12 +174,19 @@ function controlLabel(nodes: Node[], html: string, index: number): string {
   const node = nodes[index];
   return (
     node.attrs["aria-label"] ||
+    referencedText(nodes, html, node.attrs["aria-labelledby"] || "") ||
     labelForId(nodes, html, node.attrs.id || "") ||
     wrappingLabel(nodes, html, index) ||
     previousLabel(nodes, html, index) ||
     node.attrs.placeholder ||
     ""
   );
+}
+
+function displayLabel(label: string, group: string): string {
+  const generic = /^(attach|upload|choose file|browse)$/i.test(label.trim());
+  if (generic && group) return group;
+  return label;
 }
 
 function isRequired(attrs: Record<string, string>, label: string): boolean {
@@ -196,7 +235,15 @@ export function extractFieldsFromHtml(source: string): PageSnapshot {
     }
     if (node.name !== "input" && node.name !== "textarea" && node.name !== "select") return;
     if (hasAttr(node.attrs, "disabled")) return;
-    const type = (node.attrs.type || (node.name === "select" ? "select" : node.name === "textarea" ? "textarea" : "text")).toLowerCase();
+    if (node.attrs["aria-hidden"] === "true") return;
+    const combobox = isComboboxControl({
+      role: node.attrs.role,
+      ariaAutocomplete: node.attrs["aria-autocomplete"],
+      className: node.attrs.class,
+    });
+    const type = combobox
+      ? "combobox"
+      : (node.attrs.type || (node.name === "select" ? "select" : node.name === "textarea" ? "textarea" : "text")).toLowerCase();
     if (["hidden", "submit", "button", "reset", "image", "password"].includes(type)) {
       if (type === "submit" || type === "button") {
         const text = node.attrs.value || node.attrs["aria-label"] || "";
@@ -205,10 +252,13 @@ export function extractFieldsFromHtml(source: string): PageSnapshot {
       return;
     }
 
-    const label = controlLabel(nodes, html, index).replace(/\s*\*\s*/g, " ").replace(/\s+/g, " ").trim();
+    const rawLabel = controlLabel(nodes, html, index);
+    const grouped = groupLabel(nodes, html, index);
+    const label = displayLabel(rawLabel.replace(/\s*\*\s*/g, " ").replace(/\s+/g, " ").trim(), grouped);
     const id = node.attrs.id || node.attrs["data-automation-id"] || "";
     const name = node.attrs.name || node.attrs["data-automation-id"] || "";
-    const required = isRequired(node.attrs, controlLabel(nodes, html, index));
+    const required = isRequired(node.attrs, rawLabel);
+    const description = referencedText(nodes, html, node.attrs["aria-describedby"] || "");
 
     if (type === "radio" || type === "checkbox") {
       const groupName = name || id || `choice-${fields.length}`;
@@ -232,6 +282,8 @@ export function extractFieldsFromHtml(source: string): PageSnapshot {
         required,
         options: [{ value: optionValue, text: optionText }],
         currentValue: node.attrs.checked !== undefined ? optionValue : "",
+        groupLabel: grouped,
+        description,
       };
       radioGroups.set(groupName, field);
       fields.push(field);
@@ -246,10 +298,13 @@ export function extractFieldsFromHtml(source: string): PageSnapshot {
       id,
       tag: node.name === "select" ? "select" : node.name === "textarea" ? "textarea" : "input",
       type,
-      label: legend(nodes, html, index) || label,
+      label: label || grouped,
       required,
       options,
       currentValue: node.name === "select" ? selectedText(options, currentRaw) : currentRaw,
+      control: combobox ? "combobox" : undefined,
+      groupLabel: grouped,
+      description,
     });
   });
 

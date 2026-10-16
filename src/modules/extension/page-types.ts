@@ -4,12 +4,18 @@ export type PageField = {
   key: string;
   name: string;
   id: string;
-  tag: "input" | "textarea" | "select";
+  tag: "input" | "textarea" | "select" | "button";
   type: string;
   label: string;
   required: boolean;
   options: Array<{ value: string; text: string }>;
   currentValue: string;
+  /** react-select, intl-tel-input, or another listbox combobox. */
+  control?: "combobox";
+  /** Fieldset legend or group label, such as Phone around a country picker. */
+  groupLabel?: string;
+  /** Helper text, such as Greenhouse's city/province description. */
+  description?: string;
 };
 
 export type PageSnapshot = {
@@ -18,7 +24,9 @@ export type PageSnapshot = {
   buttons: string[];
 };
 
-export type FillMode = "value" | "select" | "choice" | "file";
+export type FillMode = "value" | "select" | "choice" | "file" | "combobox";
+
+export type ComboboxMatch = "phoneCountry" | "workIntent" | "yesNo" | "place" | "text";
 
 export type FillInstruction = {
   key: string;
@@ -27,6 +35,9 @@ export type FillInstruction = {
   value: string;
   mode: FillMode;
   fileRole?: "resume" | "coverLetter";
+  /** Typed into a combobox, in order, until an option matches. */
+  queries?: string[];
+  match?: ComboboxMatch;
 };
 
 export type AttentionItem = {

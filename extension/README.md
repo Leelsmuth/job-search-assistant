@@ -38,7 +38,7 @@ The public key in the manifest keeps the extension id stable (`epkapkpodghpodnfd
 
 ## What it does
 
-- **Fill this page** on Greenhouse, Lever, Ashby, and Workday application pages. It sets native input values and dispatches `input` and `change` so React-controlled fields update. Workday is handled one step at a time: open the next step yourself and fill again. On a Review step it stops.
+- **Fill this page** on Greenhouse, Lever, Ashby, and Workday application pages, including the newer `job-boards.greenhouse.io` forms and the legacy Greenhouse form. It sets native input values and dispatches `input` and `change` so React-controlled fields update. Custom selects (phone country, city, and yes/no questions) are opened, filtered, and chosen from the list. A question about where you intend to work is filled from your city, province, and work authorization, or left highlighted when no option matches. Workday is handled one step at a time: open the next step yourself and fill again. On a Review step it stops. The extension never presses Enter, because that can submit the form.
 - Required fields it cannot fill are listed in the panel and outlined on the page. Voluntary EEO questions stay empty unless you already saved an answer.
 - **Save to tracker** on any posting you are viewing, including LinkedIn and Indeed. Click the toolbar icon first so Chrome grants access to that tab. Title, company, location, URL, and description are captured best-effort; edit the title and company before saving. The same URL is not added twice.
 - **Mark as applied** writes the existing assisted-apply tracker event. It does not submit the employer form.

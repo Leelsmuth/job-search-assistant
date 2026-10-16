@@ -1,0 +1,95 @@
+<!doctype html>
+<!-- Captured from https://job-boards.greenhouse.io/mercury/jobs/6101151004 and trimmed of styles. -->
+<html>
+  <body>
+    <h1>Senior Full-Stack Engineer</h1>
+    <form id="application-form" action="/mercury/jobs/6101151004">
+      <label id="first_name-label" for="first_name">First Name<span aria-hidden="true">*</span></label>
+      <input id="first_name" aria-required="true" type="text" value="" />
+
+      <label id="last_name-label" for="last_name">Last Name<span aria-hidden="true">*</span></label>
+      <input id="last_name" aria-required="true" type="text" value="" />
+
+      <label id="email-label" for="email">Email<span aria-hidden="true">*</span></label>
+      <input id="email" aria-required="true" type="text" autocomplete="email" value="" />
+
+      <fieldset class="phone-input">
+        <legend class="visually-hidden">Phone</legend>
+        <div class="phone-input__country">
+          <label id="country-label" for="country">Country<span aria-hidden="true">*</span></label>
+          <div class="select__control">
+            <input
+              id="country"
+              class="select__input"
+              type="text"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded="false"
+              aria-haspopup="true"
+              aria-labelledby="country-label"
+              aria-required="true"
+              value=""
+            />
+          </div>
+          <button type="button" aria-label="Toggle flyout">Open</button>
+          <input required aria-hidden="true" value="" />
+        </div>
+        <label id="phone-label" for="phone">Phone<span aria-hidden="true">*</span></label>
+        <input id="phone" type="tel" aria-required="true" />
+      </fieldset>
+
+      <label id="candidate-location-label" for="candidate-location">Location (City)<span aria-hidden="true">*</span></label>
+      <input
+        id="candidate-location"
+        class="select__input"
+        type="text"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded="false"
+        aria-labelledby="candidate-location-label"
+        aria-required="true"
+        value=""
+      />
+
+      <div role="group" aria-labelledby="upload-label-resume" aria-required="true">
+        <div id="upload-label-resume">Resume/CV<span class="required">*</span></div>
+        <label class="visually-hidden" for="resume">Attach</label>
+        <input id="resume" type="file" />
+      </div>
+
+      <label id="question_19087924004-label" for="question_19087924004">LinkedIn Profile</label>
+      <input id="question_19087924004" type="text" value="" />
+
+      <label id="question_19087928004-label" for="question_19087928004">
+        Will you now or at any time in the future require visa sponsorship?<span aria-hidden="true">*</span>
+      </label>
+      <input
+        id="question_19087928004"
+        class="select__input"
+        type="text"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded="false"
+        aria-labelledby="question_19087928004-label"
+        aria-required="true"
+        value=""
+      />
+
+      <label id="question_19087929004-label" for="question_19087929004">
+        From where do you intend to work?<span aria-hidden="true">*</span>
+      </label>
+      <input
+        id="question_19087929004"
+        type="text"
+        aria-required="true"
+        aria-describedby="question_19087929004-description"
+        value=""
+      />
+      <div id="question_19087929004-description">
+        <p>Please list city and state/province (<em>San Francisco, California, Toronto, Ontario, etc.)</em></p>
+      </div>
+
+      <button type="submit">Submit application</button>
+    </form>
+  </body>
+</html>

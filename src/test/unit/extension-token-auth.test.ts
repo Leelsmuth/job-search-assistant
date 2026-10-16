@@ -147,6 +147,7 @@ describe("extension token auth", () => {
     const extensionSource = [
       "extension/src/content.ts",
       "extension/src/apply-page.ts",
+      "extension/src/combobox-dom.ts",
       "extension/src/background.ts",
       "extension/src/sidepanel.ts",
       "extension/src/api.ts",
@@ -154,6 +155,7 @@ describe("extension token auth", () => {
       .map((file) => readFileSync(resolve(process.cwd(), file), "utf8"))
       .join("\n");
     expect(extensionSource).not.toMatch(/service_role|SUPABASE_|eval\(|new Function|\.submit\s*\(|\.click\s*\(/);
+    expect(extensionSource).not.toMatch(/key:\s*["']Enter["']/);
     expect(extensionSource).toContain("getOwnPropertyDescriptor");
     expect(extensionSource).toContain("will not submit");
   });
