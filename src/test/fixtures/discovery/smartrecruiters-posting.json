@@ -1,0 +1,19 @@
+{
+  "id": "743999912345678",
+  "name": "Senior Frontend Engineer",
+  "releasedDate": "2026-09-01T00:00:00.000Z",
+  "company": { "name": "Bosch Group" },
+  "applyUrl": "https://jobs.smartrecruiters.com/BoschGroup/743999912345678",
+  "location": {
+    "city": "Welland",
+    "region": "Ontario",
+    "country": "ca",
+    "fullLocation": "Welland, Ontario, Canada",
+    "hybrid": true
+  },
+  "jobAd": {
+    "sections": {
+      "jobDescription": { "text": "<p>Build React interfaces for plant software.</p>" }
+    }
+  }
+}

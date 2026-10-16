@@ -1,0 +1,14 @@
+[
+  { "legal": "Remote OK legal notice" },
+  {
+    "id": 77,
+    "position": "Frontend Engineer",
+    "company": "Northwind",
+    "location": "Worldwide",
+    "description": "<p>React.</p>",
+    "url": "https://remoteok.com/remote-jobs/77",
+    "date": "2026-09-05",
+    "salary_min": 140000,
+    "salary_max": 170000
+  }
+]

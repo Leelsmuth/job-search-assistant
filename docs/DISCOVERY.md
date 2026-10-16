@@ -8,11 +8,13 @@ This document describes what is implemented for **Discovery V1** (user-saved boa
 
 | In scope | Out of scope |
 |----------|--------------|
-| Poll Greenhouse, Lever, and Ashby **boards you choose** | Google / LinkedIn / Indeed crawling |
+| Poll Greenhouse, Lever, Ashby, Workday, and other public ATS boards you choose | Google / LinkedIn / Indeed crawling |
 | Normalize postings → dedupe → match → `/jobs` feed | Auto-apply or login-walled scraping |
 | Daily cron + manual “Poll now” | Phase 5 full tracker/Kanban (deferred) |
 
 Discovery imports jobs through the **same pipeline** as manual import: normalize → persist → requirement extraction → match analysis.
+
+Additional public feeds and ATS boards are documented in [DISCOVERY_SOURCES.md](./DISCOVERY_SOURCES.md), including access method, rate limits, and attribution.
 
 ---
 

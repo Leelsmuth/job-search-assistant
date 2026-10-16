@@ -1,0 +1,22 @@
+[
+  {
+    "title": "Frontend Engineer",
+    "companyName": "Northwind",
+    "description": "<p>Worldwide React role.</p>",
+    "applicationLink": "https://himalayas.app/companies/northwind/jobs/frontend-engineer",
+    "guid": "him-1",
+    "locationRestrictions": [],
+    "minSalary": 150000,
+    "maxSalary": 180000,
+    "salaryPeriod": "annual",
+    "currency": "CAD"
+  },
+  {
+    "title": "Frontend Engineer",
+    "companyName": "EU Only",
+    "description": "<p>Germany only.</p>",
+    "applicationLink": "https://himalayas.app/companies/eu-only/jobs/frontend-engineer",
+    "guid": "him-2",
+    "locationRestrictions": ["Germany"]
+  }
+]

@@ -12,7 +12,16 @@ const SINGLE_JOB_PATTERNS = [
   /jobs\.lever\.co\/[^/]+\/[a-f0-9-]{8,}/i,
   /jobs\.ashbyhq\.com\/[^/]+\/[a-f0-9-]{8,}/i,
   /myworkdayjobs\.com\/.+\/job\//i,
+  /jobs\.smartrecruiters\.com\/[^/]+\/.+/i,
+  /apply\.workable\.com\/[^/]+\/j\//i,
+  /recruitee\.com\/o\//i,
+  /bamboohr\.com\/careers\/\d+/i,
+  /teamtailor\.com\/jobs\/.+/i,
+  /jobs\.personio\.(?:de|com)\/job\//i,
+  /ats\.rippling\.com\/[^/]+\/jobs\/.+/i,
 ];
+
+const BOARD_SLUG = /^[a-z0-9][a-z0-9_-]{0,80}$/i;
 
 const WORKDAY_LOCALE_SEGMENT = /^[a-z]{2}-[a-z]{2}$/i;
 
@@ -222,6 +231,151 @@ function parseAshby(url: URL, hostname: string): ParsedBoardUrl | null {
   };
 }
 
+function safeSlug(value: string): string | null {
+  const slug = decodeSlug(value);
+  return BOARD_SLUG.test(slug) ? slug : null;
+}
+
+function publicPath(url: URL): string {
+  return `${url.origin}${url.pathname}`.replace(/\/+$/, "");
+}
+
+function parseSmartRecruiters(url: URL, hostname: string): ParsedBoardUrl | null {
+  if (/^api\.smartrecruiters\.com$/i.test(hostname)) {
+    const api = url.pathname.match(/\/v1\/companies\/([^/]+)(?:\/postings\/([^/]+))?/i);
+    if (!api) return null;
+    const slug = safeSlug(api[1]);
+    if (!slug) return null;
+    const isSingleJob = Boolean(api[2]);
+    return {
+      provider: "smartrecruiters",
+      boardSlug: slug,
+      boardUrl: isSingleJob ? publicPath(url) : `https://jobs.smartrecruiters.com/${slug}`,
+      isSingleJob,
+    };
+  }
+  if (!/^jobs\.smartrecruiters\.com$/i.test(hostname)) return null;
+  const segments = url.pathname.split("/").filter(Boolean);
+  const slug = segments[0] ? safeSlug(segments[0]) : null;
+  if (!slug) return null;
+  const isSingleJob = segments.length > 1;
+  return {
+    provider: "smartrecruiters",
+    boardSlug: slug,
+    boardUrl: isSingleJob ? publicPath(url) : `https://jobs.smartrecruiters.com/${slug}`,
+    isSingleJob,
+  };
+}
+
+function parseWorkable(url: URL, hostname: string): ParsedBoardUrl | null {
+  if (/^www\.workable\.com$/i.test(hostname)) {
+    const api = url.pathname.match(/\/api\/accounts\/([^/]+)/i);
+    if (!api) return null;
+    const slug = safeSlug(api[1]);
+    if (!slug) return null;
+    return {
+      provider: "workable",
+      boardSlug: slug,
+      boardUrl: `https://apply.workable.com/${slug}`,
+      isSingleJob: false,
+    };
+  }
+  if (!/^(?:apply|jobs)\.workable\.com$/i.test(hostname)) return null;
+  const segments = url.pathname.split("/").filter(Boolean);
+  const slug = segments[0] ? safeSlug(segments[0]) : null;
+  if (!slug) return null;
+  const second = segments[1]?.toLowerCase();
+  const isSingleJob = second === "j" || second === "jobs";
+  return {
+    provider: "workable",
+    boardSlug: slug,
+    boardUrl: isSingleJob ? publicPath(url) : `https://apply.workable.com/${slug}`,
+    isSingleJob,
+  };
+}
+
+function parseRecruitee(url: URL, hostname: string): ParsedBoardUrl | null {
+  const host = hostname.match(/^([a-z0-9-]+)\.recruitee\.com$/i);
+  if (!host) return null;
+  const slug = safeSlug(host[1]);
+  if (!slug || /^(?:www|api|app|blog|status)$/i.test(slug)) return null;
+  const segments = url.pathname.split("/").filter(Boolean);
+  const isSingleJob = /^(?:o|offers)$/i.test(segments[0] ?? "");
+  return {
+    provider: "recruitee",
+    boardSlug: slug,
+    boardUrl: isSingleJob ? publicPath(url) : `https://${slug}.recruitee.com`,
+    isSingleJob,
+  };
+}
+
+function parseBambooHr(url: URL, hostname: string): ParsedBoardUrl | null {
+  const host = hostname.match(/^([a-z0-9-]+)\.bamboohr\.com$/i);
+  if (!host) return null;
+  const slug = safeSlug(host[1]);
+  if (!slug || /^(?:www|api|app)$/i.test(slug)) return null;
+  const segments = url.pathname.split("/").filter(Boolean);
+  const careersIndex = segments.findIndex((segment) => segment.toLowerCase() === "careers");
+  if (careersIndex < 0) return null;
+  const after = segments[careersIndex + 1];
+  const isSingleJob = Boolean(after && after.toLowerCase() !== "list" && /^\d+$/.test(after));
+  return {
+    provider: "bamboohr",
+    boardSlug: slug,
+    boardUrl: isSingleJob ? publicPath(url) : `https://${slug}.bamboohr.com/careers`,
+    isSingleJob,
+  };
+}
+
+function parseTeamtailor(url: URL, hostname: string): ParsedBoardUrl | null {
+  const host = hostname.match(/^([a-z0-9-]+)\.teamtailor\.com$/i);
+  if (!host) return null;
+  const slug = safeSlug(host[1]);
+  if (!slug || /^(?:www|api|app|support)$/i.test(slug)) return null;
+  const segments = url.pathname.split("/").filter(Boolean);
+  const jobsIndex = segments.findIndex((segment) => /^jobs(?:\.rss)?$/i.test(segment));
+  if (jobsIndex < 0 && segments.length > 0) return null;
+  const after = jobsIndex >= 0 ? segments[jobsIndex + 1] : undefined;
+  const isSingleJob = Boolean(after);
+  return {
+    provider: "teamtailor",
+    boardSlug: slug,
+    boardUrl: isSingleJob ? publicPath(url) : `https://${slug}.teamtailor.com/jobs`,
+    isSingleJob,
+  };
+}
+
+function parsePersonio(url: URL, hostname: string): ParsedBoardUrl | null {
+  const host = hostname.match(/^([a-z0-9-]+)\.jobs\.personio\.(de|com)$/i);
+  if (!host) return null;
+  const company = safeSlug(host[1]);
+  if (!company) return null;
+  const tld = host[2].toLowerCase();
+  const segments = url.pathname.split("/").filter(Boolean);
+  const isSingleJob = segments[0]?.toLowerCase() === "job";
+  return {
+    provider: "personio",
+    boardSlug: `${company}.${tld}`,
+    boardUrl: isSingleJob ? publicPath(url) : `https://${company}.jobs.personio.${tld}`,
+    isSingleJob,
+  };
+}
+
+function parseRippling(url: URL, hostname: string): ParsedBoardUrl | null {
+  if (!/^ats\.rippling\.com$/i.test(hostname)) return null;
+  const segments = url.pathname.split("/").filter(Boolean);
+  const slug = segments[0] ? safeSlug(segments[0]) : null;
+  if (!slug) return null;
+  if (segments.length > 1 && segments[1]?.toLowerCase() !== "jobs") return null;
+  const isSingleJob = Boolean(segments[2]);
+  return {
+    provider: "rippling",
+    boardSlug: slug,
+    boardUrl: isSingleJob ? publicPath(url) : `https://ats.rippling.com/${slug}/jobs`,
+    isSingleJob,
+  };
+}
+
 export function parseBoardUrl(input: string): ParsedBoardUrl | null {
   const url = tryParseHttpUrl(input);
   if (!url) return null;
@@ -240,7 +394,14 @@ export function parseBoardUrl(input: string): ParsedBoardUrl | null {
         boardUrl: workday.boardUrl,
         isSingleJob: workday.isSingleJob,
       };
-    })()
+    })() ??
+    parseSmartRecruiters(url, hostname) ??
+    parseWorkable(url, hostname) ??
+    parseRecruitee(url, hostname) ??
+    parseBambooHr(url, hostname) ??
+    parseTeamtailor(url, hostname) ??
+    parsePersonio(url, hostname) ??
+    parseRippling(url, hostname)
   );
 }
 
@@ -251,7 +412,7 @@ export function normalizeBoardUrl(
   const parsed = parseBoardUrl(input);
   if (!parsed) {
     throw new Error(
-      "Invalid board URL. Use a Greenhouse, Lever, Ashby, or Workday careers board link."
+      "Invalid board URL. Use a Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Workable, Recruitee, BambooHR, Teamtailor, Personio, or Rippling careers board link."
     );
   }
   if (parsed.isSingleJob) {

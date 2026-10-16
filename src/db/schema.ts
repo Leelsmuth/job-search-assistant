@@ -45,6 +45,19 @@ export const jobSourceProviderEnum = pgEnum("job_source_provider", [
   "lever",
   "ashby",
   "workday",
+  "smartrecruiters",
+  "workable",
+  "recruitee",
+  "bamboohr",
+  "teamtailor",
+  "personio",
+  "rippling",
+  "jobbank",
+  "remotive",
+  "weworkremotely",
+  "himalayas",
+  "remoteok",
+  "adzuna",
   "generic_web",
 ]);
 
@@ -340,6 +353,10 @@ export const searchPreferences = pgTable("search_preferences", {
   showOutOfArea: boolean("show_out_of_area").notNull().default(false),
   discoverCuratedBoards: boolean("discover_curated_boards").notNull().default(true),
   excludedCuratedBoardUrls: jsonb("excluded_curated_board_urls").$type<string[]>().notNull().default([]),
+  enabledDiscoverySources: jsonb("enabled_discovery_sources")
+    .$type<Partial<Record<string, boolean>>>()
+    .notNull()
+    .default({}),
   gtaCities: jsonb("gta_cities").$type<string[]>().notNull().default([]),
   minFitToShow: integer("min_fit_to_show").notNull().default(50),
   digestMinFit: integer("digest_min_fit").notNull().default(55),
@@ -496,6 +513,8 @@ export const jobs = pgTable("jobs", {
   salaryMax: integer("salary_max"),
   salaryCurrency: text("salary_currency").default("CAD"),
   jobUrl: text("job_url"),
+  canonicalApplyUrl: text("canonical_apply_url"),
+  dedupeKey: text("dedupe_key"),
   sourceJobId: text("source_job_id"),
   datePosted: timestamp("date_posted"),
   dateDiscovered: timestamp("date_discovered").defaultNow().notNull(),

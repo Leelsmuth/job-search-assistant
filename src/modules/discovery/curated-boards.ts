@@ -2,7 +2,18 @@ import type { JobSourceProvider } from "@/modules/ingestion/types";
 
 export type CuratedBoard = {
   companyName: string;
-  provider: Extract<JobSourceProvider, "greenhouse" | "lever" | "ashby" | "workday">;
+  provider: Extract<
+    JobSourceProvider,
+    | "greenhouse"
+    | "lever"
+    | "ashby"
+    | "workday"
+    | "smartrecruiters"
+    | "workable"
+    | "bamboohr"
+    | "teamtailor"
+    | "rippling"
+  >;
   boardUrl: string;
   why: string;
 };
@@ -470,6 +481,54 @@ export const CURATED_CANADA_BOARDS: CuratedBoard[] = [
     provider: "ashby",
     boardUrl: "https://jobs.ashbyhq.com/vanta",
     why: "Remote-friendly board with Canada-eligible roles",
+  },
+  {
+    companyName: "Bosch Group",
+    provider: "smartrecruiters",
+    boardUrl: "https://jobs.smartrecruiters.com/BoschGroup",
+    why: "Ontario sites on the public SmartRecruiters posting API",
+  },
+  {
+    companyName: "Citylitics",
+    provider: "workable",
+    boardUrl: "https://apply.workable.com/citylitics",
+    why: "Toronto company on the public Workable account API",
+  },
+  {
+    companyName: "AssistIQ",
+    provider: "workable",
+    boardUrl: "https://apply.workable.com/assistiq",
+    why: "Remote-Canada roles on the public Workable account API",
+  },
+  {
+    companyName: "Export Development Canada",
+    provider: "workable",
+    boardUrl: "https://apply.workable.com/export-development-canada",
+    why: "Canadian crown corporation on the public Workable account API",
+  },
+  {
+    companyName: "Providius",
+    provider: "workable",
+    boardUrl: "https://apply.workable.com/providius",
+    why: "Canadian company on the public Workable account API",
+  },
+  {
+    companyName: "d1g1t",
+    provider: "bamboohr",
+    boardUrl: "https://d1g1t.bamboohr.com/careers",
+    why: "Toronto fintech on the public BambooHR careers JSON",
+  },
+  {
+    companyName: "Teamtailor",
+    provider: "teamtailor",
+    boardUrl: "https://career.teamtailor.com/jobs",
+    why: "Teamtailor careers RSS, including a Toronto office",
+  },
+  {
+    companyName: "Rippling",
+    provider: "rippling",
+    boardUrl: "https://ats.rippling.com/rippling/jobs",
+    why: "Toronto engineering roles on the public Rippling job-board API",
   },
 ];
 

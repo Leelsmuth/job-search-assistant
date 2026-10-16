@@ -23,8 +23,9 @@ import {
 } from "./job-list-item";
 import { estimatePayloadBytes } from "@/lib/performance/measure-operation";
 import { measureOperation } from "@/lib/performance/measure-operation";
+import { DISCOVERY_SOURCE_IDS } from "@/modules/discovery/source-catalog";
 
-const DISCOVERY_PROVIDERS = new Set(["greenhouse", "lever", "ashby", "workday"]);
+const DISCOVERY_PROVIDERS = new Set<string>(DISCOVERY_SOURCE_IDS);
 
 export type JobsFeedFilters = {
   minScore?: number;

@@ -22,6 +22,13 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { useKeyedPending } from "@/components/layout/action-pending-provider";
 import { CuratedBoardsPanel } from "@/components/discovery/curated-boards-panel";
+import { DiscoverySourcesPanel } from "@/components/discovery/discovery-sources-panel";
+import {
+  PASTEABLE_BOARD_PROVIDERS,
+  SOURCE_LABELS,
+  isPasteableBoardProvider,
+  type PasteableBoardProvider,
+} from "@/modules/discovery/source-catalog";
 import { SkillsChipEditor } from "@/components/profile/skills-chip-editor";
 import { SearchPreferencesForm } from "./search-preferences-form";
 import { ApplicationProfileForm } from "./application-profile-form";
@@ -32,7 +39,7 @@ import type { SearchPreferences } from "@/modules/matching/search-preferences";
 import type { ApplicationProfile } from "@/modules/apply/types";
 import type { OpenAiHealthReport } from "@/modules/ai/openai-health";
 
-type BoardProvider = "greenhouse" | "lever" | "ashby" | "workday";
+type BoardProvider = PasteableBoardProvider;
 
 type Board = {
   id: string;
@@ -105,11 +112,11 @@ export function SettingsClient({
     const timer = setTimeout(() => {
       detectBoardProviderAction(trimmed)
         .then((result) => {
-          if (["greenhouse", "lever", "ashby", "workday"].includes(result.provider)) {
-            setProvider(result.provider as BoardProvider);
+          if (isPasteableBoardProvider(result.provider)) {
+            setProvider(result.provider);
             setDetectHint(result.reason);
           } else {
-            setDetectHint("URL does not look like a supported ATS board");
+            setDetectHint("URL does not look like a supported careers board");
           }
         })
         .catch(() => setDetectHint(null));
@@ -151,6 +158,8 @@ export function SettingsClient({
       </Card>
 
       <SearchPreferencesForm initial={preferences} />
+
+      <DiscoverySourcesPanel enabled={preferences.enabledDiscoverySources} />
 
       <Card>
         <CardHeader>
@@ -415,10 +424,11 @@ export function SettingsClient({
               value={provider}
               onChange={(e) => setProvider(e.target.value as BoardProvider)}
             >
-              <option value="greenhouse">Greenhouse</option>
-              <option value="lever">Lever</option>
-              <option value="ashby">Ashby</option>
-              <option value="workday">Workday</option>
+              {PASTEABLE_BOARD_PROVIDERS.map((id) => (
+                <option key={id} value={id}>
+                  {SOURCE_LABELS[id]}
+                </option>
+              ))}
             </select>
           </div>
           <Button

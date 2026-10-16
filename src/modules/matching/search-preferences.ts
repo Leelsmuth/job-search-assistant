@@ -1,4 +1,8 @@
 import { canonicalBoardUrl } from "@/modules/discovery/curated-boards";
+import {
+  normalizeEnabledDiscoverySources,
+  type DiscoverySourceId,
+} from "@/modules/discovery/source-catalog";
 import { DEFAULT_GTA_CITIES, type LocationVisibility } from "@/modules/location/eligibility";
 import { normalizeSeniority, type SeniorityLevel } from "@/modules/matching/frontend-fit";
 
@@ -23,6 +27,7 @@ export type SearchPreferences = LocationVisibility & {
   digestMinFit: number;
   discoverCuratedBoards: boolean;
   excludedCuratedBoardUrls: string[];
+  enabledDiscoverySources: Record<DiscoverySourceId, boolean>;
   gtaCities: string[];
 };
 
@@ -38,6 +43,7 @@ export type SearchPreferenceInput = {
   digestMinFit?: number | null;
   discoverCuratedBoards?: boolean;
   excludedCuratedBoardUrls?: string[] | string;
+  enabledDiscoverySources?: unknown;
   gtaCities?: string[] | string;
 };
 
@@ -54,6 +60,7 @@ export function defaultSearchPreferences(): SearchPreferences {
     showOutOfArea: false,
     discoverCuratedBoards: true,
     excludedCuratedBoardUrls: [],
+    enabledDiscoverySources: normalizeEnabledDiscoverySources(undefined),
     gtaCities: [...DEFAULT_GTA_CITIES],
   };
 }
@@ -96,6 +103,10 @@ export function normalizeSearchPreferences(input: SearchPreferenceInput = {}): S
     showOutOfArea: input.showOutOfArea ?? defaults.showOutOfArea,
     discoverCuratedBoards: input.discoverCuratedBoards ?? defaults.discoverCuratedBoards,
     excludedCuratedBoardUrls: normalizeExcludedCuratedBoardUrls(input.excludedCuratedBoardUrls),
+    enabledDiscoverySources:
+      input.enabledDiscoverySources === undefined
+        ? defaults.enabledDiscoverySources
+        : normalizeEnabledDiscoverySources(input.enabledDiscoverySources),
     gtaCities: splitList(input.gtaCities, defaults.gtaCities).slice(0, 40),
   };
 }
@@ -112,6 +123,7 @@ export type SearchPreferenceRow = {
   showOutOfArea: boolean;
   discoverCuratedBoards: boolean;
   excludedCuratedBoardUrls?: unknown;
+  enabledDiscoverySources?: unknown;
   gtaCities: unknown;
 };
 
@@ -130,6 +142,7 @@ export function searchPreferencesFromRow(row: SearchPreferenceRow): SearchPrefer
     excludedCuratedBoardUrls: Array.isArray(row.excludedCuratedBoardUrls)
       ? (row.excludedCuratedBoardUrls as string[])
       : undefined,
+    enabledDiscoverySources: row.enabledDiscoverySources,
     gtaCities: Array.isArray(row.gtaCities) ? (row.gtaCities as string[]) : undefined,
   });
 }

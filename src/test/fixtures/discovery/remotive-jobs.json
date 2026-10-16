@@ -1,0 +1,19 @@
+[
+  {
+    "id": 11,
+    "url": "https://remotive.com/remote-jobs/software-dev/frontend-11",
+    "title": "Senior Frontend Engineer",
+    "company_name": "Northwind",
+    "candidate_required_location": "Canada",
+    "description": "<p>React and TypeScript.</p>",
+    "publication_date": "2026-09-04"
+  },
+  {
+    "id": 12,
+    "url": "https://remotive.com/remote-jobs/software-dev/frontend-12",
+    "title": "Frontend Engineer",
+    "company_name": "Southwind",
+    "candidate_required_location": "United States",
+    "description": "<p>US only React role.</p>"
+  }
+]

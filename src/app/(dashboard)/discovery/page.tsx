@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getDiscoveryPageData } from "@/server/actions";
 import { CompanyCatalogPanel } from "@/components/discovery/company-catalog-panel";
 import { CuratedBoardsPanel } from "@/components/discovery/curated-boards-panel";
+import { PasteBoardForm } from "@/components/discovery/paste-board-form";
 import { SuggestedBoardsPanel } from "@/components/discovery/suggested-boards-panel";
 import { Button } from "@/components/ui/button";
 
@@ -25,6 +26,8 @@ export default async function DiscoveryPage() {
           <Link href="/settings">Manage saved boards</Link>
         </Button>
       </div>
+
+      <PasteBoardForm />
 
       <CuratedBoardsPanel
         includeCurated={preferences.discoverCuratedBoards}

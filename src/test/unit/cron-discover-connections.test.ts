@@ -48,6 +48,8 @@ import { runCronDiscoverPoll, runDiscoverBatch } from "@/lib/cron-discover-handl
 
 describe("cron discover connections", () => {
   beforeEach(() => {
+    delete process.env.ADZUNA_APP_ID;
+    delete process.env.ADZUNA_APP_KEY;
     state.inFlight = 0;
     state.maxInFlight = 0;
     state.getDb.mockReset();
@@ -113,8 +115,8 @@ describe("cron discover connections", () => {
     await runCronDiscoverPoll();
 
     expect(state.maxInFlight).toBe(1);
-    expect(state.withUserDb).toHaveBeenCalledTimes(4);
-    expect(state.fetchBoardListing).toHaveBeenCalledTimes(2);
+    expect(state.withUserDb).toHaveBeenCalledTimes(14);
+    expect(state.fetchBoardListing).toHaveBeenCalledTimes(7);
     expect(state.processMatchQueue).toHaveBeenCalledTimes(2);
     for (const call of state.processMatchQueue.mock.calls) {
       expect(call[2]).toEqual(expect.objectContaining({ concurrency: 1 }));
@@ -145,8 +147,8 @@ describe("cron discover connections", () => {
 
     await runDiscoverBatch({ curatedBoards: [board], budgetMs: 60_000 });
 
-    expect(state.fetchBoardListing).toHaveBeenCalledTimes(1);
-    expect(state.pollBoardsForUser).toHaveBeenCalledTimes(2);
+    expect(state.fetchBoardListing).toHaveBeenCalledTimes(2);
+    expect(state.pollBoardsForUser).toHaveBeenCalledTimes(4);
     const listings = state.pollBoardsForUser.mock.calls.map(
       (call) => (call[2] as Array<{ listing?: unknown }>)[0]?.listing
     );

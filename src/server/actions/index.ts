@@ -37,6 +37,7 @@ import { getOpenAiModel, isOpenAiConfigured } from "@/lib/env";
 import { logAiRun } from "@/lib/performance/log-ai-run";
 import { getUser } from "@/lib/supabase/server";
 import { previewJobImport, persistDiscoveredJob, normalizeBoardUrl } from "@/modules/ingestion";
+import type { PasteableBoardProvider } from "@/modules/discovery/source-catalog";
 import { runAndSaveMatchAnalysisDb } from "@/modules/matching/save-match-analysis";
 import { processMatchQueue } from "@/modules/matching/match-queue";
 import type { NormalizedJob } from "@/modules/ingestion";
@@ -559,6 +560,7 @@ export async function getJobDetailPageData(jobId: string) {
         where: and(eq(jobs.id, jobId), eq(jobs.userId, user.id)),
         with: {
           company: true,
+          source: true,
           requirements: true,
           matchAnalyses: {
             orderBy: [desc(matchAnalyses.createdAt)],
@@ -1395,7 +1397,7 @@ export async function getSavedBoardsWithHealth() {
 export async function addSavedBoard(data: {
   companyName: string;
   boardUrl: string;
-  provider: "greenhouse" | "lever" | "ashby" | "workday";
+  provider: PasteableBoardProvider;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const user = await requireUser();
   let parsed: ReturnType<typeof normalizeBoardUrl>;
@@ -1437,7 +1439,12 @@ export async function deleteSavedBoard(boardId: string) {
 
 export async function updateSavedBoard(
   boardId: string,
-  data: { isActive?: boolean; companyName?: string; boardUrl?: string; provider?: "greenhouse" | "lever" | "ashby" | "workday" }
+  data: {
+    isActive?: boolean;
+    companyName?: string;
+    boardUrl?: string;
+    provider?: PasteableBoardProvider;
+  }
 ) {
   const user = await requireUser();
   return withUserDb(user.id, async (db) => {

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss>
+  <channel>
+    <title>Teamtailor</title>
+    <item>
+      <title>Frontend Engineer</title>
+      <link>https://career.teamtailor.com/jobs/123-frontend-engineer</link>
+      <description>&lt;p&gt;React product work.&lt;/p&gt;</description>
+      <pubDate>Tue, 01 Sep 2026 00:00:00 GMT</pubDate>
+      <guid>tt-123</guid>
+      <remoteStatus>hybrid</remoteStatus>
+      <tt:city>Toronto</tt:city>
+      <tt:country>Canada</tt:country>
+    </item>
+  </channel>
+</rss>

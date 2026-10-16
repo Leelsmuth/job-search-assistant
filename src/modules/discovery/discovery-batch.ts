@@ -1,15 +1,15 @@
 import type { JobSourceProvider } from "@/modules/ingestion/types";
-import {
-  DISCOVER_BATCH_BUDGET_MS,
-  EXTRA_RECIPIENT_ESTIMATE_MS,
-  FAST_BOARD_ESTIMATE_MS,
-  WORKDAY_BOARD_ESTIMATE_MS,
-} from "@/lib/cron-discover";
+import { DISCOVER_BATCH_BUDGET_MS, EXTRA_RECIPIENT_ESTIMATE_MS } from "@/lib/cron-discover";
 import {
   CURATED_CANADA_BOARDS,
   canonicalBoardUrl,
   type CuratedBoard,
 } from "@/modules/discovery/curated-boards";
+import {
+  estimateProviderMs,
+  isDiscoverySourceEnabled,
+  type DiscoveryFeed,
+} from "@/modules/discovery/source-catalog";
 
 export type DiscoveryRecipient = {
   userId: string;
@@ -40,6 +40,7 @@ export type DiscoveryUserPreference = {
   userId: string;
   includeCurated: boolean;
   excludedCuratedBoardUrls: readonly string[];
+  enabledDiscoverySources?: Partial<Record<string, boolean>> | null;
 };
 
 function pollTime(value: Date | null | undefined): number {
@@ -52,7 +53,7 @@ export function estimateTargetMs(target: {
   provider: string;
   recipients: readonly unknown[];
 }): number {
-  const base = target.provider === "workday" ? WORKDAY_BOARD_ESTIMATE_MS : FAST_BOARD_ESTIMATE_MS;
+  const base = estimateProviderMs(target.provider);
   const extra = Math.max(0, target.recipients.length - 1) * EXTRA_RECIPIENT_ESTIMATE_MS;
   return base + extra;
 }
@@ -113,10 +114,15 @@ function oldestPoll(rows: readonly SavedBoardRow[]): Date | null {
  * not fetched again; that user is a recipient of the curated target.
  * Excluding a curated board skips it unless the user also follows it directly.
  */
+function sourceEnabled(user: DiscoveryUserPreference, provider: string): boolean {
+  return isDiscoverySourceEnabled(user.enabledDiscoverySources, provider);
+}
+
 export function buildDiscoveryTargets(input: {
   curatedBoards?: readonly CuratedBoard[];
   savedBoards: readonly SavedBoardRow[];
   users: readonly DiscoveryUserPreference[];
+  feeds?: readonly DiscoveryFeed[];
 }): { savedTargets: DiscoveryTarget[]; curatedTargets: DiscoveryTarget[] } {
   const curatedBoards = input.curatedBoards ?? CURATED_CANADA_BOARDS;
   const savedByUrl = groupActiveSaved(input.savedBoards);
@@ -138,7 +144,7 @@ export function buildDiscoveryTargets(input: {
     const recipients: DiscoveryRecipient[] = [];
 
     for (const user of input.users) {
-      if (!user.includeCurated) continue;
+      if (!user.includeCurated || !sourceEnabled(user, board.provider)) continue;
       if (excludedByUser.get(user.userId)?.has(key)) continue;
       const savedRow = saved.find((row) => row.userId === user.userId);
       recipients.push({ userId: user.userId, savedBoardId: savedRow?.id ?? null });
@@ -165,6 +171,22 @@ export function buildDiscoveryTargets(input: {
       origin: "curated",
       recipients: unique,
       lastPolledAt: oldestPoll(saved),
+    });
+  }
+
+  for (const feed of input.feeds ?? []) {
+    const recipients = input.users
+      .filter((user) => sourceEnabled(user, feed.id))
+      .map((user) => ({ userId: user.userId, savedBoardId: null }));
+    if (recipients.length === 0) continue;
+    curatedTargets.push({
+      key: `feed:${feed.id}`,
+      boardUrl: feed.publicUrl,
+      provider: feed.id,
+      companyName: feed.label,
+      origin: "curated",
+      recipients,
+      lastPolledAt: null,
     });
   }
 

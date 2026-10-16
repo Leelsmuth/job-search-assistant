@@ -13,6 +13,8 @@ import { clampJobForImport } from "./clamp-import-job";
 import { inferWorkMode, workplaceTypeFromMode } from "@/modules/location/eligibility";
 import { fitSnapshot, scoreJobFit } from "@/modules/matching/fit-score";
 import { loadFitProfile } from "@/modules/matching/rescore-jobs";
+import { incomingSourceWins } from "@/modules/discovery/source-catalog";
+import { canonicalApplyUrl, jobDedupeKey } from "./job-dedupe";
 
 export type JobImportMeta = {
   provider: string;
@@ -45,18 +47,43 @@ async function findOrCreateCompany(db: Db, name: string, atsProvider?: string) {
 export async function findExistingJob(
   db: Db,
   userId: string,
-  lookup: { sourceJobId?: string; jobUrl?: string }
+  lookup: {
+    sourceJobId?: string;
+    jobUrl?: string;
+    canonicalApplyUrl?: string | null;
+    dedupeKey?: string | null;
+  }
 ) {
+  const withSource = { source: true } as const;
+
   if (lookup.sourceJobId) {
     const bySource = await db.query.jobs.findFirst({
       where: and(eq(jobs.userId, userId), eq(jobs.sourceJobId, lookup.sourceJobId)),
+      with: withSource,
     });
     if (bySource) return bySource;
   }
 
   if (lookup.jobUrl) {
-    return db.query.jobs.findFirst({
+    const byUrl = await db.query.jobs.findFirst({
       where: and(eq(jobs.userId, userId), eq(jobs.jobUrl, lookup.jobUrl)),
+      with: withSource,
+    });
+    if (byUrl) return byUrl;
+  }
+
+  if (lookup.canonicalApplyUrl) {
+    const byCanonical = await db.query.jobs.findFirst({
+      where: and(eq(jobs.userId, userId), eq(jobs.canonicalApplyUrl, lookup.canonicalApplyUrl)),
+      with: withSource,
+    });
+    if (byCanonical) return byCanonical;
+  }
+
+  if (lookup.dedupeKey) {
+    return db.query.jobs.findFirst({
+      where: and(eq(jobs.userId, userId), eq(jobs.dedupeKey, lookup.dedupeKey)),
+      with: withSource,
     });
   }
 
@@ -79,10 +106,46 @@ export async function persistDiscoveredJob(
     throw new Error("Import payload too large");
   }
 
+  const applyUrl = canonicalApplyUrl(validatedJob.jobUrl || validatedMeta.sourceUrl);
+  const dedupeKey = jobDedupeKey({
+    company: validatedJob.company,
+    title: validatedJob.title,
+    location: validatedJob.location,
+    provider: validatedMeta.provider,
+    sourceJobId: validatedJob.sourceJobId ?? validatedMeta.sourceJobId,
+  });
   const existing = await findExistingJob(db, userId, {
     sourceJobId: validatedJob.sourceJobId ?? validatedMeta.sourceJobId,
     jobUrl: validatedJob.jobUrl || validatedMeta.sourceUrl,
+    canonicalApplyUrl: applyUrl,
+    dedupeKey,
   });
+
+  const existingProvider = existing?.source?.provider;
+  if (existing && incomingSourceWins(existingProvider, validatedMeta.provider)) {
+    const nextUrl = validatedJob.jobUrl || validatedMeta.sourceUrl;
+    const nextSourceJobId = validatedJob.sourceJobId ?? validatedMeta.sourceJobId;
+    await db
+      .update(jobs)
+      .set({
+        jobUrl: nextUrl,
+        sourceJobId: nextSourceJobId,
+        canonicalApplyUrl: applyUrl,
+        dedupeKey,
+        updatedAt: new Date(),
+      })
+      .where(eq(jobs.id, existing.id));
+    if (existing.sourceId) {
+      await db
+        .update(jobSources)
+        .set({
+          provider: validatedMeta.provider,
+          sourceUrl: nextUrl,
+          sourceJobId: nextSourceJobId,
+        })
+        .where(eq(jobSources.id, existing.sourceId));
+    }
+  }
 
   const nextHash = hashJobDescription(validatedJob.description);
   if (
@@ -153,6 +216,8 @@ export async function persistDiscoveredJob(
         description: validatedJob.description,
         descriptionHash: nextHash,
         ...(postedAt ? { datePosted: postedAt } : {}),
+        canonicalApplyUrl: applyUrl,
+        dedupeKey,
         matchPipelineStatus: "match_pending",
         ...scored,
         updatedAt: new Date(),
@@ -205,6 +270,8 @@ export async function persistDiscoveredJob(
       salaryMax: validatedJob.salaryMax,
       salaryCurrency: validatedJob.salaryCurrency,
       jobUrl: validatedJob.jobUrl || validatedMeta.sourceUrl,
+      canonicalApplyUrl: applyUrl,
+      dedupeKey,
       sourceJobId: validatedJob.sourceJobId ?? validatedMeta.sourceJobId,
       employmentType: validatedJob.employmentType,
       description: validatedJob.description,

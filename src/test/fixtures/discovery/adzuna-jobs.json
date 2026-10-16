@@ -1,0 +1,24 @@
+[
+  {
+    "id": "adz-1",
+    "title": "Frontend Developer",
+    "company": { "display_name": "Northwind" },
+    "location": { "display_name": "Toronto, Ontario" },
+    "description": "React role in Toronto.",
+    "redirect_url": "https://www.adzuna.ca/land/ad/1",
+    "salary_min": 140000,
+    "salary_max": 160000,
+    "salary_is_predicted": 0
+  },
+  {
+    "id": "adz-2",
+    "title": "Frontend Developer",
+    "company": { "display_name": "Predicted Co" },
+    "location": { "display_name": "Toronto, Ontario" },
+    "description": "Predicted salary should be ignored.",
+    "redirect_url": "https://www.adzuna.ca/land/ad/2",
+    "salary_min": 200000,
+    "salary_max": 220000,
+    "salary_is_predicted": 1
+  }
+]
