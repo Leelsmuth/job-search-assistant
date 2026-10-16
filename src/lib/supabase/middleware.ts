@@ -27,10 +27,18 @@ export async function updateSession(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   const isAuthRoute = request.nextUrl.pathname.startsWith("/login");
+  const { pathname } = request.nextUrl;
+  // Cron and the discovery tick authenticate with CRON_SECRET in the route.
+  // They must not redirect to /login: pg_net follows the 307 and keeps POST,
+  // and the login page then answers 405.
+  const isBearerRoute =
+    pathname.startsWith("/api/cron") ||
+    pathname === "/api/discovery/tick" ||
+    pathname.startsWith("/api/discovery/tick/");
   const isPublicRoute =
     isAuthRoute ||
-    request.nextUrl.pathname.startsWith("/api/cron") ||
-    request.nextUrl.pathname.startsWith("/api/extension");
+    isBearerRoute ||
+    pathname.startsWith("/api/extension");
 
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
