@@ -174,7 +174,7 @@ Match analysis runs only when `isNew === true`.
 
 Requires `CRON_SECRET` in environment (you generate this; Vercel sends it automatically on scheduled invocations when set).
 
-Hobby plans can only schedule Vercel crons once a day, so those two routes stay as the fallback. A Supabase `pg_cron` job calls `POST /api/discovery/tick` every 30 minutes. The route uses the same `CRON_SECRET` bearer (compared in constant time) and a lease row so overlapping ticks do not double-process. Each tick stays inside a 90 second budget: saved boards, then high-signal curated boards, then fast aggregator feeds, then a rotating slice of the rest. Apply [`0023_discovery_tick_and_alerts.sql`](../drizzle/migrations/0023_discovery_tick_and_alerts.sql) before merge.
+Hobby plans can only schedule Vercel crons once a day, so those two routes stay as the fallback. A Supabase `pg_cron` job calls `POST /api/discovery/tick` every 30 minutes. Session middleware lets `/api/cron` and `/api/discovery/tick` through without a login cookie. The route uses the same `CRON_SECRET` bearer (compared in constant time) and returns 401 when it is missing. A login redirect is not safe here: pg_net follows redirects and keeps POST on a 307, so the login page answers 405. A lease row keeps overlapping ticks from double-processing. Each tick stays inside a 90 second budget: saved boards, then high-signal curated boards, then fast aggregator feeds, then a rotating slice of the rest. Apply [`0023_discovery_tick_and_alerts.sql`](../drizzle/migrations/0023_discovery_tick_and_alerts.sql) before merge.
 
 One-time setup:
 
