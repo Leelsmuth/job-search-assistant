@@ -28,6 +28,12 @@ const MAX_LIST_REQUESTS = 25;
 const PAGE_DELAY_MS = process.env.VITEST ? 0 : 150;
 const REQUEST_TIMEOUT_MS = 8_000;
 const MAX_REDIRECTS = 3;
+/**
+ * Workday sometimes answers a CXS POST with 303 (and a Location on a host that
+ * is not a career site). Following that hop drops the POST body and would
+ * request the other host. Retry the original allowlisted URL instead.
+ */
+const MAX_POST_REDIRECT_RETRIES = 2;
 
 /**
  * CXS searchText queries for frontend-leaning roles.
@@ -221,12 +227,34 @@ function responseLocation(response: Response): string | null {
   return headers.get("location");
 }
 
+function redirectHostname(location: string, current: string): string {
+  try {
+    return new URL(location, current).hostname || "unknown";
+  } catch {
+    return "invalid";
+  }
+}
+
+/** Follow only https career-site URLs. A bad Location is not requested. */
+function allowlistedRedirect(location: string, current: string): URL | null {
+  try {
+    const next = new URL(location, current);
+    assertWorkdayJobsUrl(next.href);
+    return next;
+  } catch (error) {
+    if (error instanceof UnsafeUrlError) return null;
+    return null;
+  }
+}
+
 async function fetchWorkdayJson(url: string, init: RequestInit): Promise<unknown> {
   let current = assertWorkdayJobsUrl(url).toString();
-  let method = init.method ?? "GET";
+  let method = (init.method ?? "GET").toUpperCase();
   let body = init.body;
+  let followed = 0;
+  let postRetries = 0;
 
-  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+  while (followed <= MAX_REDIRECTS) {
     const response = await fetch(current, {
       method,
       body,
@@ -240,16 +268,37 @@ async function fetchWorkdayJson(url: string, init: RequestInit): Promise<unknown
     }
 
     if (response.status >= 300 && response.status < 400) {
-      if (hop === MAX_REDIRECTS) {
-        throw new UnsafeUrlError("Too many redirects");
-      }
       const location = responseLocation(response);
+      const next = location ? allowlistedRedirect(location, current) : null;
+      const preservesBody = response.status === 307 || response.status === 308;
+      if (next && (method === "GET" || method === "HEAD" || preservesBody)) {
+        if (followed === MAX_REDIRECTS) {
+          throw new UnsafeUrlError("Too many redirects");
+        }
+        current = next.toString();
+        if (!preservesBody) {
+          method = "GET";
+          body = undefined;
+        }
+        followed += 1;
+        continue;
+      }
+
+      // List calls are POST. Do not follow a hop that leaves the allowlist or
+      // turns the search into a GET. Ask the same career-site URL again.
+      if (method === "POST" && postRetries < MAX_POST_REDIRECT_RETRIES) {
+        postRetries += 1;
+        await sleep(PAGE_DELAY_MS);
+        continue;
+      }
+
       if (!location) throw new UnsafeUrlError("Workday redirect is missing a location");
-      const next = new URL(location, current);
-      current = assertWorkdayJobsUrl(next.href).toString();
-      method = "GET";
-      body = undefined;
-      continue;
+      if (!next) {
+        throw new UnsafeUrlError(
+          `URL host is not an allowlisted Workday jobs host (${redirectHostname(location, current)})`
+        );
+      }
+      throw new UnsafeUrlError("Too many redirects");
     }
 
     if (!response.ok) {
