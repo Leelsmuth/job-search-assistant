@@ -2,6 +2,8 @@ import "./sidepanel.css";
 import { planPageFill } from "@/modules/extension/map-page";
 import type { ApplicationProfile } from "@/modules/apply/types";
 import type { PageField, PreparedFillAnswer } from "@/modules/extension/page-types";
+import type { DetectedWorkdayStep, WorkdayFillResult, WorkdayHistory } from "@/modules/extension/workday/types";
+import { emptyWorkdayHistory } from "@/modules/extension/workday/types";
 import type { PageProvider } from "@/modules/extension/urls";
 import { apiPdf, apiRequest } from "./api";
 import type { ApplyResult } from "./apply-page";
@@ -22,6 +24,7 @@ type CollectedPage = {
   buttons: string[];
   fields: PageField[];
   posting: Posting;
+  workdayStep: DetectedWorkdayStep | null;
 };
 
 type FillContext = {
@@ -41,9 +44,18 @@ type FillContext = {
     coverLetter: { available: boolean; filename: string | null };
   };
   coverLetterBody: string | null;
+  history?: WorkdayHistory;
 };
 
 const TOKEN_KEY = "extensionToken";
+
+let stepLabel: HTMLElement | null = null;
+
+chrome.runtime.onMessage.addListener((message) => {
+  if (message?.type === "workday-step-updated" && stepLabel && message.step?.title) {
+    stepLabel.textContent = `Step: ${message.step.title}`;
+  }
+});
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string) {
   const node = document.createElement(tag);
@@ -144,7 +156,10 @@ async function render() {
     return;
   }
 
-  status.textContent = `${providerLabel(collected.provider)} · ${collected.fields.length} field${collected.fields.length === 1 ? "" : "s"}`;
+  const stepTitle = collected.workdayStep?.title;
+  status.textContent = stepTitle
+    ? `${providerLabel(collected.provider)} · ${stepTitle} · ${collected.fields.length} field${collected.fields.length === 1 ? "" : "s"}`
+    : `${providerLabel(collected.provider)} · ${collected.fields.length} field${collected.fields.length === 1 ? "" : "s"}`;
   let context: FillContext | null = null;
   try {
     context = (await apiRequest("/api/extension/fill", saved, { pageUrl: collected.url })) as FillContext;
@@ -162,17 +177,21 @@ async function render() {
     pageCard.append(el("p", "muted", "No saved job matches this URL. Profile fields can still be filled."));
   }
   if (collected.provider === "workday") {
+    stepLabel = el("p", undefined, `Step: ${collected.workdayStep?.title ?? "This step"}`);
+    pageCard.append(stepLabel);
     pageCard.append(
       el(
         "p",
         "muted",
-        "Workday is filled one page at a time. Move to the next step yourself, then fill again. The extension stops on Review."
+        "Workday fills the step that is on screen. Click Save and Continue yourself. The extension will not submit, and it will not type a password or create an account."
       )
     );
+  } else {
+    stepLabel = null;
   }
 
   const actions = el("div", "row");
-  const fillButton = el("button", undefined, "Fill this page");
+  const fillButton = el("button", undefined, collected.provider === "workday" ? "Fill this step" : "Fill this page");
   const appliedButton = el("button", "secondary", "Mark as applied");
   actions.append(fillButton, appliedButton);
   pageCard.append(actions);
@@ -186,6 +205,53 @@ async function render() {
     result.replaceChildren(el("p", "muted", "Filling…"));
     void (async () => {
       try {
+        if (collected.provider === "workday") {
+          const fresh = await message<CollectedPage>({ type: "collect-tab" });
+          const step = fresh.workdayStep;
+          if (stepLabel && step?.title) stepLabel.textContent = `Step: ${step.title}`;
+          if (step?.id === "review") {
+            result.replaceChildren(el("p", undefined, "Review step. The extension will not submit."));
+            return;
+          }
+          if (step?.id === "signIn" || step?.id === "createAccount") {
+            result.replaceChildren(
+              el("p", undefined, "Sign in yourself. The extension does not enter passwords or create accounts.")
+            );
+            return;
+          }
+          let resume: { filename: string; bytes: number[] } | null = null;
+          if (step?.id === "myExperience" && context.documents.resume.available) {
+            const pdf = context.job
+              ? await apiPdf(`/api/extension/documents?kind=resume&jobId=${context.job.id}`, saved)
+              : await apiPdf("/api/extension/documents?kind=resume", saved);
+            resume = pdf;
+          }
+          const applied = await message<WorkdayFillResult>({
+            type: "workday-fill-tab",
+            profile: context.profile,
+            preparedAnswers: context.preparedAnswers,
+            history: context.history ?? emptyWorkdayHistory(),
+            coverLetterBody: context.coverLetterBody,
+            resume,
+          });
+          result.replaceChildren();
+          lastFilled = applied.filled.map((item) => ({ question: item.label, answer: item.value }));
+          result.append(el("p", applied.blocked ? undefined : "ok", applied.message));
+          if (applied.filled.length) {
+            const list = el("ul");
+            for (const item of applied.filled) list.append(el("li", undefined, `${item.label}: ${item.value || "attached"}`));
+            result.append(el("p", undefined, "Filled"), list);
+          }
+          if (applied.attention.length) {
+            const list = el("ul");
+            for (const item of applied.attention) list.append(el("li", undefined, `${item.label}: ${item.reason}`));
+            result.append(el("p", undefined, "Needs you"), list);
+          }
+          if (applied.skipped.length) {
+            result.append(el("p", "muted", `Left existing values: ${applied.skipped.join(", ")}`));
+          }
+          return;
+        }
         const planned = planPageFill({
           provider: collected.provider,
           headings: collected.headings,

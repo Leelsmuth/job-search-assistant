@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+  <body>
+    <div data-automation-id="progressBar">
+      <div data-automation-id="progressBarActiveStep">My Experience</div>
+    </div>
+    <h2 data-automation-id="applyFlowPageTitle">My Experience</h2>
+    <label for="resume">Upload Resume</label>
+    <input id="resume" type="file" data-automation-id="file-upload-input-ref" />
+    <div data-automation-id="workExperienceSection">
+      <button type="button" data-automation-id="add-button">Add</button>
+    </div>
+    <div data-automation-id="educationSection">
+      <button type="button" data-automation-id="add-button">Add</button>
+    </div>
+    <div data-automation-id="formField-skills">
+      <label for="skills-search">Skills</label>
+      <div data-automation-id="multiselectInputContainer">
+        <ul data-automation-id="selectedItemList"></ul>
+        <input id="skills-search" data-automation-id="searchBox" aria-label="Search skills" />
+      </div>
+    </div>
+    <div id="skill-list" data-automation-id="activeListContainer" role="listbox" hidden>
+      <div role="option">TypeScript</div>
+      <div role="option">React</div>
+    </div>
+    <button type="button" data-automation-id="bottom-navigation-next-button">Save and Continue</button>
+  </body>
+</html>
