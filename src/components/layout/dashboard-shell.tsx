@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
+import { Logo } from "@/components/brand/logo";
 import { DashboardNav } from "@/components/layout/dashboard-nav";
 import { ActionPendingProvider } from "@/components/layout/action-pending-provider";
 import { ToasterProvider } from "@/components/ui/use-toast";
@@ -59,10 +60,10 @@ export function DashboardShell({
             )}
             aria-hidden={!mobileNavOpen}
           >
-            <div className="flex items-center justify-between border-b border-border p-4">
-              <div>
-                <p className="text-sm font-semibold">Job Search Assistant</p>
-                <p className="text-xs text-muted-foreground">Private-first matching</p>
+            <div className="flex items-center justify-between gap-3 border-b border-border p-4">
+              <div className="min-w-0">
+                <Logo wordmark="always" size="sm" />
+                <p className="mt-1.5 pl-8 text-xs text-muted-foreground">Private-first matching</p>
               </div>
               <Button
                 type="button"
@@ -94,9 +95,9 @@ export function DashboardShell({
               >
                 <Menu className="h-5 w-5" />
               </Button>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">Job Search Assistant</p>
-                {email ? <div className="truncate">{email}</div> : null}
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <Logo wordmark="responsive" size="sm" className="shrink-0" />
+                {email ? <div className="min-w-0 flex-1 truncate">{email}</div> : null}
               </div>
             </header>
 

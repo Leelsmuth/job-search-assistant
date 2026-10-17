@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient, type SupabaseClientConfig } from "@/lib/supabase/client";
 import { formatMissingConfigMessage } from "@/lib/env";
+import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -91,7 +92,9 @@ export function LoginForm({
     <div className="flex min-h-screen items-center justify-center p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Job Search Assistant</CardTitle>
+          <CardTitle className="flex">
+            <Logo wordmark="always" size="md" wordmarkClassName="text-base sm:text-lg" />
+          </CardTitle>
           <p className="text-sm text-muted-foreground">
             Private-first matching and application tracking
           </p>
