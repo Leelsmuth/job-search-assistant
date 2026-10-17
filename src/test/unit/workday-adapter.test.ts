@@ -111,13 +111,65 @@ describe("workdayAdapter", () => {
   it("does not follow a redirect off the Workday allowlist", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue({
       ok: false,
-      status: 302,
+      status: 303,
       headers: { get: (name: string) => (name.toLowerCase() === "location" ? "https://evil.example/job" : null) },
       json: async () => ({}),
     } as unknown as Response);
 
-    await expect(workdayAdapter.fetch(BOARD_URL)).rejects.toThrow(/allowlisted Workday/i);
+    await expect(workdayAdapter.fetch(BOARD_URL)).rejects.toThrow(
+      /allowlisted Workday jobs host \(evil\.example\)/i
+    );
+    const urls = vi.mocked(global.fetch).mock.calls.map((call) => String(call[0]));
+    expect(urls.length).toBeGreaterThan(1);
+    expect(urls.every((url) => url.includes("myworkdayjobs.com"))).toBe(true);
+    expect(urls.some((url) => url.includes("evil.example"))).toBe(false);
+  });
+
+  it("retries a CXS POST after a 303 to an unsafe host and keeps the JSON", async () => {
+    let calls = 0;
+    vi.spyOn(global, "fetch").mockImplementation(async (input) => {
+      calls += 1;
+      if (calls === 1) {
+        return {
+          ok: false,
+          status: 303,
+          headers: {
+            get: (name: string) => (name.toLowerCase() === "location" ? "https://evil.example/job" : null),
+          },
+          json: async () => ({}),
+        } as unknown as Response;
+      }
+      expect(String(input)).toContain("myworkdayjobs.com/wday/cxs/");
+      return jsonResponse({
+        total: 1,
+        jobPostings: [
+          {
+            title: "Frontend Engineer",
+            externalPath: "/job/Toronto/Frontend-Engineer_JR1",
+            locationsText: "Toronto",
+            bulletFields: ["JR1"],
+          },
+        ],
+      });
+    });
+
+    const raw = await workdayAdapter.fetch(BOARD_URL);
+    const jobs = (raw.rawPayload as { jobs: Array<{ title: string }> }).jobs;
+    expect(jobs.map((job) => job.title)).toEqual(["Frontend Engineer"]);
+    expect(calls).toBe(2);
+  });
+
+  it("does not request a detail redirect off the Workday allowlist", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: false,
+      status: 302,
+      headers: { get: (name: string) => (name.toLowerCase() === "location" ? "https://evil.example/steal" : null) },
+      json: async () => ({}),
+    } as unknown as Response);
+
+    await expect(workdayAdapter.fetch(JOB_URL)).rejects.toThrow(/evil\.example/i);
     expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(String(vi.mocked(global.fetch).mock.calls[0][0])).toContain("myworkdayjobs.com");
   });
 
   it("searches frontend keywords and dedupes a large board by externalPath", async () => {

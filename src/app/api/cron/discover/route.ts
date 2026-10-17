@@ -18,11 +18,9 @@ async function runDiscover(request: Request) {
     return NextResponse.json({ ok: true, stopped: true, reason: "hop limit" });
   }
 
-  // Respond before the board fetches. after() keeps this invocation alive for
-  // one batch, then kickDiscoverBatch starts the next invocation. The child
-  // responds immediately, so this invocation does not wait for the rest of the
-  // catalog. Hobby only allows a daily cron, so the chain is what gets through
-  // all curated boards before the 12:00 UTC digest.
+  // Respond before the board fetches. after() runs one batch, then
+  // kickDiscoverBatch queues the next hop. On Vercel that queue is pg_net:
+  // fetching this deployment from the function itself returns 508.
   after(async () => {
     try {
       const { body } = await handleCronDiscoverRequest(authHeader, {

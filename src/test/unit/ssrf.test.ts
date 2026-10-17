@@ -99,9 +99,16 @@ describe("assertPublicHttpUrl", () => {
 describe("Workday jobs host allowlist", () => {
   it("allows tenant career hosts and rejects lookalikes", () => {
     expect(isWorkdayJobsHost("td.wd3.myworkdayjobs.com")).toBe(true);
+    expect(isWorkdayJobsHost("bmo.wd3.myworkdayjobs.com")).toBe(true);
     expect(isWorkdayJobsHost("thomsonreuters.wd5.myworkdayjobs.com")).toBe(true);
     expect(assertWorkdayJobsUrl("https://rbc.wd3.myworkdayjobs.com/RBCGLOBAL1").hostname).toBe(
       "rbc.wd3.myworkdayjobs.com"
+    );
+    expect(assertWorkdayJobsUrl("https://td.wd3.myworkdayjobs.com/TD_Bank_Careers").hostname).toBe(
+      "td.wd3.myworkdayjobs.com"
+    );
+    expect(assertWorkdayJobsUrl("https://bmo.wd3.myworkdayjobs.com/External").hostname).toBe(
+      "bmo.wd3.myworkdayjobs.com"
     );
 
     expect(isWorkdayJobsHost("myworkdayjobs.com")).toBe(false);
