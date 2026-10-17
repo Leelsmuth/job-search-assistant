@@ -55,13 +55,15 @@ export async function enqueueDiscoverBatch(params: DiscoverContinuation, secret:
   const headers = continuationHeaders(secret);
   const bypass = headers["x-vercel-protection-bypass"];
   try {
+    // jsonb_build_object is polymorphic. An untyped parameter is rejected with
+    // "could not determine data type of parameter $2", so each value is cast.
     if (bypass) {
       await getDb().execute(sql`
         select net.http_post(
-          url := ${url},
+          url := ${url}::text,
           headers := jsonb_build_object(
-            'Authorization', ${headers.Authorization},
-            'x-vercel-protection-bypass', ${bypass}
+            'Authorization', ${headers.Authorization}::text,
+            'x-vercel-protection-bypass', ${bypass}::text
           ),
           timeout_milliseconds := 10000
         )
@@ -70,8 +72,8 @@ export async function enqueueDiscoverBatch(params: DiscoverContinuation, secret:
     }
     await getDb().execute(sql`
       select net.http_post(
-        url := ${url},
-        headers := jsonb_build_object('Authorization', ${headers.Authorization}),
+        url := ${url}::text,
+        headers := jsonb_build_object('Authorization', ${headers.Authorization}::text),
         timeout_milliseconds := 10000
       )
     `);
