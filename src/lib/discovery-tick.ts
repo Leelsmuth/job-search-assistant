@@ -84,6 +84,15 @@ function rowsFrom(result: unknown): Array<Record<string, unknown>> {
   return [];
 }
 
+/** postgres.js bind calls Buffer.byteLength on each parameter. A Date throws there. */
+function sqlTimestamp(value: Date): string {
+  return value.toISOString();
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error && error.message ? error.message : String(error);
+}
+
 async function tryAcquireLease(
   db: ReturnType<typeof getDb>,
   owner: string,
@@ -92,13 +101,13 @@ async function tryAcquireLease(
   const until = new Date(now.getTime() + TICK_LEASE_MS);
   const result = await db.execute(sql`
     INSERT INTO discovery_tick_lock (id, owner, leased_until, cursor, updated_at)
-    VALUES ('discovery', ${owner}, ${until}, 0, ${now})
+    VALUES ('discovery', ${owner}, ${sqlTimestamp(until)}, 0, ${sqlTimestamp(now)})
     ON CONFLICT (id) DO UPDATE
       SET owner = EXCLUDED.owner,
           leased_until = EXCLUDED.leased_until,
           updated_at = EXCLUDED.updated_at
     WHERE discovery_tick_lock.leased_until IS NULL
-       OR discovery_tick_lock.leased_until <= ${now}
+       OR discovery_tick_lock.leased_until <= ${sqlTimestamp(now)}
     RETURNING cursor
   `);
   const rows = rowsFrom(result);
@@ -115,9 +124,9 @@ async function releaseLease(
 ): Promise<void> {
   await db.execute(sql`
     UPDATE discovery_tick_lock
-    SET leased_until = ${now},
+    SET leased_until = ${sqlTimestamp(now)},
         cursor = ${cursor},
-        updated_at = ${now}
+        updated_at = ${sqlTimestamp(now)}
     WHERE id = 'discovery' AND owner = ${owner}
   `);
 }
@@ -142,11 +151,12 @@ export async function runDiscoveryTick(options?: { now?: Date; budgetMs?: number
       cursor = summary.cursor;
       return summary;
     } catch (error) {
+      const message = errorMessage(error);
       if (isMissingDatabaseRelation(error, "discovery_tick_lock")) {
-        console.error("[discovery-tick] apply migration 0023 before scheduling the tick");
+        console.error(`[discovery-tick] apply migration 0023 before scheduling the tick: ${message}`);
         return emptyResult({ ok: false, reason: "migration_0023_required" });
       }
-      console.error("[discovery-tick] failed", error);
+      console.error(`[discovery-tick] failed: ${message}`);
       return emptyResult({ ok: false, reason: "failed", cursor });
     } finally {
       if (acquired) {
