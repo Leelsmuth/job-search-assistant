@@ -79,7 +79,15 @@ export function CuratedBoardsPanel({
           onClick={() =>
             run("run-discovery", async () => {
               try {
-                await runDiscoveryNow();
+                const result = await runDiscoveryNow();
+                if (!result.ok) {
+                  toast({
+                    title: "Could not start discovery",
+                    description: result.error,
+                    variant: "destructive",
+                  });
+                  return;
+                }
                 toast({
                   title: "Discovery started",
                   description: "Boards are polled in batches. New jobs will show up as each batch finishes.",

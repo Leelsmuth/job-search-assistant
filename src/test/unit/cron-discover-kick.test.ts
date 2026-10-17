@@ -85,6 +85,7 @@ describe("discover batch kick", () => {
     expect(execute).toHaveBeenCalledTimes(1);
     const query = dialect.sqlToQuery(execute.mock.calls[0][0] as SQL);
     expect(query.sql).toContain("net.http_post");
+    expect(query.sql).toContain("jsonb_build_object('Authorization', $2::text)");
     expect(query.params).toContain(
       "https://jobs.example/api/cron/discover?cursor=4&hop=2&runStartedAt=2026-10-16T08%3A00%3A00.000Z"
     );

@@ -150,12 +150,17 @@ export async function setDiscoverySourceEnabled(sourceId: string, enabled: boole
   revalidatePath("/discovery");
 }
 
-export async function runDiscoveryNow(): Promise<{ ok: true }> {
-  await requireUser();
-  await kickDiscoverBatch({
-    cursor: 0,
-    hop: 0,
-    runStartedAt: new Date().toISOString(),
-  });
-  return { ok: true };
+export async function runDiscoveryNow(): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await requireUser();
+    await kickDiscoverBatch({
+      cursor: 0,
+      hop: 0,
+      runStartedAt: new Date().toISOString(),
+    });
+    return { ok: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message.trim() : "";
+    return { ok: false, error: message || "Could not start discovery." };
+  }
 }
