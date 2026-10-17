@@ -14,6 +14,7 @@ import {
   PlusCircle,
   Radar,
 } from "lucide-react";
+import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 
 export const navItems: Array<{
@@ -56,9 +57,11 @@ export function DashboardNav({
   return (
     <nav className={cn("flex flex-col gap-1 p-4", className)}>
       {!compact ? (
-        <div className="mb-6 px-2">
-          <h1 className="text-sm font-semibold">Job Search Assistant</h1>
-          <p className="text-xs text-muted-foreground">Private-first matching</p>
+        <div className="mb-6">
+          <h1>
+            <Logo wordmark="always" size="sm" />
+          </h1>
+          <p className="mt-1.5 pl-8 text-xs text-muted-foreground">Private-first matching</p>
         </div>
       ) : null}
       {navItems.map(({ href, label, icon: Icon, exact }) => {
