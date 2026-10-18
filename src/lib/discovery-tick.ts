@@ -204,6 +204,7 @@ async function runTickBody(
     feeds: feedCandidates,
     cursor: input.cursor,
     budgetMs: input.budgetMs,
+    now: input.now,
   });
   const byKey = new Map<string, DiscoveryTarget>(
     [...savedTargets, ...curatedTargets].map((target) => [target.key, target])

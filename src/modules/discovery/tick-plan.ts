@@ -1,6 +1,10 @@
 export const TICK_BUDGET_MS = 90_000;
 export const TICK_LEASE_MS = 4 * 60 * 1000;
 export const FAST_FEED_PROVIDERS = ["remotive", "weworkremotely", "himalayas", "remoteok"] as const;
+/** High-signal boards stay hot, but not on every 30-minute tick. */
+export const HIGH_SIGNAL_MIN_INTERVAL_MS = 6 * 60 * 60 * 1000;
+/** Enough for one Workday poll so the rotating group cannot be starved by faster boards. */
+export const TICK_ROTATION_RESERVE_MS = 70_000;
 
 const FRONTEND_HINT = /front-?end|react|ui engineer|typescript/i;
 const RECENT_ACTIVITY_MS = 21 * 24 * 60 * 60 * 1000;
@@ -76,6 +80,15 @@ function byOldestPoll(a: TickCandidate, b: TickCandidate): number {
   return a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
 }
 
+function sumEstimates(items: readonly TickCandidate[]): number {
+  return items.reduce((sum, item) => sum + item.estimateMs, 0);
+}
+
+function isRepollDue(lastPolledAt: Date | null, now: Date, intervalMs: number): boolean {
+  if (!lastPolledAt || Number.isNaN(lastPolledAt.getTime())) return true;
+  return now.getTime() - lastPolledAt.getTime() >= intervalMs;
+}
+
 function takeWithinBudget(items: readonly TickCandidate[], budgetMs: number, usedStart = 0): TickCandidate[] {
   const taken: TickCandidate[] = [];
   let used = usedStart;
@@ -87,10 +100,25 @@ function takeWithinBudget(items: readonly TickCandidate[], budgetMs: number, use
   return taken;
 }
 
+/** Stops at the first item that does not fit so a later small board cannot skip it. */
+function takeUntilFull(items: readonly TickCandidate[], budgetMs: number, usedStart = 0): TickCandidate[] {
+  const taken: TickCandidate[] = [];
+  let used = usedStart;
+  for (const item of items) {
+    if (used + item.estimateMs > budgetMs) break;
+    taken.push(item);
+    used += item.estimateMs;
+  }
+  return taken;
+}
+
 /**
- * Saved boards, then high-signal curated boards, then fast aggregator feeds,
- * then a rotating slice of everything else. Oversized targets are skipped so
- * a tick stays inside the budget.
+ * Saved boards, then due high-signal curated boards, then fast aggregator feeds,
+ * then a rotating slice of everything else. A share of the budget is held back
+ * for that rotating slice so high-signal boards cannot pin the cursor at 0.
+ * High-signal boards are skipped until HIGH_SIGNAL_MIN_INTERVAL_MS has passed.
+ * The rotation walk stops at the first board that does not fit, which keeps a
+ * Workday-sized board at the cursor until a tick can afford it.
  */
 export function selectTickBatch(input: {
   saved: readonly TickCandidate[];
@@ -98,33 +126,48 @@ export function selectTickBatch(input: {
   feeds: readonly TickCandidate[];
   cursor: number;
   budgetMs?: number;
+  now?: Date;
 }): { targets: TickCandidate[]; nextCursor: number } {
   const budgetMs = input.budgetMs ?? TICK_BUDGET_MS;
-  const saved = takeWithinBudget([...input.saved].sort(byOldestPoll), budgetMs);
-  let used = saved.reduce((sum, item) => sum + item.estimateMs, 0);
-
-  const highSignal = takeWithinBudget(
-    input.curated.filter((item) => item.highSignal).sort(byOldestPoll),
-    budgetMs,
-    used
-  );
-  used += highSignal.reduce((sum, item) => sum + item.estimateMs, 0);
-
-  const fastFeeds = takeWithinBudget(
-    input.feeds.filter((item) => isFastFeed(item.provider)),
-    budgetMs,
-    used
-  );
-  used += fastFeeds.reduce((sum, item) => sum + item.estimateMs, 0);
-
-  const rest = [
+  const now = input.now ?? new Date();
+  const dueHighSignal = input.curated
+    .filter(
+      (item) => item.highSignal && isRepollDue(item.lastPolledAt, now, HIGH_SIGNAL_MIN_INTERVAL_MS)
+    )
+    .sort(byOldestPoll);
+  const stableRest = [
     ...input.curated.filter((item) => !item.highSignal),
     ...input.feeds.filter((item) => !isFastFeed(item.provider)),
   ];
+  const stableCost = sumEstimates(stableRest);
+  const preliminaryReserve =
+    stableRest.length === 0 ? 0 : Math.min(budgetMs, TICK_ROTATION_RESERVE_MS, stableCost);
+  const preliminaryPriority = budgetMs - preliminaryReserve;
+  // A due high-signal Workday board never fits in the priority slice. Append it
+  // after the stable rotation so the reserved share can reach it and the cursor
+  // indexes for the other boards stay put.
+  const oversizedDue = dueHighSignal.filter((item) => item.estimateMs > preliminaryPriority);
+  const priorityHighSignal = dueHighSignal.filter((item) => item.estimateMs <= preliminaryPriority);
+  const rest = [...stableRest, ...oversizedDue];
+  const rotationCost = sumEstimates(rest);
+  const reserve = rest.length === 0 ? 0 : Math.min(budgetMs, TICK_ROTATION_RESERVE_MS, rotationCost);
+  const priorityBudget = budgetMs - reserve;
+
+  const saved = takeWithinBudget([...input.saved].sort(byOldestPoll), priorityBudget);
+  let used = sumEstimates(saved);
+  const highSignal = takeWithinBudget(priorityHighSignal, priorityBudget, used);
+  used += sumEstimates(highSignal);
+  const fastFeeds = takeWithinBudget(
+    input.feeds.filter((item) => isFastFeed(item.provider)),
+    priorityBudget,
+    used
+  );
+  used += sumEstimates(fastFeeds);
+
   const length = rest.length;
   const start = length === 0 ? 0 : ((input.cursor % length) + length) % length;
   const rotated = length === 0 ? [] : [...rest.slice(start), ...rest.slice(0, start)];
-  const rotating = takeWithinBudget(rotated, budgetMs, used);
+  const rotating = takeUntilFull(rotated, budgetMs, used);
 
   let nextCursor = start;
   if (length > 0 && rotating.length > 0) {
