@@ -153,6 +153,21 @@ describe("discovery source fixtures", () => {
     expect(himalayas[0]?.jobUrl).toContain("himalayas.app");
     expect(himalayas[0]?.salaryCurrency).toBe("CAD");
 
+    const epoch = 1_760_000_000;
+    const dated = selectHimalayasJobs([
+      {
+        title: "Frontend Engineer",
+        companyName: "Northwind",
+        description: "Remote, Canada.",
+        applicationLink: "https://himalayas.app/companies/northwind/jobs/frontend-engineer",
+        guid: "him-epoch",
+        locationRestrictions: ["Canada"],
+        pubDate: epoch,
+      },
+    ]);
+    expect(dated).toHaveLength(1);
+    expect(dated[0]?.datePosted).toBe(new Date(epoch * 1000).toISOString());
+
     const remoteOk = selectRemoteOkJobs(JSON.parse(fixture("remoteok-jobs.json")) as unknown[]);
     expect(remoteOk).toHaveLength(1);
     expect(remoteOk[0]?.jobUrl).toBe("https://remoteok.com/remote-jobs/77");

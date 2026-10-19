@@ -1,3 +1,4 @@
+import { parseProviderInstant } from "./posted-date";
 import { extractRequirementsFromText } from "./extract-requirements";
 import { htmlToPlainText, sanitizeJobTitle, decodeHtmlEntities } from "./html-text";
 import { normalizedJobSchema, type NormalizedJob } from "./types";
@@ -11,7 +12,7 @@ export type ListingJobInput = {
   description?: string | null;
   jobUrl?: string | null;
   sourceJobId?: string | null;
-  datePosted?: string | null;
+  datePosted?: string | number | null;
   employmentType?: string | null;
   salaryMin?: number | null;
   salaryMax?: number | null;
@@ -60,7 +61,7 @@ export function listingToNormalizedJob(input: ListingJobInput): NormalizedJob {
     technologies: reqs.technologies,
     jobUrl: input.jobUrl?.trim() || "",
     sourceJobId: input.sourceJobId?.trim().slice(0, 200) || undefined,
-    datePosted: input.datePosted?.trim().slice(0, 50) || undefined,
+    datePosted: parseProviderInstant(input.datePosted),
     employmentType: input.employmentType?.trim().slice(0, 100) || undefined,
     salaryMin,
     salaryMax: salaryMax != null && salaryMin != null && salaryMax < salaryMin ? salaryMin : salaryMax,

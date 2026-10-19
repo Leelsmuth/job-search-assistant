@@ -8,6 +8,7 @@ import { extractRequirementsFromText } from "./extract-requirements";
 import { htmlToPlainText, sanitizeJobTitle } from "./html-text";
 import { parseWorkdayUrl, type ParsedWorkdayUrl } from "./board-url";
 import { assertWorkdayJobsUrl, UnsafeUrlError } from "./ssrf";
+import { matchesDiscoveredJobTitle } from "@/modules/discovery/pre-import-filter";
 
 const PAGE_SIZE = 20;
 /**
@@ -369,6 +370,44 @@ async function collectSearch(
   return jobs.slice(0, perSearchLimit);
 }
 
+function keepDiscoveryTitle(job: WorkdayListJob): boolean {
+  return Boolean(job.title) && matchesDiscoveredJobTitle(job.title);
+}
+
+/** Newest date-sorted pages, limited to titles discovery would consider. */
+async function collectNewestMatching(
+  parsed: ParsedWorkdayUrl,
+  budget: ListBudget,
+  first: WorkdayListResponse
+): Promise<WorkdayListJob[]> {
+  const jobs: WorkdayListJob[] = [];
+  const seen = new Set<string>();
+  const take = (postings: WorkdayListJob[] | undefined) => {
+    for (const job of usableJobs(postings)) {
+      if (!keepDiscoveryTitle(job) || seen.has(job.externalPath)) continue;
+      seen.add(job.externalPath);
+      jobs.push(job);
+    }
+  };
+
+  take(first.jobPostings);
+  const total = typeof first.total === "number" ? first.total : usableJobs(first.jobPostings).length;
+  const firstCount = first.jobPostings?.length ?? 0;
+  if (firstCount < PAGE_SIZE) return jobs;
+
+  let offset = PAGE_SIZE;
+  let pages = 1;
+  while (pages < WORKDAY_MAX_PAGES_PER_SEARCH && offset < total && budget.requests < MAX_LIST_REQUESTS) {
+    const data = await fetchJobPage(parsed, offset, "", budget);
+    pages += 1;
+    take(data.jobPostings);
+    offset += PAGE_SIZE;
+    const count = data.jobPostings?.length ?? 0;
+    if (count === 0 || count < PAGE_SIZE) break;
+  }
+  return jobs;
+}
+
 function addUnique(into: WorkdayListJob[], seen: Set<string>, jobs: WorkdayListJob[]): void {
   for (const job of jobs) {
     if (seen.has(job.externalPath)) continue;
@@ -399,6 +438,7 @@ async function fetchWorkdayBoardList(parsed: ParsedWorkdayUrl): Promise<WorkdayL
 
   const jobs: WorkdayListJob[] = [];
   const seen = new Set<string>();
+  addUnique(jobs, seen, await collectNewestMatching(parsed, budget, first));
   for (const searchText of WORKDAY_FRONTEND_SEARCHES) {
     if (jobs.length >= WORKDAY_MAX_JOBS_PER_BOARD || budget.requests >= MAX_LIST_REQUESTS) break;
     const found = await collectSearch(

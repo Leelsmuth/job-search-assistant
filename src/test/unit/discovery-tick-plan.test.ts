@@ -5,6 +5,7 @@ import {
   emptyRateState,
   HIGH_SIGNAL_MIN_INTERVAL_MS,
   isNotModifiedStatus,
+  jobsSinceCursor,
   listingNewerThanCursor,
   markProvider,
   providerSlot,
@@ -229,6 +230,13 @@ describe("discovery tick plan", () => {
       { id: "undated", datePosted: null },
     ];
     expect(listingNewerThanCursor(jobs, "2026-10-10T00:00:00.000Z").map((job) => job.id)).toEqual([
+      "new",
+      "undated",
+    ]);
+    expect(
+      jobsSinceCursor("workday", jobs, "2026-10-19T00:00:00.000Z").map((job) => job.id)
+    ).toEqual(["old", "new", "undated"]);
+    expect(jobsSinceCursor("greenhouse", jobs, "2026-10-10T00:00:00.000Z").map((job) => job.id)).toEqual([
       "new",
       "undated",
     ]);

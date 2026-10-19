@@ -20,12 +20,13 @@ type TickSavedBoard = SavedBoardRow & {
 };
 import { configuredDiscoveryFeeds } from "@/modules/discovery/source-catalog";
 import { fetchBoardListing, pollBoardsForUser } from "@/modules/discovery/poll-board";
+import { formatPollError } from "@/modules/discovery/poll-error";
 import {
   TICK_BUDGET_MS,
   TICK_LEASE_MS,
   emptyRateState,
   isHighSignalCurated,
-  listingNewerThanCursor,
+  jobsSinceCursor,
   markProvider,
   nextSeenCursor,
   providerSlot,
@@ -250,12 +251,13 @@ async function runTickBody(
           lastModified: listing.lastModified ?? memory.lastModified,
           lastSeenCursor: memory.lastSeenCursor,
           newJobs: 0,
+          errorText: null,
           runId: input.now.toISOString(),
         });
         continue;
       }
 
-      const fresh = listingNewerThanCursor(listing.jobs, memory.lastSeenCursor);
+      const fresh = jobsSinceCursor(target.provider, listing.jobs, memory.lastSeenCursor);
       const seen = nextSeenCursor(listing.jobs, memory.lastSeenCursor);
       for (const recipient of target.recipients) {
         const { stats } = await withUserDb(recipient.userId, (userDb) =>
@@ -288,17 +290,20 @@ async function runTickBody(
         lastModified: listing.lastModified,
         lastSeenCursor: seen,
         newJobs,
+        errorText: null,
         runId: input.now.toISOString(),
       });
     } catch (error) {
       status = "error";
-      console.error(`[discovery-tick] ${target.boardUrl} failed`, error);
+      const errorText = formatPollError(error);
+      console.error(`[discovery-tick] ${target.boardUrl} failed: ${errorText}`);
       await stampTarget(db, target, saved, {
         status,
         etag: memory.etag,
         lastModified: memory.lastModified,
         lastSeenCursor: memory.lastSeenCursor,
         newJobs: 0,
+        errorText,
         runId: input.now.toISOString(),
       });
     }
@@ -399,6 +404,7 @@ async function stampTarget(
     lastModified: string | null;
     lastSeenCursor: string | null;
     newJobs: number;
+    errorText: string | null;
     runId: string;
   }
 ): Promise<void> {
@@ -418,6 +424,7 @@ async function stampTarget(
           httpLastModified: patch.lastModified,
           lastSeenCursor: patch.lastSeenCursor,
           lastNewJobs: patch.newJobs,
+          lastError: patch.errorText,
           updatedAt: now,
         })
         .onConflictDoUpdate({
@@ -432,6 +439,7 @@ async function stampTarget(
             httpLastModified: patch.lastModified,
             lastSeenCursor: patch.lastSeenCursor,
             lastNewJobs: patch.newJobs,
+            lastError: patch.errorText,
             updatedAt: now,
           },
         });

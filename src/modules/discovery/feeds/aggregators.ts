@@ -134,7 +134,8 @@ export type HimalayasJob = {
   currency?: string;
   locationRestrictions?: string[];
   description?: string;
-  pubDate?: string;
+  /** ISO string or unix seconds. The search API currently returns unix seconds. */
+  pubDate?: string | number;
   applicationLink?: string;
   guid?: string;
 };
@@ -152,7 +153,7 @@ export function normalizeHimalayasJob(job: HimalayasJob): NormalizedJob {
     description: job.description || job.excerpt,
     jobUrl: job.applicationLink,
     sourceJobId: job.guid ? `himalayas:${job.guid}` : undefined,
-    datePosted: job.pubDate,
+    datePosted: parseProviderInstant(job.pubDate),
     employmentType: job.employmentType,
     salaryMin: annual ? job.minSalary : undefined,
     salaryMax: annual ? job.maxSalary : undefined,

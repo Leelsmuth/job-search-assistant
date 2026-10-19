@@ -39,12 +39,36 @@ describe("shouldImportDiscoveredJob", () => {
   });
 
   it("respects profile target titles", () => {
+    const profile = { targetTitles: ["Frontend Engineer", "Full-Stack Engineer"], skills: [], evidence: [] };
+    expect(
+      shouldImportDiscoveredJob({ ...baseJob, title: "Staff Platform Engineer" }, profile).import
+    ).toBe(false);
+    expect(
+      shouldImportDiscoveredJob({ ...baseJob, title: "Software Engineer II" }, profile).import
+    ).toBe(false);
     expect(
       shouldImportDiscoveredJob(
-        { ...baseJob, title: "Staff Platform Engineer" },
-        { targetTitles: ["Frontend Engineer"], skills: [], evidence: [] }
+        { ...baseJob, title: "Consultant, Full Stack Developer", location: "Toronto, ON", workplaceType: "on_site" },
+        profile
       ).import
-    ).toBe(false);
+    ).toBe(true);
+    expect(
+      shouldImportDiscoveredJob(
+        { ...baseJob, title: "Front End Engineer", location: "Toronto, ON", workplaceType: "hybrid" },
+        profile
+      ).import
+    ).toBe(true);
+    expect(
+      shouldImportDiscoveredJob(
+        {
+          ...baseJob,
+          title: "Senior Software Engineer, Full Stack",
+          location: "Toronto, Ontario",
+          workplaceType: "on_site",
+        },
+        profile
+      ).import
+    ).toBe(true);
   });
 
   it("blocks US-only remote roles unless the view opts in", () => {
