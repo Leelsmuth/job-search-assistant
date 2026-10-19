@@ -246,6 +246,21 @@ export function isNotModifiedStatus(status: number): boolean {
   return status === 304;
 }
 
+/**
+ * Workday stamps "Posted Today" as UTC midnight. The seen cursor is the newest
+ * of those stamps, including roles the title filter rejects, so a later poll
+ * would hide every other posting from that day. Known jobs are skipped by
+ * dedupe before a detail request, so the date cursor is not used for Workday.
+ */
+export function jobsSinceCursor<T extends { datePosted?: string | null }>(
+  provider: string,
+  jobs: readonly T[],
+  cursor: string | null
+): T[] {
+  if (provider === "workday") return [...jobs];
+  return listingNewerThanCursor(jobs, cursor);
+}
+
 export function listingNewerThanCursor<T extends { datePosted?: string | null }>(
   jobs: readonly T[],
   cursor: string | null

@@ -474,6 +474,7 @@ export const curatedBoardPollState = pgTable("curated_board_poll_state", {
   httpLastModified: text("http_last_modified"),
   lastSeenCursor: text("last_seen_cursor"),
   lastNewJobs: integer("last_new_jobs"),
+  lastError: text("last_error"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

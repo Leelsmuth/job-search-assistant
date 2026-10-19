@@ -16,6 +16,7 @@ import {
   type SavedBoardRow,
 } from "@/modules/discovery/discovery-batch";
 import { aggregateDiscoverStats, fetchBoardListing, pollBoardsForUser } from "@/modules/discovery/poll-board";
+import { formatPollError } from "@/modules/discovery/poll-error";
 import { processMatchQueue } from "@/modules/matching/match-queue";
 import type { JobSourceProvider } from "@/modules/ingestion/types";
 import { runWithPerfContextAsync } from "@/lib/performance/request-context";
@@ -219,7 +220,8 @@ async function stampCuratedBoard(
   db: ReturnType<typeof getDb>,
   target: DiscoveryTarget,
   status: "success" | "error",
-  runId: string
+  runId: string,
+  errorText: string | null
 ): Promise<void> {
   if (typeof db.insert !== "function") return;
   const now = new Date();
@@ -233,6 +235,7 @@ async function stampCuratedBoard(
         lastPolledAt: now,
         lastStatus: status,
         lastRunId: runId,
+        lastError: status === "error" ? errorText : null,
         updatedAt: now,
       })
       .onConflictDoUpdate({
@@ -243,6 +246,7 @@ async function stampCuratedBoard(
           lastPolledAt: now,
           lastStatus: status,
           lastRunId: runId,
+          lastError: status === "error" ? errorText : null,
           updatedAt: now,
         },
       });
@@ -306,6 +310,7 @@ export async function runDiscoverBatch(options: DiscoverBatchOptions = {}): Prom
   for (let index = 0; index < selection.targets.length; index += 1) {
     const target = selection.targets[index];
     let status: "success" | "error" = "success";
+    let pollError: string | null = null;
     try {
       // One HTTP fetch per board. User imports stay sequential on the shared pool.
       const listing = await fetchBoardListing(target);
@@ -341,7 +346,8 @@ export async function runDiscoverBatch(options: DiscoverBatchOptions = {}): Prom
       }
     } catch (error) {
       status = "error";
-      console.error(`[cron] board poll failed ${target.boardUrl}`, error);
+      pollError = formatPollError(error);
+      console.error(`[cron] board poll failed ${target.boardUrl}: ${pollError}`);
     }
 
     boardResults.push({ status });
@@ -349,7 +355,7 @@ export async function runDiscoverBatch(options: DiscoverBatchOptions = {}): Prom
       await stampSavedBoardsAttempted(db, target);
     }
     if (target.origin === "curated") {
-      await stampCuratedBoard(db, target, status, runStartedAt.toISOString());
+      await stampCuratedBoard(db, target, status, runStartedAt.toISOString(), pollError);
     }
 
     if (index < selection.targets.length - 1 && process.env.VITEST !== "true") {

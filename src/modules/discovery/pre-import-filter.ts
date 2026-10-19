@@ -23,12 +23,33 @@ const ALLOWED_TITLE_PATTERNS = [
   /\b(react|typescript|javascript|node)\b/i,
 ];
 
+function normalizeDiscoveryTitle(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[-_/.,]+/g, " ")
+    .replace(/\bfront\s+end\b/g, "frontend")
+    .replace(/\bfull\s+stack\b/g, "fullstack")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function titleTokens(value: string): Set<string> {
+  const tokens = new Set(normalizeDiscoveryTitle(value).split(" ").filter(Boolean));
+  if (tokens.has("engineer")) tokens.add("developer");
+  if (tokens.has("developer")) tokens.add("engineer");
+  return tokens;
+}
+
 export function matchesDiscoveredJobTitle(title: string, profile?: CandidateProfile): boolean {
   const lower = title.toLowerCase();
   if (BLOCKED_TITLE_PATTERNS.some((p) => p.test(lower))) return false;
 
   if (profile?.targetTitles?.length) {
-    return profile.targetTitles.some((t) => lower.includes(t.toLowerCase()));
+    const tokens = titleTokens(title);
+    return profile.targetTitles.some((target) => {
+      const needed = normalizeDiscoveryTitle(target).split(" ").filter(Boolean);
+      return needed.length > 0 && needed.every((token) => tokens.has(token));
+    });
   }
 
   return ALLOWED_TITLE_PATTERNS.some((p) => p.test(lower));

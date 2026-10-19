@@ -218,6 +218,37 @@ describe("workdayAdapter", () => {
     expect(searches.slice(1)).toEqual([...WORKDAY_FRONTEND_SEARCHES]);
   });
 
+  it("keeps a recent engineering role from the date-sorted pages of a large board", async () => {
+    vi.spyOn(global, "fetch").mockImplementation(async (_input, init) => {
+      const body = JSON.parse(String(init?.body));
+      if (body.searchText === "" && body.offset === 0) {
+        return jsonResponse({
+          total: 2000,
+          jobPostings: [
+            {
+              title: "Teller",
+              externalPath: "/job/Branch/Teller_1",
+              postedOn: "Posted Today",
+              bulletFields: ["T1"],
+            },
+            {
+              title: "Full Stack Developer",
+              externalPath: "/job/Toronto/Full-Stack-Developer_JR9",
+              locationsText: "Toronto, Ontario",
+              postedOn: "Posted Today",
+              bulletFields: ["JR9"],
+            },
+          ],
+        });
+      }
+      return jsonResponse({ total: 0, jobPostings: [] });
+    });
+
+    const raw = await workdayAdapter.fetch(BOARD_URL);
+    const jobs = (raw.rawPayload as { jobs: Array<{ title: string }> }).jobs;
+    expect(jobs.map((job) => job.title)).toEqual(["Full Stack Developer"]);
+  });
+
   it("does not page past the first results when a keyword matches most of the board", async () => {
     const reactOffsets: number[] = [];
     vi.spyOn(global, "fetch").mockImplementation(async (_input, init) => {
