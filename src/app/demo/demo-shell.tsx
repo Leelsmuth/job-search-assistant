@@ -36,8 +36,9 @@ export function DemoShell({ children }: { children: React.ReactNode }) {
             <DemoHeader />
             <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-950">
               <p className="mx-auto max-w-6xl">
-                <span className="font-semibold">Demo mode.</span> Fictional jobs. Changes stay in
-                this browser and are never sent to a server.{" "}
+                <span className="font-semibold">Demo mode.</span> Sample jobs are fictional; live
+                jobs are real postings you can load for this tab. Changes stay in this browser and
+                are never sent to a server.{" "}
                 <Link href="/login" className="font-medium underline underline-offset-2">
                   Sign in
                 </Link>{" "}

@@ -24,6 +24,7 @@ import {
 } from "@/modules/demo/demo-state";
 import { demoActions, useDemoState } from "./demo-store";
 import { DEMO_TRACKER_HREF, demoJobHref } from "./demo-links";
+import { DemoLiveJobs } from "./demo-live-jobs";
 
 const selectClass = "mt-1 block min-h-10 rounded-md border border-input bg-background px-2 text-sm";
 
@@ -106,30 +107,42 @@ export function DemoFeed() {
         </div>
       </div>
 
-      {items.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">No sample jobs match these filters.</p>
-            {filtered ? (
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={() => setFilters(DEFAULT_DEMO_FEED_FILTERS)}
-              >
-                Clear filters
-              </Button>
-            ) : null}
-          </CardContent>
-        </Card>
-      ) : (
-        <ul className="space-y-2" aria-label="Sample jobs">
-          {items.map((item) => (
-            <li key={item.job.id}>
-              <DemoJobRow item={item} />
-            </li>
-          ))}
-        </ul>
-      )}
+      <DemoLiveJobs filters={filters} />
+
+      <section aria-labelledby="demo-sample-jobs-heading" className="space-y-2">
+        <div>
+          <h2 id="demo-sample-jobs-heading" className="font-semibold">
+            Sample jobs
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Fictional roles with sample fit scores. Save, dismiss, and track them as you like.
+          </p>
+        </div>
+        {items.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <p className="text-muted-foreground">No sample jobs match these filters.</p>
+              {filtered ? (
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => setFilters(DEFAULT_DEMO_FEED_FILTERS)}
+                >
+                  Clear filters
+                </Button>
+              ) : null}
+            </CardContent>
+          </Card>
+        ) : (
+          <ul className="space-y-2" aria-label="Sample jobs">
+            {items.map((item) => (
+              <li key={item.job.id}>
+                <DemoJobRow item={item} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }
@@ -193,7 +206,7 @@ function DemoJobRow({ item }: { item: DemoFeedItem }) {
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-              <h2 className="line-clamp-2 font-semibold leading-snug sm:truncate">{job.title}</h2>
+              <h3 className="line-clamp-2 font-semibold leading-snug sm:truncate">{job.title}</h3>
               <Badge className="border border-border bg-transparent">
                 {LOCATION_CLASS_LABELS[job.locationClass]}
               </Badge>

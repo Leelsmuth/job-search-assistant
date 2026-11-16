@@ -17,7 +17,11 @@ Visitors who have changed something in the demo see **Continue exploring your de
 
 Demo state lives in the browser's `localStorage` under `jsa:demo-state:v1`. Nothing is sent to the server, and each visitor has their own copy. Demo transitions follow the signed-in tracker: saving a job adds a **Saved** application, unsaving keeps it, and moving to **Applied** stamps the applied date. The demo reuses the signed-in tracker components through `TrackerAdapterProvider` (`src/components/applications/tracker-adapter.tsx`).
 
-The landing page (`/`) and `/demo` are public. Every other page still needs sign-in, and signed-in users who open `/` go straight to `/jobs`. The middleware skips the Supabase session check for `/demo`.
+**Load live jobs** on the demo feed pulls up to 6 real postings from one preselected public Greenhouse board (Tailscale; change `DEMO_LIVE_BOARD` in `src/modules/demo/live-jobs.ts`). They appear above the sample jobs with a **Live** label and no fit score, follow the feed's search and workplace filters, and **Open posting** goes to the employer's page in a new tab. **Save** on a live job does not touch the demo tracker: it asks the visitor to create an account (`/login?mode=signup`) or sign in. Live jobs are kept in `sessionStorage` under `jsa:demo-live:v1`, so they last through reloads in that tab and are gone in new tabs or once the tab closes. They are not demo changes, so they never enable **Reset demo** or switch the landing page to **Continue exploring**. The browser calls `GET /api/demo/live-jobs`, which takes no input, reads only that board's job list (no descriptions), keeps the most frontend- and Canada-relevant roles, and caches the batch for 10 minutes per server instance and at the CDN (`s-maxage`). If Greenhouse fails, the route serves the last batch for up to an hour, waits 30 seconds before retrying, and otherwise answers 502 while the sample jobs keep working. No env vars are needed. The server log line `[demo] live jobs unavailable …` says why a load failed (HTTP status and body, network error code, or timeout). Run `pnpm check:demo-live` to test the board from any machine.
+
+If the dev server cannot reach Greenhouse (a sandbox or an offline laptop), set `DEMO_LIVE_JOBS_SNAPSHOT=1` in `.env.local` to serve the bundled sample response (`src/modules/demo/snapshots/greenhouse-tailscale.json`; illustrative jobs, links to the real board page), or set it to the path of a saved real response, e.g. from `curl -o tmp/greenhouse.json https://boards-api.greenhouse.io/v1/boards/tailscale/jobs` on a machine with internet. The file goes through the same selection as live data, is re-read on every load, and is shown with a **Snapshot** label and a "Development snapshot, not live data" notice. It only works under `pnpm dev`: production builds, including Vercel previews, ignore the variable, log a warning, and call Greenhouse.
+
+The landing page (`/`), `/demo`, and `/api/demo` are public. Every other page still needs sign-in, and signed-in users who open `/` go straight to `/jobs`. The middleware skips the Supabase session check for `/demo` and `/api/demo`.
 
 ## First-time setup
 
@@ -278,6 +282,7 @@ During board polling, jobs are filtered **before** database insert using determi
 | `pnpm test` | Vitest unit tests |
 | `pnpm test:e2e` | Playwright E2E tests |
 | `pnpm setup:check` | Validate env + DB connection |
+| `pnpm check:demo-live` | Check that the demo's live jobs board answers from this machine |
 | `pnpm db:push` | Push Drizzle schema to database |
 | `pnpm db:seed` | Seed profile (requires `SEED_USER_ID`) |
 | `pnpm fixtures:pdf` | Regenerate text-based PDF test fixture |

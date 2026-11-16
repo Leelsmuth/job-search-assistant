@@ -1,0 +1,248 @@
+{
+  "_note": "Development-only sample for DEMO_LIVE_JOBS_SNAPSHOT. Same shape as GET https://boards-api.greenhouse.io/v1/boards/tailscale/jobs, but the jobs are illustrative, not Tailscale's real openings; links point to the real board page. Replace it with a saved real response to preview real data.",
+  "jobs": [
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/tailscale",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null
+        }
+      ],
+      "internal_job_id": 95001,
+      "location": {
+        "name": "Remote - Canada"
+      },
+      "metadata": null,
+      "id": 5001,
+      "updated_at": "2026-11-12T14:00:00-05:00",
+      "requisition_id": null,
+      "title": "Frontend Engineer, Admin Console",
+      "company_name": "Tailscale",
+      "first_published": "2026-11-12T14:00:00-05:00",
+      "language": "en"
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/tailscale",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null
+        }
+      ],
+      "internal_job_id": 95002,
+      "location": {
+        "name": "Remote - United States"
+      },
+      "metadata": null,
+      "id": 5002,
+      "updated_at": "2026-11-10T10:30:00-05:00",
+      "requisition_id": null,
+      "title": "Senior Frontend Engineer, Design Systems",
+      "company_name": "Tailscale",
+      "first_published": "2026-11-10T10:30:00-05:00",
+      "language": "en"
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/tailscale",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null
+        }
+      ],
+      "internal_job_id": 95003,
+      "location": {
+        "name": "Toronto, ON (Hybrid)"
+      },
+      "metadata": null,
+      "id": 5003,
+      "updated_at": "2026-11-03T09:00:00-05:00",
+      "requisition_id": null,
+      "title": "Software Engineer, Web Client",
+      "company_name": "Tailscale",
+      "first_published": "2026-11-03T09:00:00-05:00",
+      "language": "en"
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/tailscale",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null
+        }
+      ],
+      "internal_job_id": 95004,
+      "location": {
+        "name": "Remote - Canada"
+      },
+      "metadata": null,
+      "id": 5004,
+      "updated_at": "2026-11-14T11:00:00-05:00",
+      "requisition_id": null,
+      "title": "Backend Engineer, Control Plane",
+      "company_name": "Tailscale",
+      "first_published": "2026-11-14T11:00:00-05:00",
+      "language": "en"
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/tailscale",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null
+        }
+      ],
+      "internal_job_id": 95005,
+      "location": {
+        "name": "Remote - North America"
+      },
+      "metadata": null,
+      "id": 5005,
+      "updated_at": "2026-10-28T16:00:00-04:00",
+      "requisition_id": null,
+      "title": "Site Reliability Engineer",
+      "company_name": "Tailscale",
+      "first_published": "2026-10-28T16:00:00-04:00",
+      "language": "en"
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/tailscale",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null
+        }
+      ],
+      "internal_job_id": 95006,
+      "location": {
+        "name": "Remote - Europe"
+      },
+      "metadata": null,
+      "id": 5006,
+      "updated_at": "2026-11-06T08:00:00-05:00",
+      "requisition_id": null,
+      "title": "Software Engineer, Networking",
+      "company_name": "Tailscale",
+      "first_published": "2026-11-06T08:00:00-05:00",
+      "language": "en"
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/tailscale",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null
+        }
+      ],
+      "internal_job_id": 95007,
+      "location": {
+        "name": "Remote - Canada"
+      },
+      "metadata": null,
+      "id": 5007,
+      "updated_at": "2026-11-09T13:00:00-05:00",
+      "requisition_id": null,
+      "title": "Product Designer",
+      "company_name": "Tailscale",
+      "first_published": "2026-11-09T13:00:00-05:00",
+      "language": "en"
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/tailscale",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null
+        }
+      ],
+      "internal_job_id": 95008,
+      "location": {
+        "name": "Remote - United States"
+      },
+      "metadata": null,
+      "id": 5008,
+      "updated_at": "2026-10-22T12:00:00-04:00",
+      "requisition_id": null,
+      "title": "Technical Writer",
+      "company_name": "Tailscale",
+      "first_published": "2026-10-22T12:00:00-04:00",
+      "language": "en"
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/tailscale",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null
+        }
+      ],
+      "internal_job_id": 95009,
+      "location": {
+        "name": "Toronto, ON"
+      },
+      "metadata": null,
+      "id": 5009,
+      "updated_at": "2026-11-13T15:00:00-05:00",
+      "requisition_id": null,
+      "title": "Solutions Engineer",
+      "company_name": "Tailscale",
+      "first_published": "2026-11-13T15:00:00-05:00",
+      "language": "en"
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/tailscale",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null
+        }
+      ],
+      "internal_job_id": 95010,
+      "location": {
+        "name": "San Francisco, CA"
+      },
+      "metadata": null,
+      "id": 5010,
+      "updated_at": "2026-11-01T10:00:00-04:00",
+      "requisition_id": null,
+      "title": "Account Executive, Enterprise",
+      "company_name": "Tailscale",
+      "first_published": "2026-11-01T10:00:00-04:00",
+      "language": "en"
+    }
+  ],
+  "meta": {
+    "total": 10
+  }
+}
