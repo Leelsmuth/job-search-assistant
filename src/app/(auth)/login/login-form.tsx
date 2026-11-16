@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient, type SupabaseClientConfig } from "@/lib/supabase/client";
 import { formatMissingConfigMessage } from "@/lib/env";
@@ -204,6 +205,13 @@ export function LoginForm({
               {isSignUp ? "Already have an account? Sign in" : "Need an account? Sign up"}
             </Button>
           </form>
+          <p className="mt-4 border-t border-border pt-4 text-center text-sm text-muted-foreground">
+            Just looking?{" "}
+            <Link href="/demo" className="font-medium text-foreground underline underline-offset-2">
+              Try the demo
+            </Link>{" "}
+            with sample jobs. No account needed.
+          </p>
         </CardContent>
       </Card>
     </div>

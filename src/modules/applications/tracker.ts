@@ -284,7 +284,11 @@ export function parseTrackerQuery(input: {
   };
 }
 
-export function trackerHref(query: TrackerQuery, patch: Partial<TrackerQuery> = {}): string {
+export function trackerHref(
+  query: TrackerQuery,
+  patch: Partial<TrackerQuery> = {},
+  basePath = "/applications"
+): string {
   const next: TrackerQuery = { ...query, ...patch };
   const params = new URLSearchParams();
   if (next.view === "board") params.set("view", "board");
@@ -292,7 +296,7 @@ export function trackerHref(query: TrackerQuery, patch: Partial<TrackerQuery> = 
   if (next.sort !== "activity") params.set("sort", next.sort);
   if (next.dir !== "desc") params.set("dir", next.dir);
   const search = params.toString();
-  return search ? `/applications?${search}` : "/applications";
+  return search ? `${basePath}?${search}` : basePath;
 }
 
 type SortableApplication = {

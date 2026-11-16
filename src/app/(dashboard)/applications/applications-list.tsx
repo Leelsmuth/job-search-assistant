@@ -2,10 +2,16 @@
 
 import Link from "next/link";
 import { ApplicationControls, AttentionBadges } from "./application-controls";
+import {
+  applicationHrefFor,
+  jobHrefFor,
+  useTrackerAdapter,
+} from "@/components/applications/tracker-adapter";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDisplayDate, type TrackedApplication } from "@/modules/applications/tracker";
 
 function JobLinks({ application }: { application: TrackedApplication }) {
+  const adapter = useTrackerAdapter();
   return (
     <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm">
       {application.jobUrl ? (
@@ -20,7 +26,7 @@ function JobLinks({ application }: { application: TrackedApplication }) {
       ) : (
         <span className="text-muted-foreground">No job link</span>
       )}
-      <Link href={`/jobs/${application.jobId}`} className="text-muted-foreground hover:underline">
+      <Link href={jobHrefFor(adapter, application)} className="text-muted-foreground hover:underline">
         View job
       </Link>
     </div>
@@ -28,12 +34,13 @@ function JobLinks({ application }: { application: TrackedApplication }) {
 }
 
 function ApplicationCard({ application }: { application: TrackedApplication }) {
+  const adapter = useTrackerAdapter();
   const needsAttention = application.attention.length > 0;
   return (
     <Card className={needsAttention ? "border-amber-300 bg-amber-50" : undefined}>
       <CardContent className="space-y-3 p-4">
         <div>
-          <Link href={`/applications/${application.id}`} className="font-semibold leading-snug hover:underline">
+          <Link href={applicationHrefFor(adapter, application)} className="font-semibold leading-snug hover:underline">
             {application.title}
           </Link>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -71,6 +78,7 @@ function ApplicationCard({ application }: { application: TrackedApplication }) {
 }
 
 export function ApplicationsList({ applications }: { applications: TrackedApplication[] }) {
+  const adapter = useTrackerAdapter();
   return (
     <>
       <div className="space-y-3 md:hidden">
@@ -113,7 +121,7 @@ export function ApplicationsList({ applications }: { applications: TrackedApplic
               >
                 <td className="p-3 align-top">
                   <Link
-                    href={`/applications/${application.id}`}
+                    href={applicationHrefFor(adapter, application)}
                     className="font-medium hover:underline"
                   >
                     {application.title}
