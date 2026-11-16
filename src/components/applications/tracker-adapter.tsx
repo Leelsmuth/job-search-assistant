@@ -15,8 +15,10 @@ export type TrackerAdapter = {
   updateNotes: (applicationId: string, notes: string) => Promise<unknown>;
   updateFollowUp: (applicationId: string, followUpDate: string) => Promise<unknown>;
   updateAppliedDate: (applicationId: string, dateApplied: string) => Promise<unknown>;
-  applicationHref: (application: { id: string; jobId: string }) => string;
-  jobHref: (application: { id: string; jobId: string }) => string;
+  /** Null when the application has no page of its own; the UI then shows plain text. */
+  applicationHref: (application: { id: string; jobId: string }) => string | null;
+  /** Null when there is no job page to link to. */
+  jobHref: (application: { id: string; jobId: string }) => string | null;
 };
 
 const TrackerAdapterContext = createContext<TrackerAdapter | null>(null);
@@ -39,13 +41,13 @@ export function useTrackerAdapter(): TrackerAdapter | null {
 export function applicationHrefFor(
   adapter: TrackerAdapter | null,
   application: { id: string; jobId: string }
-): string {
+): string | null {
   return adapter ? adapter.applicationHref(application) : `/applications/${application.id}`;
 }
 
 export function jobHrefFor(
   adapter: TrackerAdapter | null,
   application: { id: string; jobId: string }
-): string {
+): string | null {
   return adapter ? adapter.jobHref(application) : `/jobs/${application.jobId}`;
 }

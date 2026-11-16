@@ -27,6 +27,7 @@ import { estimatePayloadBytes } from "@/lib/performance/measure-operation";
 import { measureOperation } from "@/lib/performance/measure-operation";
 import { DISCOVERY_SOURCE_IDS } from "@/modules/discovery/source-catalog";
 import { freshnessRankScore } from "@/modules/matching/freshness";
+import { notImportedJob } from "@/modules/jobs/imported-jobs";
 
 const DISCOVERY_PROVIDERS = new Set<string>(DISCOVERY_SOURCE_IDS);
 
@@ -168,7 +169,8 @@ export async function fetchJobsFeed(
           ? Math.min(limit * 4, MAX_JOBS_FEED_LIMIT * 2)
           : limit + 1;
 
-      const conditions = [eq(jobs.userId, userId)];
+      // Imported jobs are tracker records, not discoveries (see imported-jobs.ts).
+      const conditions = [eq(jobs.userId, userId), notImportedJob()];
 
       if (!filters?.includeDismissed) {
         conditions.push(ne(jobs.status, "dismissed"));
@@ -425,6 +427,6 @@ export async function countAllUserJobs(db: Db, userId: string): Promise<number> 
   const rows = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(jobs)
-    .where(and(eq(jobs.userId, userId), ne(jobs.status, "dismissed")));
+    .where(and(eq(jobs.userId, userId), ne(jobs.status, "dismissed"), notImportedJob()));
   return rows[0]?.count ?? 0;
 }

@@ -481,6 +481,29 @@ export function describeEvent(event: {
     };
   }
 
+  if (kind === "spreadsheet_import") {
+    const fileName = typeof payload?.fileName === "string" && payload.fileName ? payload.fileName : null;
+    const rowNumber = typeof payload?.rowNumber === "number" ? payload.rowNumber : null;
+    const source = [fileName, rowNumber ? `row ${rowNumber}` : null].filter(Boolean).join(", ");
+    if (payload?.action === "update") {
+      const changes = Array.isArray(payload.changes)
+        ? payload.changes.flatMap((change) =>
+            isRecord(change) && typeof change.label === "string"
+              ? [`${change.label}: ${String(change.before)} → ${String(change.after)}`]
+              : []
+          )
+        : [];
+      return {
+        title: source ? `Updated from spreadsheet (${source})` : "Updated from spreadsheet",
+        detail: changes.length > 0 ? changes.join(" · ") : null,
+      };
+    }
+    return {
+      title: "Imported from spreadsheet",
+      detail: source ? `From ${source}` : null,
+    };
+  }
+
   if (kind === "follow_up") {
     const followUpDate = typeof payload?.followUpDate === "string" ? payload.followUpDate : null;
     return {

@@ -4,6 +4,7 @@ import { AddApplicationForm } from "./add-application-form";
 import { ApplicationsBoard } from "./applications-board";
 import { ApplicationsList } from "./applications-list";
 import { TrackerFilters, TrackerViewToggle } from "./tracker-nav";
+import { TrackerCsvActions } from "./tracker-csv-actions";
 import {
   TRACKER_STAGES,
   parseTrackerQuery,
@@ -12,6 +13,9 @@ import {
   trackerHref,
   type TrackerStage,
 } from "@/modules/applications/tracker";
+
+/** Spreadsheet imports run as server actions from this page; a 500-row import needs more than the default. */
+export const maxDuration = 60;
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -51,7 +55,10 @@ export default async function ApplicationsPage({
               : `${applications.length} logged${attentionCount > 0 ? ` · ${attentionCount} need attention` : ""}`}
           </p>
         </div>
-        <TrackerViewToggle query={query} />
+        <div className="flex flex-col gap-2 sm:items-end">
+          <TrackerCsvActions applications={applications} />
+          <TrackerViewToggle query={query} />
+        </div>
       </div>
 
       <TrackerFilters query={query} counts={counts} />
@@ -75,7 +82,7 @@ export default async function ApplicationsPage({
         <div className="rounded-lg border border-border px-4 py-12 text-center">
           <p className="text-muted-foreground">
             {applications.length === 0
-              ? "No applications yet. Save a job from the feed, or add one you found elsewhere."
+              ? "No applications yet. Save a job from the feed, add one you found elsewhere, or import the spreadsheet you already keep."
               : "No applications match this filter."}
           </p>
           {applications.length === 0 ? (

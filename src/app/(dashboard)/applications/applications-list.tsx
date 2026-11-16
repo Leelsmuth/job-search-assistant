@@ -8,10 +8,30 @@ import {
   useTrackerAdapter,
 } from "@/components/applications/tracker-adapter";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { formatDisplayDate, type TrackedApplication } from "@/modules/applications/tracker";
+
+/** The role title, linked to the application's page when it has one. */
+export function ApplicationTitle({
+  application,
+  className,
+}: {
+  application: TrackedApplication;
+  className: string;
+}) {
+  const adapter = useTrackerAdapter();
+  const href = applicationHrefFor(adapter, application);
+  if (!href) return <span className={className}>{application.title}</span>;
+  return (
+    <Link href={href} className={cn(className, "hover:underline")}>
+      {application.title}
+    </Link>
+  );
+}
 
 function JobLinks({ application }: { application: TrackedApplication }) {
   const adapter = useTrackerAdapter();
+  const jobHref = jobHrefFor(adapter, application);
   return (
     <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm">
       {application.jobUrl ? (
@@ -26,23 +46,22 @@ function JobLinks({ application }: { application: TrackedApplication }) {
       ) : (
         <span className="text-muted-foreground">No job link</span>
       )}
-      <Link href={jobHrefFor(adapter, application)} className="text-muted-foreground hover:underline">
-        View job
-      </Link>
+      {jobHref ? (
+        <Link href={jobHref} className="text-muted-foreground hover:underline">
+          View job
+        </Link>
+      ) : null}
     </div>
   );
 }
 
 function ApplicationCard({ application }: { application: TrackedApplication }) {
-  const adapter = useTrackerAdapter();
   const needsAttention = application.attention.length > 0;
   return (
     <Card className={needsAttention ? "border-amber-300 bg-amber-50" : undefined}>
       <CardContent className="space-y-3 p-4">
         <div>
-          <Link href={applicationHrefFor(adapter, application)} className="font-semibold leading-snug hover:underline">
-            {application.title}
-          </Link>
+          <ApplicationTitle application={application} className="font-semibold leading-snug" />
           <p className="mt-1 text-sm text-muted-foreground">
             {application.companyName}
             {application.fitScore != null ? ` · Fit ${application.fitScore}` : ""}
@@ -78,7 +97,6 @@ function ApplicationCard({ application }: { application: TrackedApplication }) {
 }
 
 export function ApplicationsList({ applications }: { applications: TrackedApplication[] }) {
-  const adapter = useTrackerAdapter();
   return (
     <>
       <div className="space-y-3 md:hidden">
@@ -120,12 +138,7 @@ export function ApplicationsList({ applications }: { applications: TrackedApplic
                 }
               >
                 <td className="p-3 align-top">
-                  <Link
-                    href={applicationHrefFor(adapter, application)}
-                    className="font-medium hover:underline"
-                  >
-                    {application.title}
-                  </Link>
+                  <ApplicationTitle application={application} className="font-medium" />
                   {application.fitScore != null ? (
                     <p className="text-xs text-muted-foreground">Fit {application.fitScore}</p>
                   ) : null}
