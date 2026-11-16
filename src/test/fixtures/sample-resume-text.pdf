@@ -10,7 +10,7 @@
 endobj
 4 0 obj
 <<
-/Length 2026
+/Length 2028
 >>
 stream
 0.5670000000000001 w
@@ -39,8 +39,8 @@ T* (Firebase) Tj
 T* () Tj
 T* (EXPERIENCE) Tj
 T* () Tj
-T* (Frontend Engineer | Dealroom | 2021 - Present | Remote) Tj
-T* (- Migrated complex Dealroom workflows from Ember to React and) Tj
+T* (Frontend Engineer | Fieldnote | 2021 - Present | Remote) Tj
+T* (- Migrated complex Fieldnote workflows from Ember to React and) Tj
 T* (TypeScript, including access control and real-time synchronization) Tj
 T* (features.) Tj
 T* (- Implemented Playwright E2E coverage for deal creation and route) Tj
@@ -238,7 +238,7 @@ endobj
 19 0 obj
 <<
 /Producer (jsPDF 4.2.1)
-/CreationDate (D:20260715001518-04'00')
+/CreationDate (D:20261116031937-00'00')
 >>
 endobj
 20 0 obj
@@ -252,33 +252,33 @@ endobj
 xref
 0 21
 0000000000 65535 f 
-0000002230 00000 n 
-0000004047 00000 n 
+0000002232 00000 n 
+0000004049 00000 n 
 0000000015 00000 n 
 0000000152 00000 n 
-0000002287 00000 n 
-0000002412 00000 n 
-0000002542 00000 n 
-0000002675 00000 n 
-0000002812 00000 n 
-0000002935 00000 n 
-0000003064 00000 n 
-0000003196 00000 n 
-0000003332 00000 n 
-0000003460 00000 n 
-0000003587 00000 n 
-0000003716 00000 n 
-0000003849 00000 n 
-0000003951 00000 n 
-0000004295 00000 n 
-0000004381 00000 n 
+0000002289 00000 n 
+0000002414 00000 n 
+0000002544 00000 n 
+0000002677 00000 n 
+0000002814 00000 n 
+0000002937 00000 n 
+0000003066 00000 n 
+0000003198 00000 n 
+0000003334 00000 n 
+0000003462 00000 n 
+0000003589 00000 n 
+0000003718 00000 n 
+0000003851 00000 n 
+0000003953 00000 n 
+0000004297 00000 n 
+0000004383 00000 n 
 trailer
 <<
 /Size 21
 /Root 20 0 R
 /Info 19 0 R
-/ID [ <31B36890F6A58307D033781FCE9A4064> <31B36890F6A58307D033781FCE9A4064> ]
+/ID [ <316DD3339618321810A07480A113F501> <316DD3339618321810A07480A113F501> ]
 >>
 startxref
-4485
+4487
 %%EOF

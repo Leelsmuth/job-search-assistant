@@ -41,13 +41,13 @@
   ],
   "experiences": [
     {
-      "company": "Dealroom",
+      "company": "Fieldnote",
       "title": "Frontend Engineer",
       "startDate": "2021-01",
       "endDate": null,
       "location": "Remote",
       "bullets": [
-        "Migrated complex Dealroom workflows from Ember to React and TypeScript, including access control and real-time synchronization features.",
+        "Migrated complex Fieldnote workflows from Ember to React and TypeScript, including access control and real-time synchronization features.",
         "Implemented Playwright E2E coverage for deal creation and route accessibility testing.",
         "Rebuilt file picker components with improved UX and performance.",
         "Contributed to Next.js monorepo foundations and authentication-related frontend integrations.",
@@ -90,7 +90,7 @@
     },
     {
       "sourceType": "resume_bullet",
-      "evidenceText": "Migrated complex Dealroom workflows from Ember to React and TypeScript, including access control and real-time synchronization features.",
+      "evidenceText": "Migrated complex Fieldnote workflows from Ember to React and TypeScript, including access control and real-time synchronization features.",
       "normalizedSkills": ["react", "typescript", "migration", "real-time"]
     },
     {

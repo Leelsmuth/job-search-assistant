@@ -11,8 +11,8 @@ React, TypeScript, JavaScript, Next.js, Node.js, GraphQL, Apollo Client, TanStac
 
 EXPERIENCE
 
-Frontend Engineer | Dealroom | 2021 - Present | Remote
-- Migrated complex Dealroom workflows from Ember to React and TypeScript, including access control and real-time synchronization features.
+Frontend Engineer | Fieldnote | 2021 - Present | Remote
+- Migrated complex Fieldnote workflows from Ember to React and TypeScript, including access control and real-time synchronization features.
 - Implemented Playwright E2E coverage for deal creation and route accessibility testing.
 - Rebuilt file picker components with improved UX and performance.
 - Contributed to Next.js monorepo foundations and authentication-related frontend integrations.

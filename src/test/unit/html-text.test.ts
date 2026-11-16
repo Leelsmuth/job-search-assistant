@@ -8,7 +8,7 @@ import {
 
 describe("html-text utilities", () => {
   it("decodes HTML entities", () => {
-    expect(decodeHtmlEntities("Priceline&#039;s team")).toBe("Priceline's team");
+    expect(decodeHtmlEntities("Northwind&#039;s team")).toBe("Northwind's team");
     expect(decodeHtmlEntities("A &amp; B")).toBe("A & B");
   });
 
@@ -27,7 +27,7 @@ describe("html-text utilities", () => {
   });
 
   it("extracts page title from HTML metadata", () => {
-    const html = `<html><head><title>Front End Developer | Priceline Careers</title></head><body></body></html>`;
+    const html = `<html><head><title>Front End Developer | Northwind Careers</title></head><body></body></html>`;
     expect(extractTitleFromHtml(html)).toBe("Front End Developer");
   });
 });

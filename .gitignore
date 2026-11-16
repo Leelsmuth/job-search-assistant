@@ -1,7 +1,56 @@
-node_modules
-.next
-.env*.local
-dist
-playwright-report
-test-results
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+dist/
+build/
+out/
 *.tsbuildinfo
+
+# Chrome extension package (vite build + zip script)
+extension/dist/
+extension/*.zip
+
+# Environment files with real values. Keep the tracked placeholder template.
+.env
+.env.*
+!.env.example
+
+# Vercel
+.vercel/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Coverage and test output
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor folders
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# AI coding-agent helpers. Product code stays tracked.
+.cursor/
+.claude/
+.windsurf/
+.windsurf*
+.aider*
+.continue/
+AGENTS.md
+CLAUDE.md
+.cursorrules
+.github/copilot-instructions.md
