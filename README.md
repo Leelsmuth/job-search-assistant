@@ -292,3 +292,7 @@ E2E tests require `E2E_TEST_EMAIL` and `E2E_TEST_PASSWORD` in the environment.
 ## Stack
 
 Next.js 15 · Supabase · Drizzle · OpenAI · Vitest · Playwright
+
+## License
+
+MIT — see [LICENSE](LICENSE).
