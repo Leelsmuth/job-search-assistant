@@ -2,6 +2,13 @@
 export const DEMO_STORAGE_KEY = "jsa:demo-state:v1";
 
 /**
+ * sessionStorage key for the live jobs batch (see src/app/demo/demo-live-store.ts).
+ * Session storage is per tab: live jobs survive reloads and demo navigation in
+ * the tab that loaded them, and are gone in new tabs and once the tab closes.
+ */
+export const DEMO_LIVE_SESSION_KEY = "jsa:demo-live:v1";
+
+/**
  * Set to "1" while the visitor has changes in the demo, removed otherwise.
  * Derived from the demo state and kept in sync by the demo store. It exists so
  * the landing page can pick the right call to action before React loads.

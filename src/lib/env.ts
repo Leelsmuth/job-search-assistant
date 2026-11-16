@@ -263,6 +263,12 @@ export const LANDING_PATH = "/";
 /** The public demo. It needs no account, Supabase, or Postgres. */
 export const DEMO_PATH = "/demo";
 
+/** Public, read-only endpoints used by the demo (live jobs). */
+export const DEMO_API_PATH = "/api/demo";
+
+/** The demo pages and their API. Public, with no session check. */
 export function isDemoPath(pathname: string): boolean {
-  return pathname === DEMO_PATH || pathname.startsWith(`${DEMO_PATH}/`);
+  return [DEMO_PATH, DEMO_API_PATH].some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
 }

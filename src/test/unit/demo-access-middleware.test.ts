@@ -73,18 +73,27 @@ function expectRedirect(response: Response, pathname: string) {
 }
 
 describe("isDemoPath", () => {
-  it("matches the demo and its sub-pages only", () => {
+  it("matches the demo, its sub-pages, and its API only", () => {
     expect(isDemoPath("/demo")).toBe(true);
     expect(isDemoPath("/demo/applications")).toBe(true);
     expect(isDemoPath("/demo/jobs/northwind-senior-frontend")).toBe(true);
+    expect(isDemoPath("/api/demo/live-jobs")).toBe(true);
     expect(isDemoPath("/demonstration")).toBe(false);
+    expect(isDemoPath("/api/demonstration")).toBe(false);
+    expect(isDemoPath("/api/extension/session")).toBe(false);
     expect(isDemoPath("/jobs")).toBe(false);
     expect(isDemoPath("/")).toBe(false);
   });
 });
 
 describe("demo and landing access with no configuration", () => {
-  it.each(["/", "/demo", "/demo/applications", "/demo/jobs/northwind-senior-frontend"])(
+  it.each([
+    "/",
+    "/demo",
+    "/demo/applications",
+    "/demo/jobs/northwind-senior-frontend",
+    "/api/demo/live-jobs",
+  ])(
     "serves %s without env vars",
     async (pathname) => {
       unconfigure();
@@ -101,7 +110,12 @@ describe("demo and landing access with no configuration", () => {
 });
 
 describe("demo and landing access when Supabase is configured", () => {
-  it.each(["/demo", "/demo/applications?view=board", "/demo/jobs/northwind-senior-frontend"])(
+  it.each([
+    "/demo",
+    "/demo/applications?view=board",
+    "/demo/jobs/northwind-senior-frontend",
+    "/api/demo/live-jobs",
+  ])(
     "serves %s to anonymous visitors without an auth round trip",
     async (pathname) => {
       configure();

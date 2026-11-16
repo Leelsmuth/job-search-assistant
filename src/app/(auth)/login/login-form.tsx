@@ -31,7 +31,8 @@ export function LoginForm({
   const [phase, setPhase] = useState<AuthPhase>("idle");
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
+  // /login?mode=signup opens the sign-up form, e.g. from the demo's save prompt.
+  const [isSignUp, setIsSignUp] = useState(() => searchParams.get("mode") === "signup");
 
   const busy = phase !== "idle";
 
