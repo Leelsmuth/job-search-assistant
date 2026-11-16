@@ -18,9 +18,9 @@ function linesFromText(text: string): GroupedLine[] {
 describe("experience-block-parser", () => {
   it("parses Company | Title | Date | Location", () => {
     const fields = parseExperienceHeaderFields(
-      "Priceline | Software Developer | Jun 2022 - Present | Remote"
+      "Northwind | Software Developer | Jun 2022 - Present | Remote"
     );
-    expect(fields.company).toBe("Priceline");
+    expect(fields.company).toBe("Northwind");
     expect(fields.title).toBe("Software Developer");
     expect(fields.dateRange).toMatch(/Jun 2022 - Present/i);
     expect(fields.location).toBe("Remote");
@@ -52,26 +52,26 @@ describe("experience-block-parser", () => {
         title: "Jun 2022 - Present",
       },
       {
-        headerLine: "Priceline",
+        headerLine: "Northwind",
         lines: linesFromText("- Built features"),
-        title: "Priceline",
+        title: "Northwind",
       },
     ]);
 
     expect(blocks).toHaveLength(1);
-    expect(blocks[0].company).toBe("Priceline");
+    expect(blocks[0].company).toBe("Northwind");
     expect(blocks[0].title).toBe("Software Developer");
     expect(blocks[0].dateRange).toMatch(/Jun 2022 - Present/i);
   });
 
   it("parses stacked company then title|date layout", () => {
-    const input = `Priceline
+    const input = `Northwind
 Software Developer | Jun 2022 - Present | Remote
 - Architected Okta-based authentication migration.`;
 
     const blocks = parseExperienceBlocks(linesFromText(input));
     expect(blocks).toHaveLength(1);
-    expect(blocks[0].company).toBe("Priceline");
+    expect(blocks[0].company).toBe("Northwind");
     expect(blocks[0].title).toBe("Software Developer");
     expect(blocks[0].dateRange).toMatch(/Jun 2022 - Present/i);
     expect(blocks[0].lines.some((l) => /Okta/i.test(l.text))).toBe(true);
@@ -79,12 +79,12 @@ Software Developer | Jun 2022 - Present | Remote
 
   it("parses split title|date then company-with-bullets layout", () => {
     const input = `Software Developer | Jun 2022 - Present
-Priceline
+Northwind
 - Architected Okta-based authentication migration.`;
 
     const blocks = parseExperienceBlocks(linesFromText(input));
     expect(blocks).toHaveLength(1);
-    expect(blocks[0].company).toBe("Priceline");
+    expect(blocks[0].company).toBe("Northwind");
     expect(blocks[0].title).toBe("Software Developer");
     expect(blocks[0].dateRange).toMatch(/Jun 2022 - Present/i);
   });
@@ -119,13 +119,13 @@ Toronto
   it("parses vertical date → title → company → bullets layout", () => {
     const input = `Jun 2022 – Present
 Software Developer
-Priceline
+Northwind
 - Architected and migrated legacy authentication to a React and Node.js Okta-based system.
 - Led frontend modernization using Next.js, TypeScript, and shadcn/ui.`;
 
     const blocks = parseExperienceBlocks(linesFromText(input));
     expect(blocks).toHaveLength(1);
-    expect(blocks[0].company).toBe("Priceline");
+    expect(blocks[0].company).toBe("Northwind");
     expect(blocks[0].title).toBe("Software Developer");
     expect(blocks[0].dateRange).toMatch(/Jun 2022/i);
     expect(blocks[0].lines.filter((l) => /^-/.test(l.text.trim()))).toHaveLength(2);

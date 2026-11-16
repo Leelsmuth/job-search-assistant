@@ -39,7 +39,7 @@ describe("experience-semantics", () => {
     expect(looksLikeDateRange("Oct 2021 - Jun 2022")).toBe(true);
     expect(looksLikeJobTitle("Software Developer")).toBe(true);
     expect(looksLikeJobTitle("Full Stack Developer")).toBe(true);
-    expect(looksLikeCompanyName("Priceline")).toBe(true);
+    expect(looksLikeCompanyName("Northwind")).toBe(true);
     expect(looksLikeCompanyName("Software Developer")).toBe(false);
   });
 });
@@ -87,13 +87,13 @@ describe("experience-reconciliation", () => {
         achievements: [],
       }),
       exp({
-        title: "Priceline",
+        title: "Northwind",
         achievements: ["Architected Okta migration."],
       }),
     ]);
 
     expect(merged).toHaveLength(1);
-    expect(merged[0].company).toBe("Priceline");
+    expect(merged[0].company).toBe("Northwind");
     expect(merged[0].title).toBe("Software Developer");
     expect(merged[0].startDate).toBe("2022-06");
     expect(merged[0].achievements).toHaveLength(1);

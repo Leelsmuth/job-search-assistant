@@ -6,15 +6,15 @@ describe("sanitizeSkills", () => {
     const cleaned = sanitizeSkills([
       "React",
       "TypeScript",
-      "Priceline",
+      "Northwind",
       "and demos.",
       "• Architected a design system in React and Next.js for the marketing site.",
       "GraphQL, Node.js",
       "Customer obsessed collaborator",
     ]);
     expect(cleaned).toEqual(expect.arrayContaining(["React", "TypeScript", "Next.js", "GraphQL", "Node.js"]));
-    expect(cleaned).not.toContain("Priceline");
-    expect(cleaned.some((skill) => /priceline|demos|architected/i.test(skill))).toBe(false);
+    expect(cleaned).not.toContain("Northwind");
+    expect(cleaned.some((skill) => /northwind|demos|architected/i.test(skill))).toBe(false);
     expect(cleaned.every((skill) => skill.length < 40)).toBe(true);
   });
 
