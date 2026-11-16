@@ -71,7 +71,7 @@ export function DemoJobTrackerPanel({
           <div className="space-y-3 border-t border-border pt-4">
             <AttentionBadges flags={tracked.attention} />
             <ApplicationControls
-              key={`${tracked.id}:${tracked.status}:${tracked.notes ?? ""}:${tracked.followUpDate ?? ""}:${tracked.dateApplied ?? ""}`}
+              key={tracked.id}
               application={tracked}
               showAppliedDate
               idPrefix="detail"

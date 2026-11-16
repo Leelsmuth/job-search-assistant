@@ -73,7 +73,7 @@ export default async function ApplicationDetailPage({
               </div>
             </dl>
             <ApplicationControls
-              key={`${application.id}:${application.status}:${application.notes ?? ""}:${application.followUpDate ?? ""}:${application.dateApplied ?? ""}`}
+              key={application.id}
               application={application}
               notesMode="inline"
               showAppliedDate

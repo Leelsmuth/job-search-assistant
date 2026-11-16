@@ -43,19 +43,26 @@ function JobLinks({ application }: { application: TrackedApplication }) {
         >
           Job posting
         </a>
-      ) : (
-        <span className="text-muted-foreground">No job link</span>
-      )}
+      ) : null}
       {jobHref ? (
         <Link href={jobHref} className="text-muted-foreground hover:underline">
           View job
         </Link>
       ) : null}
+      {!application.jobUrl && !jobHref ? (
+        <span className="text-muted-foreground">No job link</span>
+      ) : null}
     </div>
   );
 }
 
-function ApplicationCard({ application }: { application: TrackedApplication }) {
+function ApplicationCard({
+  application,
+  showAppliedDate,
+}: {
+  application: TrackedApplication;
+  showAppliedDate: boolean;
+}) {
   const needsAttention = application.attention.length > 0;
   return (
     <Card className={needsAttention ? "border-amber-300 bg-amber-50" : undefined}>
@@ -87,21 +94,33 @@ function ApplicationCard({ application }: { application: TrackedApplication }) {
           </div>
         </dl>
         <ApplicationControls
-          key={`${application.id}:${application.status}:${application.notes ?? ""}:${application.followUpDate ?? ""}`}
+          key={application.id}
           idPrefix="card"
           application={application}
+          showAppliedDate={showAppliedDate}
         />
       </CardContent>
     </Card>
   );
 }
 
-export function ApplicationsList({ applications }: { applications: TrackedApplication[] }) {
+export function ApplicationsList({
+  applications,
+  showAppliedDate = false,
+}: {
+  applications: TrackedApplication[];
+  /** The demo edits the applied date in the tracker. Signed-in rows open the application page for that. */
+  showAppliedDate?: boolean;
+}) {
   return (
     <>
       <div className="space-y-3 md:hidden">
         {applications.map((application) => (
-          <ApplicationCard key={application.id} application={application} />
+          <ApplicationCard
+            key={application.id}
+            application={application}
+            showAppliedDate={showAppliedDate}
+          />
         ))}
       </div>
 
@@ -156,9 +175,10 @@ export function ApplicationsList({ applications }: { applications: TrackedApplic
                 </td>
                 <td className="p-3 align-top">
                   <ApplicationControls
-                    key={`${application.id}:${application.status}:${application.notes ?? ""}:${application.followUpDate ?? ""}`}
+                    key={application.id}
                     idPrefix="table"
                     application={application}
+                    showAppliedDate={showAppliedDate}
                   />
                 </td>
               </tr>

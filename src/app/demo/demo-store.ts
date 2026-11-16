@@ -118,7 +118,9 @@ export const demoActions = {
     update((state) => setDemoApplicationStatus(state, applicationId, status));
   },
   setNotes(applicationId: string, notes: string) {
+    const before = getState();
     update((state) => setDemoApplicationNotes(state, applicationId, notes));
+    return { changed: getState() !== before };
   },
   setFollowUp(applicationId: string, followUpDate: string) {
     update((state) => setDemoApplicationFollowUp(state, applicationId, followUpDate));

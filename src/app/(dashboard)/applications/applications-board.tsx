@@ -11,22 +11,39 @@ import {
   type TrackerStage,
 } from "@/modules/applications/tracker";
 
-function ViewJobLink({ application }: { application: TrackedApplication }) {
+function BoardJobLinks({ application }: { application: TrackedApplication }) {
   const href = jobHrefFor(useTrackerAdapter(), application);
-  if (!href) return null;
   return (
-    <Link href={href} className="text-muted-foreground hover:underline">
-      View job
-    </Link>
+    <div className="flex flex-wrap gap-x-3 text-xs">
+      {application.jobUrl ? (
+        <a
+          href={application.jobUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:underline"
+        >
+          Job posting
+        </a>
+      ) : null}
+      {href ? (
+        <Link href={href} className="text-muted-foreground hover:underline">
+          View job
+        </Link>
+      ) : null}
+      {!application.jobUrl && !href ? <span className="text-muted-foreground">No job link</span> : null}
+    </div>
   );
 }
 
 export function ApplicationsBoard({
   applications,
   stages,
+  showAppliedDate = false,
 }: {
   applications: TrackedApplication[];
   stages: TrackerStage[];
+  /** The demo edits the applied date in the tracker. Signed-in rows open the application page for that. */
+  showAppliedDate?: boolean;
 }) {
   return (
     <div
@@ -72,27 +89,16 @@ export function ApplicationsBoard({
                       </p>
                     </div>
                     <AttentionBadges flags={application.attention} />
-                    <div className="flex flex-wrap gap-x-3 text-xs">
-                      {application.jobUrl ? (
-                        <a
-                          href={application.jobUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline"
-                        >
-                          Job posting
-                        </a>
-                      ) : null}
-                      <ViewJobLink application={application} />
-                    </div>
+                    <BoardJobLinks application={application} />
                     {application.status !== application.stage ? (
                       <p className="text-xs text-muted-foreground">
                         Current status: {statusLabel(application.status)}
                       </p>
                     ) : null}
                     <ApplicationControls
-                      key={`${application.id}:${application.status}:${application.notes ?? ""}:${application.followUpDate ?? ""}`}
+                      key={application.id}
                       application={application}
+                      showAppliedDate={showAppliedDate}
                     />
                   </article>
                 ))
