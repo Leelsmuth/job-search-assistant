@@ -69,8 +69,8 @@ async function changeValue(
 
 it("writes all tracker edits through the regular server actions without a demo adapter", async () => {
   await changeValue(container.querySelector("select")!, "applied");
-  await changeValue(container.querySelector('input[aria-label^="Follow-up"]')!, "2026-06-20");
-  await changeValue(container.querySelector('input[aria-label^="Date applied"]')!, "2026-06-15");
+  await changeValue(container.querySelector<HTMLInputElement>('input[aria-label^="Follow-up"]')!, "2026-06-20");
+  await changeValue(container.querySelector<HTMLInputElement>('input[aria-label^="Date applied"]')!, "2026-06-15");
   await changeValue(container.querySelector("textarea")!, "Follow up about the frontend role");
   const save = [...container.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Save notes");
   await act(async () => save!.click());
