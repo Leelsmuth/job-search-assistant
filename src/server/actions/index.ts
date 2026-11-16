@@ -552,6 +552,7 @@ export async function enhanceFrontendFitAction(jobId: string) {
 }
 
 import type { JobWithRelations } from "@/modules/jobs/types";
+import { isImportedJob, notImportedJob } from "@/modules/jobs/imported-jobs";
 
 export async function getJobDetail(jobId: string): Promise<JobWithRelations | undefined> {
   const user = await requireUser();
@@ -1309,8 +1310,9 @@ export async function getGettingStartedProgress() {
       where: eq(savedBoards.userId, user.id),
       columns: { id: true },
     });
+    // Importing applications is not the same as discovering jobs.
     const jobRows = await db.query.jobs.findMany({
-      where: eq(jobs.userId, user.id),
+      where: and(eq(jobs.userId, user.id), notImportedJob()),
       columns: { id: true },
       limit: 1,
     });
@@ -1348,7 +1350,8 @@ export async function getDashboardStats() {
       where: eq(savedBoards.userId, user.id),
     });
 
-    const activeJobs = allJobs.filter((j) => j.status !== "dismissed");
+    // Job counts are about discovered jobs; imported ones are counted with applications.
+    const activeJobs = allJobs.filter((j) => j.status !== "dismissed" && !isImportedJob(j));
 
     const strongMatches = activeJobs.filter(
       (j) =>

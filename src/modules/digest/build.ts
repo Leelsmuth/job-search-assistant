@@ -19,6 +19,7 @@ import {
   wasDigestSentToday,
 } from "@/modules/digest/select";
 import type { DigestPayload, DigestSkipReason } from "@/modules/digest/types";
+import { notImportedJob } from "@/modules/jobs/imported-jobs";
 
 const DIGEST_JOB_FETCH_LIMIT = 300;
 
@@ -74,7 +75,9 @@ export async function buildDigestForUser(db: Db, userId: string, now: Date): Pro
     where: and(
       eq(jobs.userId, userId),
       ne(jobs.status, "dismissed"),
-      gt(jobs.dateDiscovered, window.windowStart)
+      gt(jobs.dateDiscovered, window.windowStart),
+      // An import is not news: never email someone their own spreadsheet.
+      notImportedJob()
     ),
     orderBy: [desc(jobs.dateDiscovered)],
     limit: DIGEST_JOB_FETCH_LIMIT,

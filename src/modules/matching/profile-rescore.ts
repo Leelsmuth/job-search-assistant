@@ -3,13 +3,15 @@ import { jobs, profileRescoreQueue } from "@/db/schema";
 import type { Db } from "@/server/actions/helpers";
 import { withUserDb } from "@/db/user-context";
 import { runAndSaveMatchAnalysisDb } from "@/modules/matching/save-match-analysis";
+import { notImportedJob } from "@/modules/jobs/imported-jobs";
 
 const BATCH_LIMIT = 40;
 const BATCH_BUDGET_MS = 25_000;
 
 export async function queueProfileRescore(db: Db, userId: string): Promise<number> {
   const active = await db.query.jobs.findMany({
-    where: and(eq(jobs.userId, userId), ne(jobs.status, "dismissed")),
+    // Imported jobs have no real description to score.
+    where: and(eq(jobs.userId, userId), ne(jobs.status, "dismissed"), notImportedJob()),
     columns: { id: true },
   });
   if (active.length === 0) return 0;

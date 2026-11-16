@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApplicationsBoard } from "@/app/(dashboard)/applications/applications-board";
@@ -16,6 +17,18 @@ import {
 import { listDemoTrackedApplications } from "@/modules/demo/demo-state";
 import { useDemoState } from "../demo-store";
 import { DEMO_FEED_HREF, DEMO_TRACKER_HREF } from "../demo-links";
+import {
+  ExportCsvButton,
+  ImportCsvButton,
+  ImportDialogLoading,
+} from "@/components/applications/import/csv-actions";
+
+/** The import dialog loads on first use; the tracker page only carries the buttons. */
+const loadDemoImportDialog = () => import("./demo-import");
+const DemoImportDialog = dynamic(() => loadDemoImportDialog().then((mod) => mod.DemoImportDialog), {
+  ssr: false,
+  loading: ImportDialogLoading,
+});
 
 /** Same tracker UI as /applications, backed by the demo's browser store. */
 export function DemoTracker({ query }: { query: TrackerQuery }) {
@@ -39,7 +52,16 @@ export function DemoTracker({ query }: { query: TrackerQuery }) {
               : `${applications.length} logged${attentionCount > 0 ? ` · ${attentionCount} need attention` : ""}`}
           </p>
         </div>
-        <TrackerViewToggle query={query} basePath={DEMO_TRACKER_HREF} />
+        <div className="flex flex-col gap-2 sm:items-end">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Spreadsheet">
+            <ImportCsvButton
+              preload={loadDemoImportDialog}
+              renderDialog={(onClose) => <DemoImportDialog onClose={onClose} />}
+            />
+            <ExportCsvButton applications={applications} />
+          </div>
+          <TrackerViewToggle query={query} basePath={DEMO_TRACKER_HREF} />
+        </div>
       </div>
 
       <TrackerFilters query={query} counts={counts} basePath={DEMO_TRACKER_HREF} />
@@ -65,7 +87,7 @@ export function DemoTracker({ query }: { query: TrackerQuery }) {
         <div className="rounded-lg border border-border px-4 py-12 text-center">
           <p className="text-muted-foreground">
             {applications.length === 0
-              ? "No applications yet. Save a job from the feed to start tracking it."
+              ? "No applications yet. Save a job from the feed, or import the spreadsheet you already keep."
               : "No applications match this filter."}
           </p>
           {applications.length === 0 ? (

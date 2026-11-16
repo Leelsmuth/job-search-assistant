@@ -2,17 +2,24 @@
 
 import Link from "next/link";
 import { ApplicationControls, AttentionBadges } from "./application-controls";
-import {
-  applicationHrefFor,
-  jobHrefFor,
-  useTrackerAdapter,
-} from "@/components/applications/tracker-adapter";
+import { ApplicationTitle } from "./applications-list";
+import { jobHrefFor, useTrackerAdapter } from "@/components/applications/tracker-adapter";
 import {
   formatDisplayDate,
   statusLabel,
   type TrackedApplication,
   type TrackerStage,
 } from "@/modules/applications/tracker";
+
+function ViewJobLink({ application }: { application: TrackedApplication }) {
+  const href = jobHrefFor(useTrackerAdapter(), application);
+  if (!href) return null;
+  return (
+    <Link href={href} className="text-muted-foreground hover:underline">
+      View job
+    </Link>
+  );
+}
 
 export function ApplicationsBoard({
   applications,
@@ -21,7 +28,6 @@ export function ApplicationsBoard({
   applications: TrackedApplication[];
   stages: TrackerStage[];
 }) {
-  const adapter = useTrackerAdapter();
   return (
     <div
       className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0"
@@ -52,12 +58,7 @@ export function ApplicationsBoard({
                     }
                   >
                     <div>
-                      <Link
-                        href={applicationHrefFor(adapter, application)}
-                        className="font-medium leading-snug hover:underline"
-                      >
-                        {application.title}
-                      </Link>
+                      <ApplicationTitle application={application} className="font-medium leading-snug" />
                       <p className="text-xs text-muted-foreground">
                         {application.companyName}
                         {application.fitScore != null ? ` · Fit ${application.fitScore}` : ""}
@@ -82,9 +83,7 @@ export function ApplicationsBoard({
                           Job posting
                         </a>
                       ) : null}
-                      <Link href={jobHrefFor(adapter, application)} className="text-muted-foreground hover:underline">
-                        View job
-                      </Link>
+                      <ViewJobLink application={application} />
                     </div>
                     {application.status !== application.stage ? (
                       <p className="text-xs text-muted-foreground">

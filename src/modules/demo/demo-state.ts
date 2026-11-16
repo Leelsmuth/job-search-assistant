@@ -6,6 +6,9 @@
  * - Saving a job creates a "saved" application if the job has none.
  * - Unsaving a job clears the saved flag but keeps its application.
  * - Moving to "applied" stamps the applied date the first time.
+ *
+ * Applications can also be imported from a spreadsheet (see demo-import.ts).
+ * Those carry their own job details, since there is no sample job behind them.
  */
 import type { ApplicationStatus } from "@/lib/utils";
 import {
@@ -16,6 +19,7 @@ import {
   parseNotes,
   parseOptionalCalendarField,
   pipelineStage,
+  safeHttpUrl,
   type TrackedApplication,
 } from "@/modules/applications/tracker";
 import { DEMO_JOBS, getDemoJob, isDemoJobId, type DemoJob } from "@/modules/demo/sample-jobs";
@@ -25,8 +29,22 @@ export const DEMO_STATE_VERSION = 1;
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
+/**
+ * The job behind an application imported from a spreadsheet. Sample-job
+ * applications have no copy: their company, title, and location come from
+ * DEMO_JOBS. Imported ones carry what the visitor's file said.
+ */
+export type DemoImportedJob = {
+  company: string;
+  title: string;
+  location: string | null;
+  workplaceType: "remote" | "hybrid" | "on_site" | null;
+  jobUrl: string | null;
+};
+
 export type DemoApplication = {
   id: string;
+  /** A sample job id, or an `import-<n>` id for imported applications. */
   jobId: string;
   status: ApplicationStatus;
   notes: string | null;
@@ -34,6 +52,8 @@ export type DemoApplication = {
   dateApplied: string | null;
   followUpDate: string | null;
   updatedAt: string;
+  /** Set exactly when the application was imported and is not a sample job. */
+  job?: DemoImportedJob;
 };
 
 export type DemoState = {
@@ -46,6 +66,17 @@ export type DemoState = {
 
 export function demoApplicationId(jobId: string): string {
   return `demo-app-${jobId}`;
+}
+
+const IMPORTED_JOB_ID = /^import-[1-9]\d*$/;
+
+/** Job id for the nth imported application. Never collides with a sample job id. */
+export function demoImportedJobId(sequence: number): string {
+  return `import-${sequence}`;
+}
+
+export function isDemoImportedJobId(jobId: string): boolean {
+  return IMPORTED_JOB_ID.test(jobId);
 }
 
 /** UTC noon, the same convention the tracker uses for calendar dates. */
@@ -157,10 +188,47 @@ function knownJobIds(value: unknown): string[] | null {
   return Array.from(new Set(ids));
 }
 
+function optionalString(value: unknown): string | null | undefined {
+  if (value === null) return null;
+  return typeof value === "string" ? value : undefined;
+}
+
+function parseImportedJob(value: unknown): DemoImportedJob | null {
+  if (!isRecord(value)) return null;
+  const { company, title, workplaceType } = value;
+  const location = optionalString(value.location);
+  const jobUrl = optionalString(value.jobUrl);
+  if (typeof company !== "string" || !company.trim()) return null;
+  if (typeof title !== "string" || !title.trim()) return null;
+  if (location === undefined || jobUrl === undefined) return null;
+  // Links are rendered as hrefs, so only ever keep http(s) ones.
+  if (jobUrl !== null && safeHttpUrl(jobUrl) === null) return null;
+  if (
+    workplaceType !== null &&
+    workplaceType !== "remote" &&
+    workplaceType !== "hybrid" &&
+    workplaceType !== "on_site"
+  ) {
+    return null;
+  }
+  return { company, title, location, workplaceType, jobUrl };
+}
+
 function parseApplication(value: unknown): DemoApplication | null {
   if (!isRecord(value)) return null;
   const { id, jobId, status, notes, dateSaved, dateApplied, followUpDate, updatedAt } = value;
-  if (typeof id !== "string" || typeof jobId !== "string" || !isDemoJobId(jobId)) return null;
+  if (typeof id !== "string" || typeof jobId !== "string") return null;
+  // Sample-job applications have no job copy; imported ones must have a valid one.
+  let job: DemoImportedJob | undefined;
+  if (isDemoJobId(jobId)) {
+    if (value.job !== undefined) return null;
+  } else if (isDemoImportedJobId(jobId)) {
+    const parsed = parseImportedJob(value.job);
+    if (!parsed) return null;
+    job = parsed;
+  } else {
+    return null;
+  }
   if (typeof status !== "string" || !isApplicationStatus(status)) return null;
   if (notes !== null && typeof notes !== "string") return null;
   if (!isIsoDate(dateSaved) || !isIsoDate(updatedAt)) return null;
@@ -176,6 +244,7 @@ function parseApplication(value: unknown): DemoApplication | null {
     dateApplied: applied,
     followUpDate: followUp,
     updatedAt,
+    ...(job ? { job } : {}),
   };
 }
 
@@ -366,7 +435,38 @@ function toDate(value: string | null): Date | null {
   return value ? new Date(value) : null;
 }
 
-function toTracked(app: DemoApplication, job: DemoJob, now: Date): TrackedApplication {
+/** What the tracker shows about the job behind an application. */
+type TrackedJob = Pick<
+  TrackedApplication,
+  "companyName" | "title" | "jobUrl" | "location" | "workplaceType" | "fitScore"
+>;
+
+function trackedJobFor(app: DemoApplication): TrackedJob | null {
+  if (app.job) {
+    return {
+      companyName: app.job.company,
+      title: app.job.title,
+      jobUrl: app.job.jobUrl,
+      location: app.job.location,
+      workplaceType: app.job.workplaceType,
+      // Fit scores come from matching a posting against the sample profile; imports have none.
+      fitScore: null,
+    };
+  }
+  const job = getDemoJob(app.jobId);
+  if (!job) return null;
+  return {
+    companyName: job.company,
+    title: job.title,
+    // Demo jobs are fictional, so there is no posting to link to.
+    jobUrl: null,
+    location: job.location,
+    workplaceType: job.workplaceType,
+    fitScore: job.fitScore,
+  };
+}
+
+function toTracked(app: DemoApplication, job: TrackedJob, now: Date): TrackedApplication {
   const lastActivity = new Date(app.updatedAt);
   return {
     id: app.id,
@@ -377,14 +477,8 @@ function toTracked(app: DemoApplication, job: DemoJob, now: Date): TrackedApplic
     dateApplied: app.dateApplied,
     followUpDate: app.followUpDate,
     lastActivityAt: app.updatedAt,
-    companyName: job.company,
-    title: job.title,
-    // Demo jobs are fictional, so there is no posting to link to.
-    jobUrl: null,
-    location: job.location,
-    workplaceType: job.workplaceType,
+    ...job,
     locationLabel: formatWorkLocation(job.location, job.workplaceType),
-    fitScore: job.fitScore,
     attention: attentionFor({
       status: app.status,
       dateApplied: toDate(app.dateApplied),
@@ -401,7 +495,7 @@ export function listDemoTrackedApplications(
 ): TrackedApplication[] {
   const tracked: TrackedApplication[] = [];
   for (const app of state.applications) {
-    const job = getDemoJob(app.jobId);
+    const job = trackedJobFor(app);
     if (job) tracked.push(toTracked(app, job, now));
   }
   return tracked;
@@ -413,7 +507,7 @@ export function getDemoTrackedApplicationForJob(
   now: Date = new Date()
 ): TrackedApplication | null {
   const app = state.applications.find((candidate) => candidate.jobId === jobId);
-  const job = getDemoJob(jobId);
+  const job = app ? trackedJobFor(app) : null;
   return app && job ? toTracked(app, job, now) : null;
 }
 

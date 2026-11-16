@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { candidateProfiles, candidateSkills, jobs, searchPreferences } from "@/db/schema";
 import type { Db } from "@/server/actions/helpers";
 import { categoryForCanonicalSkill } from "@/modules/candidate/skill-dictionary";
@@ -7,6 +7,7 @@ import { workplaceTypeFromMode, inferWorkMode } from "@/modules/location/eligibi
 import { fitSnapshot, scoreJobFit, type FitProfile } from "@/modules/matching/fit-score";
 import { loadSearchPreferences } from "@/modules/matching/load-search-preferences";
 import { resolveSharedTargets, sameTitles } from "@/modules/matching/shared-targets";
+import { notImportedJob } from "@/modules/jobs/imported-jobs";
 
 export type RescoreResult = {
   jobsScored: number;
@@ -158,7 +159,8 @@ export async function rescoreUserJobs(db: Db, userId: string): Promise<RescoreRe
   const { profile: fitProfile, gtaCities } = await loadFitProfile(db, userId);
 
   const rows = await db.query.jobs.findMany({
-    where: eq(jobs.userId, userId),
+    // Imported jobs have no real description to score.
+    where: and(eq(jobs.userId, userId), notImportedJob()),
     columns: {
       id: true,
       title: true,

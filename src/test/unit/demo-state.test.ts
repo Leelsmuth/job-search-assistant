@@ -247,6 +247,53 @@ describe("parseDemoState", () => {
   });
 });
 
+describe("parseDemoState with imported applications", () => {
+  const imported = {
+    id: demoApplicationId("import-1"),
+    jobId: "import-1",
+    status: "applied",
+    notes: null,
+    dateSaved: NOW.toISOString(),
+    dateApplied: null,
+    followUpDate: null,
+    updatedAt: NOW.toISOString(),
+    job: {
+      company: "Acme",
+      title: "Frontend Developer",
+      location: null,
+      workplaceType: "remote",
+      jobUrl: "https://acme.example.com/jobs/1",
+    },
+  };
+  const withApp = (app: unknown) => ({ ...fresh(), applications: [...fresh().applications, app] });
+
+  it("keeps valid imported applications, and the tracker lists them", () => {
+    const parsed = parseDemoState(withApp(imported));
+    expect(parsed?.applications).toHaveLength(3);
+    const row = listDemoTrackedApplications(parsed!, NOW).find((app) => app.jobId === "import-1");
+    expect(row).toMatchObject({
+      companyName: "Acme",
+      title: "Frontend Developer",
+      jobUrl: "https://acme.example.com/jobs/1",
+      locationLabel: "Remote",
+      fitScore: null,
+    });
+  });
+
+  it("rejects tampered imported applications so the store reseeds", () => {
+    const tampered = [
+      { ...imported, job: undefined },
+      { ...imported, job: { ...imported.job, jobUrl: "javascript:alert(1)" } },
+      { ...imported, job: { ...imported.job, company: "  " } },
+      { ...imported, job: { ...imported.job, workplaceType: "moon" } },
+      { ...imported, jobId: "import-x" },
+      // A sample job's application never carries its own job details.
+      { ...imported, jobId: JOB, id: demoApplicationId(JOB) },
+    ];
+    for (const app of tampered) expect(parseDemoState(withApp(app))).toBeNull();
+  });
+});
+
 describe("isDemoStatePristine", () => {
   const appId = demoApplicationId("civic-form-accessibility");
 

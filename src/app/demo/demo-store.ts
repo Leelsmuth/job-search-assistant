@@ -16,7 +16,9 @@ import {
   unsaveDemoJob,
   type DemoState,
 } from "@/modules/demo/demo-state";
+import { importIntoDemo, type DemoImportResult } from "@/modules/demo/demo-import";
 import { DEMO_STORAGE_KEY } from "@/modules/demo/storage-keys";
+import type { DuplicateResolution, ImportRowResult } from "@/modules/applications/tracker-csv";
 import { setDemoActiveMarker } from "./demo-activity";
 
 /**
@@ -37,11 +39,16 @@ function readStorage(): DemoState | null {
   }
 }
 
+/** False when the browser refused the write; the demo then lives in memory only. */
+let lastWritePersisted = true;
+
 function writeStorage(state: DemoState) {
   try {
     window.localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(state));
+    lastWritePersisted = true;
   } catch {
     // Quota or privacy settings: keep the in-memory copy.
+    lastWritePersisted = false;
   }
   setDemoActiveMarker(!isDemoStatePristine(state));
 }
@@ -131,5 +138,20 @@ export const demoActions = {
   },
   restore(state: DemoState) {
     setState(state);
+  },
+  /**
+   * Import spreadsheet rows. Duplicates are matched against the state at this
+   * moment, with the visitor's choices applied. Returns the previous state for
+   * undo, and whether the result reached localStorage: a large import can hit
+   * the browser's storage quota, and the visitor should know it will not last.
+   */
+  importRows(
+    rows: readonly ImportRowResult[],
+    resolutions: Readonly<Record<number, DuplicateResolution>>
+  ): { previous: DemoState; summary: DemoImportResult["summary"]; persisted: boolean } {
+    const previous = getState();
+    const result = importIntoDemo(previous, rows, resolutions);
+    setState(result.state);
+    return { previous, summary: result.summary, persisted: lastWritePersisted };
   },
 };

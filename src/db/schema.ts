@@ -753,7 +753,20 @@ export type AppliedDateEventPayload = {
   dateApplied: string | null;
 };
 
+/** An application added or updated by a spreadsheet import. One event per application per import. */
+export type SpreadsheetImportEventPayload = {
+  kind: "spreadsheet_import";
+  /** Shared by every event of one import; a retried request with the same id is not applied again. */
+  importId: string;
+  action: "add" | "update";
+  fileName: string;
+  rowNumber: number;
+  /** For updates: what changed, for the history. */
+  changes?: Array<{ field: string; label: string; before: string; after: string }>;
+};
+
 export type ApplicationEventPayload =
+  | SpreadsheetImportEventPayload
   | AssistedApplyEventPayload
   | StatusChangeEventPayload
   | FollowUpEventPayload

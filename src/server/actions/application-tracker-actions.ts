@@ -16,6 +16,17 @@ import {
   setApplicationStatus,
 } from "@/modules/applications/store";
 import { parseManualApplication } from "@/modules/applications/tracker";
+import {
+  describeImportFailure,
+  importApplicationsDb,
+  listImportCandidates,
+} from "@/modules/applications/import-store";
+import {
+  ImportRequestError,
+  parseImportRequest,
+  type ImportActionResult,
+  type ImportCandidatesResult,
+} from "@/modules/applications/tracker-import";
 
 async function requireUser() {
   const user = await getUser();
@@ -104,5 +115,70 @@ export async function addManualApplication(input: unknown) {
     return result;
   } catch (error) {
     withTrackerError(error);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Spreadsheet import
+//
+// These return failures as values instead of throwing: Next.js hides thrown
+// messages in production, and the person importing needs to know what
+// happened to their data.
+// ---------------------------------------------------------------------------
+
+const SIGNED_OUT = "Your session has ended. Sign in again, then import the file. Nothing was imported.";
+
+/** The user's tracked applications, for matching duplicates in the import preview. */
+export async function getImportCandidates(): Promise<ImportCandidatesResult> {
+  const user = await getUser();
+  if (!user) return { status: "error", message: SIGNED_OUT };
+  try {
+    const rows = await withUserDb(user.id, (db) => listImportCandidates(db, user.id));
+    // The job id stays on the server.
+    const candidates = rows.map(({ jobId: _jobId, ...candidate }) => candidate);
+    return { status: "ok", candidates };
+  } catch (error) {
+    console.error("[import] could not load tracked applications", error);
+    return {
+      status: "error",
+      message: "Your tracked applications could not be loaded, so duplicates cannot be checked. Try again in a moment.",
+    };
+  }
+}
+
+/**
+ * Save an import. The request is validated again here, duplicates are matched
+ * against the database, and everything happens in one transaction: either
+ * every row is saved or none is.
+ */
+export async function importTrackedApplications(input: unknown): Promise<ImportActionResult> {
+  const user = await getUser();
+  if (!user) return { status: "error", message: SIGNED_OUT };
+
+  let request;
+  try {
+    request = parseImportRequest(input);
+  } catch (error) {
+    if (error instanceof ImportRequestError) {
+      return { status: "error", message: `${error.message}. Nothing was imported.` };
+    }
+    throw error;
+  }
+
+  try {
+    const result = await withUserDb(user.id, (db) => importApplicationsDb(db, user.id, request));
+    if (result.status === "imported") {
+      revalidatePath("/applications");
+      revalidatePath("/dashboard");
+      // A row can attach to a job already in the feed, which then shows as saved.
+      revalidatePath("/jobs");
+    }
+    return result;
+  } catch (error) {
+    console.error("[import] failed; the transaction was rolled back", {
+      rows: request.rows.length,
+      error,
+    });
+    return { status: "error", message: describeImportFailure(error) };
   }
 }

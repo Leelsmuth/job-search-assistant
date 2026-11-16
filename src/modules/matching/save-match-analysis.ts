@@ -11,6 +11,7 @@ import { runMatchAnalysis, type CandidateProfile } from "@/modules/matching/engi
 import { MATCH_ANALYSIS_VERSION } from "@/modules/matching/stale";
 import { computeMatchAnalysisInputHash } from "@/modules/matching/match-analysis-cache";
 import { measureOperation } from "@/lib/performance/measure-operation";
+import { isImportedJob } from "@/modules/jobs/imported-jobs";
 
 async function getOrCreateProfileDb(db: Db, userId: string) {
   const existing = await db.query.candidateProfiles.findFirst({
@@ -170,7 +171,12 @@ export async function runAndSaveMatchAnalysisDb(
 
   await db
     .update(jobs)
-    .set({ matchPipelineStatus: "matched", updatedAt: new Date() })
+    .set({
+      // An imported job stays marked as imported when it is analyzed, so it
+      // does not start showing up in the feed and digest as a new job.
+      matchPipelineStatus: isImportedJob(job) ? job.matchPipelineStatus : "matched",
+      updatedAt: new Date(),
+    })
     .where(eq(jobs.id, job.id));
 
   return analysis;

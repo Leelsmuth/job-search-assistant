@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { test, expect, type Page } from "@playwright/test";
 import { DEMO_ACTIVE_KEY, DEMO_STORAGE_KEY } from "@/modules/demo/storage-keys";
 import { createDemoState, saveDemoJob, type DemoState } from "@/modules/demo/demo-state";
@@ -468,5 +469,345 @@ test.describe("live jobs in the demo", () => {
 
     await page.getByRole("button", { name: "Try again" }).click();
     await expect(liveList(page).getByRole("listitem")).toHaveCount(3);
+  });
+});
+
+test.describe("spreadsheet import and export in the demo tracker", () => {
+  const SHEET = [
+    "Company Name,Position,Current Status,Date Applied,Link,Comments,Salary",
+    'Acme Robotics,Frontend Developer,Interview,03/14/2025,acme.example.com/jobs/1,"Met the team, liked them",120k',
+    "Globex,Platform Engineer,Ghosted,03/20/2025,,,",
+    "Initech,,Applied,,,,",
+    // Already tracked in the seeded demo, with a new status.
+    "Harbourline Logistics,Full-Stack Engineer (React/Node),Offer,,,,",
+    // Repeats the first row.
+    "acme robotics,Frontend developer,,,,,",
+  ].join("\n");
+
+  function csvFile(contents: string, name = "my-tracker.csv") {
+    return { name, mimeType: "text/csv", buffer: Buffer.from(contents, "utf8") };
+  }
+
+  async function openImport(page: Page) {
+    await page.goto("/demo/applications");
+    await page.getByRole("button", { name: "Import CSV" }).click();
+    return page.getByRole("dialog", { name: "Import applications from a spreadsheet" });
+  }
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate(() => window.localStorage.clear());
+  });
+
+  test("choose a file, map columns, preview, resolve duplicates, confirm, and export", async ({ page }) => {
+    const dialog = await openImport(page);
+    await dialog.getByLabel("Choose a CSV file").setInputFiles(csvFile(SHEET));
+
+    // Map: headers are matched automatically, and unmatched columns are listed.
+    await expect(dialog.getByRole("heading", { name: "Match your columns" })).toBeFocused();
+    await expect(dialog.getByLabel("Company *")).toHaveValue("0");
+    await expect(dialog.getByLabel("Role *")).toHaveValue("1");
+    await expect(dialog.getByLabel("Job URL")).toHaveValue("4");
+    await expect(dialog.getByText("e.g. Met the team, liked them")).toBeVisible();
+    await expect(dialog.locator("p", { hasText: "Not imported:" })).toContainText("Salary");
+
+    // Company and role are required before moving on.
+    await dialog.getByLabel("Role *").selectOption("");
+    await expect(dialog.getByRole("button", { name: "Preview" })).toBeDisabled();
+    await expect(dialog.getByText("Choose a column for Role to continue.")).toBeVisible();
+    await dialog.getByLabel("Role *").selectOption("1");
+    await dialog.getByRole("button", { name: "Preview" }).click();
+
+    // Preview: every row, with what will be skipped and what was guessed.
+    await expect(dialog.getByRole("heading", { name: "Preview your records" })).toBeFocused();
+    const summary = dialog.getByRole("list", { name: "Preview summary" });
+    await expect(summary).toContainText("3 ready");
+    await expect(summary).toContainText("1 with notes");
+    await expect(summary).toContainText("1 will be skipped");
+    await expect(summary).toContainText("2 possible duplicates");
+    await expect(dialog.getByText("Skipped: Missing role")).toBeVisible();
+    await expect(dialog.getByText('Status "Ghosted" is not one we track, so it was imported as Applied')).toBeVisible();
+    await dialog.getByRole("button", { name: "Review duplicates" }).click();
+
+    // Duplicates: skipped unless the visitor chooses otherwise; update shows what changes.
+    await expect(dialog.getByRole("heading", { name: "Decide what to do with duplicates" })).toBeFocused();
+    const tracked = dialog.getByRole("group", { name: /Row 5: Full-Stack Engineer/ });
+    await expect(tracked.getByText("tracked as Applied")).toBeVisible();
+    await expect(tracked.getByRole("radio", { name: "Skip this row" })).toBeChecked();
+    await tracked.getByRole("radio", { name: "Update the tracked application" }).check();
+    await expect(tracked.getByText("Offer")).toBeVisible();
+    const repeat = dialog.getByRole("group", { name: /Row 6: Frontend developer/ });
+    await expect(repeat.getByText("Repeats row 2 of this file.")).toBeVisible();
+    await expect(repeat.getByRole("radio", { name: "Update the tracked application" })).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Continue" }).click();
+
+    // Confirm.
+    await expect(dialog.getByText("2 new applications will be added")).toBeVisible();
+    await expect(dialog.getByText("1 tracked application will be updated")).toBeVisible();
+    await expect(dialog.getByText("1 duplicate will be skipped")).toBeVisible();
+    await expect(dialog.getByText("1 row without a company or role will be skipped")).toBeVisible();
+    await dialog.getByRole("button", { name: "Import 3 applications" }).click();
+
+    // Done, with export right there.
+    await expect(dialog.getByText("Done: added 2 applications and updated 1.")).toBeVisible();
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      dialog.getByRole("button", { name: "Export CSV" }).click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/^job-applications-\d{4}-\d{2}-\d{2}\.csv$/);
+    const exported = await readFile((await download.path())!, "utf8");
+    expect(exported.charCodeAt(0)).toBe(0xfeff);
+    expect(exported).toContain("Company,Role,Status,Date applied,Follow-up date,Location,Workplace,Job URL,Notes");
+    expect(exported).toContain(
+      'Acme Robotics,Frontend Developer,Interviewing,2025-03-14,,,,https://acme.example.com/jobs/1,"Met the team, liked them"'
+    );
+    expect(exported).toContain("Harbourline Logistics,Full-Stack Engineer (React/Node),Offer,");
+
+    await dialog.getByRole("button", { name: "View tracker" }).click();
+    await expect(dialog).toHaveCount(0);
+
+    // The tracker shows imported rows like any other, and they survive a reload.
+    await expect(page.getByText("4 logged")).toBeVisible();
+    await page.reload();
+    await expect(page.getByText(/^4 logged/)).toBeVisible();
+    const acmeRow = page.getByRole("row").filter({ hasText: "Acme Robotics" });
+    await expect(acmeRow.getByText("Frontend Developer")).toBeVisible();
+    // No sample job page exists for imported rows, so the title is plain text and the link goes to the posting.
+    await expect(acmeRow.getByRole("link", { name: "Frontend Developer" })).toHaveCount(0);
+    await expect(acmeRow.getByRole("link", { name: "View job" })).toHaveCount(0);
+    await expect(acmeRow.getByRole("link", { name: "Job posting" })).toHaveAttribute(
+      "href",
+      "https://acme.example.com/jobs/1"
+    );
+    await expect(statusSelect(page, "Frontend Developer at Acme Robotics")).toHaveValue("interviewing");
+    await expect(statusSelect(page, "Full-Stack Engineer (React/Node) at Harbourline Logistics")).toHaveValue("offer");
+
+    // Imported rows are edited in place like the rest.
+    await statusSelect(page, "Platform Engineer at Globex").selectOption("rejected");
+    await expect(page.getByText("Status updated", { exact: true })).toBeVisible();
+
+    // Reset removes the import.
+    await page.getByRole("button", { name: "Reset demo" }).click();
+    await expect(page.getByText("2 logged")).toBeVisible();
+  });
+
+  test("undo puts the tracker back, and an export imports back cleanly", async ({ page }) => {
+    const dialog = await openImport(page);
+    await dialog
+      .getByLabel("Choose a CSV file")
+      .setInputFiles(csvFile("Company,Role,Status\nAcme Robotics,Frontend Developer,Applied\n"));
+    await dialog.getByRole("button", { name: "Preview" }).click();
+    await dialog.getByRole("button", { name: "Continue" }).click();
+    await expect(dialog.getByText("No duplicates found")).toBeVisible();
+    await expect(dialog.getByRole("list", { name: "Import steps" })).toContainText("Duplicates(none found)");
+    await dialog.getByRole("button", { name: "Import 1 application" }).click();
+    await dialog.getByRole("button", { name: "Undo import" }).click();
+    await expect(page.getByText("Import undone", { exact: true })).toBeVisible();
+    await expect(page.getByText("2 logged")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Reset demo" })).toBeDisabled();
+
+    // Export the seeded tracker and import it straight back: everything is a duplicate.
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("button", { name: "Export CSV" }).click(),
+    ]);
+    const exported = await readFile((await download.path())!, "utf8");
+    await page.getByRole("button", { name: "Import CSV" }).click();
+    await dialog.getByLabel("Choose a CSV file").setInputFiles(csvFile(exported, "export.csv"));
+    await dialog.getByRole("button", { name: "Preview" }).click();
+    await expect(dialog.getByRole("list", { name: "Preview summary" })).toContainText("2 possible duplicates");
+    await dialog.getByRole("button", { name: "Review duplicates" }).click();
+    await expect(dialog.getByText("2 rows match applications already in your tracker", { exact: false })).toBeVisible();
+    await dialog.getByRole("button", { name: "Update", exact: true }).click();
+    await expect(dialog.getByText("nothing would change")).toHaveCount(2);
+    await dialog.getByRole("button", { name: "Continue" }).click();
+    await dialog.getByRole("button", { name: "Import 2 applications" }).click();
+    await expect(dialog.getByText("Nothing changed. 2 matches already had the same values.")).toBeVisible();
+  });
+
+  test("explains files it cannot import", async ({ page }) => {
+    const dialog = await openImport(page);
+    const input = dialog.getByLabel("Choose a CSV file");
+
+    await input.setInputFiles({ name: "tracker.xlsx", mimeType: "application/octet-stream", buffer: Buffer.from("PK") });
+    await expect(dialog.getByRole("alert")).toContainText("That is a spreadsheet file, not a CSV.");
+
+    await input.setInputFiles(csvFile("Company,Role\n"));
+    await expect(dialog.getByRole("alert")).toContainText("only has a header row");
+
+    await input.setInputFiles(csvFile('Company,Role\n"Acme,Dev\n'));
+    await expect(dialog.getByRole("alert")).toContainText("is never closed");
+
+    // Nothing was imported, and focus goes back to the button that opened the dialog.
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Import CSV" })).toBeFocused();
+    await expect(page.getByText("2 logged")).toBeVisible();
+  });
+
+  test("asks about day and month order when the dates could be either", async ({ page }) => {
+    const dialog = await openImport(page);
+    await dialog
+      .getByLabel("Choose a CSV file")
+      .setInputFiles(csvFile("Company,Role,Applied\nAcme,Dev,03/04/2025\n"));
+    const order = dialog.getByLabel("Dates written with numbers, like 03/04/2025, are");
+    await expect(order).toHaveValue("mdy");
+    await expect(dialog.getByText("could be read either way")).toBeVisible();
+    await order.selectOption("dmy");
+    await dialog.getByRole("button", { name: "Preview" }).click();
+    await expect(dialog.getByRole("cell", { name: "Apr 3, 2025" })).toBeVisible();
+  });
+
+  test("fills a phone screen, with one scroll area and no sideways scrolling", async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 640 });
+    const dialog = await openImport(page);
+    await expect(dialog).toHaveJSProperty("offsetWidth", 360);
+    await expect(dialog).toHaveJSProperty("offsetHeight", 640);
+    await dialog.getByLabel("Choose a CSV file").setInputFiles("src/test/fixtures/tracker-import/job-tracker.csv");
+
+    /** Elements inside the dialog that scroll, and whether any scrolls sideways. */
+    const scrolling = () =>
+      dialog.evaluate((root) => {
+        const scrollers = [root, ...root.querySelectorAll("*")].filter((el) => {
+          const style = getComputedStyle(el);
+          return /(auto|scroll)/.test(style.overflowY + style.overflowX) && el.scrollHeight > el.clientHeight;
+        });
+        const sideways = [root, ...root.querySelectorAll("*")].some(
+          (el) => /(auto|scroll)/.test(getComputedStyle(el).overflowX) && el.scrollWidth > el.clientWidth
+        );
+        return { scrollers: scrollers.length, sideways };
+      });
+
+    await expect(dialog.getByRole("heading", { name: "Match your columns" })).toBeVisible();
+    expect(await scrolling()).toEqual({ scrollers: 1, sideways: false });
+
+    // The preview is a list of cards on small screens, not a wide table.
+    await dialog.getByRole("button", { name: "Preview" }).click();
+    await expect(dialog.getByRole("list", { name: "Rows from job-tracker.csv" })).toBeVisible();
+    await expect(dialog.getByRole("table")).toHaveCount(0);
+    expect(await scrolling()).toEqual({ scrollers: 1, sideways: false });
+
+    // Back and Next share one row, so the steps keep most of the screen.
+    const back = await dialog.getByRole("button", { name: "Back" }).boundingBox();
+    const next = await dialog.getByRole("button", { name: "Review duplicates" }).boundingBox();
+    expect(back!.y).toBe(next!.y);
+  });
+
+  test("keeps the preview's column headers in view while scrolling on wide screens", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const dialog = await openImport(page);
+    await dialog.getByLabel("Choose a CSV file").setInputFiles("src/test/fixtures/tracker-import/job-tracker.csv");
+    await dialog.getByRole("button", { name: "Preview" }).click();
+    const header = dialog.getByRole("columnheader", { name: "Company" });
+    const body = header.locator("xpath=ancestor::div[contains(@class, 'overflow-y-auto')]");
+    await body.evaluate((el) => el.scrollBy(0, 400));
+    await expect
+      .poll(async () => Math.round((await header.boundingBox())!.y - (await body.boundingBox())!.y))
+      .toBe(0);
+  });
+
+  test("fix problem rows in the preview before importing", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const dialog = await openImport(page);
+    await dialog.getByLabel("Choose a CSV file").setInputFiles("src/test/fixtures/tracker-import/job-tracker.csv");
+    await dialog.getByRole("button", { name: "Preview" }).click();
+    const summary = dialog.getByRole("list", { name: "Preview summary" });
+    await expect(summary).toHaveText(/12 ready.*2 with notes.*2 will be skipped/);
+
+    // Row 16 has no role. Fix opens the editor at the missing field.
+    await dialog.getByRole("button", { name: "Fix row 16" }).click();
+    const row16 = dialog.getByRole("group", { name: "Edit row 16" });
+    await expect(row16.getByRole("status")).toHaveText("Row 16: Will be skipped: Missing role.");
+    await expect(row16.getByLabel("Role *")).toBeFocused();
+    await row16.getByLabel("Role *").fill("Brand Designer");
+    // Checked again as you type, and the summary follows.
+    await expect(row16.getByRole("status")).toHaveText("Row 16: Ready to import.");
+    await expect(summary).toHaveText(/13 ready.*2 with notes.*1 will be skipped.*1 row edited/);
+    await row16.getByRole("button", { name: "Done" }).click();
+    await expect(row16).toHaveCount(0);
+    await expect(dialog.getByRole("button", { name: "Edit row 16" })).toBeFocused();
+
+    // Clicking a cell opens the editor at that field. Row 9's status "Ghosted" is shown as the file wrote it.
+    await dialog.getByRole("row").filter({ hasText: "Pinecrest Media" }).getByRole("cell", { name: "Applied", exact: true }).click();
+    const row9 = dialog.getByRole("group", { name: "Edit row 9" });
+    const status = row9.getByLabel("Status");
+    await expect(status).toBeFocused();
+    await expect(status.locator("option:checked")).toHaveText("“Ghosted” (not recognized)");
+    await status.selectOption("rejected");
+    await expect(row9.getByRole("status")).toHaveText("Row 9: Ready to import.");
+    // Escape closes the editor, not the import.
+    await page.keyboard.press("Escape");
+    await expect(row9).toHaveCount(0);
+    await expect(dialog).toBeVisible();
+
+    // With a row open, clicking another of its cells moves to that field.
+    const saltmarshRow = dialog.getByRole("row").filter({ hasText: "Saltmarsh Energy" });
+    await saltmarshRow.getByRole("cell", { name: "Saltmarsh Energy" }).click();
+    await expect(dialog.getByRole("group", { name: "Edit row 10" }).getByLabel("Company *")).toBeFocused();
+    await saltmarshRow.getByRole("cell", { name: "Halifax, NS" }).click();
+    await expect(dialog.getByRole("group", { name: "Edit row 10" }).getByLabel("Location")).toBeFocused();
+    await page.keyboard.press("Escape");
+
+    // Row 10 has three unreadable values. Fixing them one by one, with the filter on, keeps the row in view.
+    await dialog.getByLabel(/Only show rows with notes or problems/).check();
+    await dialog.getByRole("button", { name: "Fix row 10" }).click();
+    const row10 = dialog.getByRole("group", { name: "Edit row 10" });
+    await expect(row10.getByRole("status")).toHaveText("Row 10: Will import, with 3 notes below.");
+    await expect(row10.getByLabel("Date applied")).toBeFocused();
+    await row10.getByLabel("Date applied").fill("2025-04-01");
+    await row10.getByLabel("Workplace").selectOption("hybrid");
+    await row10.getByLabel("Job URL").fill("");
+    await expect(row10.getByRole("status")).toHaveText("Row 10: Ready to import.");
+    await row10.getByRole("button", { name: "Done" }).click();
+    await expect(dialog.getByRole("row").filter({ hasText: "Saltmarsh Energy" })).toBeVisible();
+
+    // Undo puts a row back to what the file says.
+    await dialog.getByRole("button", { name: "Fix row 17" }).click();
+    const row17 = dialog.getByRole("group", { name: "Edit row 17" });
+    await row17.getByLabel("Company *").fill("Temporary Co");
+    await expect(row17.getByRole("status")).toHaveText("Row 17: Ready to import.");
+    await row17.getByRole("button", { name: "Undo changes to this row" }).click();
+    await expect(row17.getByLabel("Company *")).toHaveValue("");
+    await expect(row17.getByRole("status")).toHaveText("Row 17: Will be skipped: Missing company.");
+    await row17.getByRole("button", { name: "Done" }).click();
+
+    await expect(summary).toHaveText(/15 ready.*1 will be skipped.*3 possible duplicates.*3 rows edited/);
+    await dialog.getByRole("button", { name: "Review duplicates" }).click();
+    await dialog.getByRole("button", { name: "Continue" }).click();
+    await expect(dialog.getByText("3 rows edited in the preview")).toBeVisible();
+    await expect(dialog.getByText("12 new applications will be added")).toBeVisible();
+    await dialog.getByRole("button", { name: "Import 12 applications" }).click();
+    await dialog.getByRole("button", { name: "View tracker" }).click();
+
+    // The edited values are what reached the tracker.
+    await expect(statusSelect(page, "Brand Designer at Harrow & Finch")).toHaveValue("applied");
+    await expect(statusSelect(page, "Frontend Developer at Pinecrest Media")).toHaveValue("rejected");
+    const saltmarsh = page.getByRole("row").filter({ hasText: "Saltmarsh Energy" });
+    await expect(saltmarsh.getByText("Halifax, NS · Hybrid")).toBeVisible();
+    await expect(saltmarsh.getByText("Apr 1, 2025")).toBeVisible();
+  });
+
+  test("tap a card to fix a row on a phone", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const dialog = await openImport(page);
+    await dialog.getByLabel("Choose a CSV file").setInputFiles("src/test/fixtures/tracker-import/job-tracker.csv");
+    await dialog.getByRole("button", { name: "Preview" }).click();
+    await dialog.getByRole("listitem").filter({ hasText: "Row 17" }).getByText("Frontend Developer").click();
+    const editor = dialog.getByRole("group", { name: "Edit row 17" });
+    await expect(editor.getByLabel("Company *")).toBeFocused();
+    await editor.getByLabel("Company *").fill("Northern Lights Co");
+    await editor.getByLabel("Company *").press("Enter");
+    await expect(editor).toHaveCount(0);
+    const card = dialog.getByRole("listitem").filter({ hasText: "Row 17" });
+    await expect(card).toContainText("Northern Lights Co");
+    await expect(card).toContainText("edited");
+    await expect(dialog.getByRole("list", { name: "Preview summary" })).toContainText("1 will be skipped");
+  });
+
+  test("export is unavailable when the tracker is empty", async ({ page }) => {
+    await storeDemoState(page, { ...createDemoState(), applications: [], savedJobIds: [] });
+    await page.goto("/demo/applications");
+    await expect(page.getByRole("button", { name: "Export CSV" })).toBeDisabled();
+    await expect(page.getByText("or import the spreadsheet you already keep")).toBeVisible();
   });
 });

@@ -13,6 +13,7 @@ import {
 } from "@/components/applications/tracker-adapter";
 import { cn } from "@/lib/utils";
 import { isDemoStatePristine } from "@/modules/demo/demo-state";
+import { isDemoJobId } from "@/modules/demo/sample-jobs";
 import { demoActions, useDemoState } from "./demo-store";
 import { DEMO_FEED_HREF, DEMO_TRACKER_HREF, demoJobHref } from "./demo-links";
 
@@ -23,9 +24,14 @@ const demoTrackerAdapter: TrackerAdapter = {
   updateFollowUp: async (id, date) => demoActions.setFollowUp(id, date),
   updateAppliedDate: async (id, date) => demoActions.setAppliedDate(id, date),
   // The demo has no separate application page; the job page shows the tracker controls.
-  applicationHref: (application) => demoJobHref(application.jobId),
-  jobHref: (application) => demoJobHref(application.jobId),
+  // Imported applications have no sample job page, so they are edited in the tracker itself.
+  applicationHref: (application) => sampleJobHref(application.jobId),
+  jobHref: (application) => sampleJobHref(application.jobId),
 };
+
+function sampleJobHref(jobId: string): string | null {
+  return isDemoJobId(jobId) ? demoJobHref(jobId) : null;
+}
 
 export function DemoShell({ children }: { children: React.ReactNode }) {
   return (
