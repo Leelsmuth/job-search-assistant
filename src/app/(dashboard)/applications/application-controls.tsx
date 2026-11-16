@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   updateTrackedAppliedDate,
   updateTrackedFollowUp,
@@ -38,6 +37,28 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown error";
 }
 
+/** The store reports `changed: false` when the write was a no-op. Anything else counts as saved. */
+function notesWereSaved(result: unknown): boolean {
+  if (typeof result === "object" && result !== null && "changed" in result) {
+    return result.changed !== false;
+  }
+  return true;
+}
+
+/**
+ * Local copy of a prop that is saved immediately (status, dates).
+ * When the server sends a new value, it replaces the local one.
+ */
+function useServerValue<T>(value: T): [T, (next: T) => void] {
+  const [state, setState] = useState(value);
+  const [prev, setPrev] = useState(value);
+  if (!Object.is(value, prev)) {
+    setPrev(value);
+    setState(value);
+  }
+  return [state, setState];
+}
+
 export function AttentionBadges({ flags }: { flags: AttentionFlag[] }) {
   if (flags.length === 0) return null;
   return (
@@ -64,25 +85,30 @@ export function ApplicationControls({
   showAppliedDate?: boolean;
   idPrefix?: string;
 }) {
-  const router = useRouter();
   const adapter = useTrackerAdapter();
   const { toast } = useToast();
   const { run, isKeyPending } = useKeyedPending();
-  // Without an adapter (the signed-in app) writes go to the server and the route refreshes.
+  // Without an adapter (the signed-in app) writes go to the server actions.
+  // Those actions revalidate the tracker, and Next.js refreshes the current page
+  // from that response, so the controls do not refresh again themselves.
   const actions = adapter ?? {
     updateStatus: updateTrackedStatus,
     updateNotes: updateTrackedNotes,
     updateFollowUp: updateTrackedFollowUp,
     updateAppliedDate: updateTrackedAppliedDate,
   };
-  const refresh = () => {
-    if (!adapter) router.refresh();
-  };
-  const [status, setStatus] = useState(application.status);
-  const [notes, setNotes] = useState(application.notes ?? "");
+  const [status, setStatus] = useServerValue(application.status);
+  const [followUp, setFollowUp] = useServerValue(formatCalendarDate(application.followUpDate));
+  const [appliedOn, setAppliedOn] = useServerValue(formatCalendarDate(application.dateApplied));
+  // Notes are a draft until Save. Take a server value only while the user has not typed over the last one.
+  const incomingNotes = application.notes ?? "";
+  const [notes, setNotes] = useState(incomingNotes);
+  const [savedNotes, setSavedNotes] = useState(incomingNotes);
   const [notesOpen, setNotesOpen] = useState(notesMode === "inline");
-  const [followUp, setFollowUp] = useState(formatCalendarDate(application.followUpDate));
-  const [appliedOn, setAppliedOn] = useState(formatCalendarDate(application.dateApplied));
+  if (incomingNotes !== savedNotes) {
+    setSavedNotes(incomingNotes);
+    if (notes === savedNotes) setNotes(incomingNotes);
+  }
   const subject = `${application.title} at ${application.companyName}`;
 
   function saveStatus(next: string) {
@@ -92,7 +118,6 @@ export function ApplicationControls({
     run(`status-${application.id}`, async () => {
       try {
         await actions.updateStatus(application.id, next);
-        refresh();
         toast({ title: "Status updated", description: statusLabel(next) });
       } catch (error) {
         setStatus(previous);
@@ -108,8 +133,9 @@ export function ApplicationControls({
   function saveNotes() {
     run(`notes-${application.id}`, async () => {
       try {
-        await actions.updateNotes(application.id, notes);
-        refresh();
+        const result = await actions.updateNotes(application.id, notes);
+        // An unchanged draft is not a save: the store skips it and nothing was written.
+        if (!notesWereSaved(result)) return;
         if (notesMode === "compact") setNotesOpen(false);
         toast({ title: "Notes saved" });
       } catch (error) {
@@ -128,7 +154,6 @@ export function ApplicationControls({
     run(`follow-${application.id}`, async () => {
       try {
         await actions.updateFollowUp(application.id, next);
-        refresh();
         toast({ title: next ? "Follow-up saved" : "Follow-up cleared" });
       } catch (error) {
         setFollowUp(previous);
@@ -147,7 +172,6 @@ export function ApplicationControls({
     run(`applied-${application.id}`, async () => {
       try {
         await actions.updateAppliedDate(application.id, next);
-        refresh();
         toast({ title: next ? "Applied date saved" : "Applied date cleared" });
       } catch (error) {
         setAppliedOn(previous);

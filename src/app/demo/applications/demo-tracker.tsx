@@ -107,9 +107,9 @@ export function DemoTracker({ query }: { query: TrackerQuery }) {
           )}
         </div>
       ) : query.view === "board" ? (
-        <ApplicationsBoard applications={visible} stages={stages} />
+        <ApplicationsBoard applications={visible} stages={stages} showAppliedDate />
       ) : (
-        <ApplicationsList applications={visible} />
+        <ApplicationsList applications={visible} showAppliedDate />
       )}
     </div>
   );
