@@ -1,5 +1,5 @@
 Alex Developer
-Toronto, Canada | alex.dev@example.com | github.com/alexdev | linkedin.com/in/alexdev
+Toronto, Canada | alex.dev@example.com | github.com.example/alexdev | linkedin.com.example/in/alexdev
 
 Career Objective
 Frontend-focused engineer with 6+ years building production React applications and design systems.

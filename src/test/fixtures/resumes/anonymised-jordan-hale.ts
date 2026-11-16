@@ -266,8 +266,8 @@ export async function buildAnonymisedResumePdf(options?: {
   textLine("NW-CLOUD-2048");
 
   const first = pages[0];
-  addLink(first.page, first.links, LEFT, linkedInY, 80, "https://www.linkedin.com/in/jordan-hale");
-  addLink(first.page, first.links, LEFT, githubY, 110, "https://github.com/jordan-hale-dev");
+  addLink(first.page, first.links, LEFT, linkedInY, 80, "https://www.linkedin.com.example/in/jordan-hale");
+  addLink(first.page, first.links, LEFT, githubY, 110, "https://github.com.example/jordan-hale-dev");
   addLink(first.page, first.links, LEFT, emailY, 160, "mailto:jordan.hale@example.com");
   addLink(first.page, first.links, LEFT, portfolioY, 120, PORTFOLIO_URL);
   addLink(first.page, first.links, LEFT, companyY, 120, COMPANY_URL);

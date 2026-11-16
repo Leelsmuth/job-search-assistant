@@ -173,8 +173,8 @@ describe("anonymised resume golden fixture", () => {
       expect(extracted.pages[0].items.some((item) => typeof item.x === "number" && typeof item.y === "number")).toBe(true);
       const urls = (extracted.links ?? []).map((link) => link.url);
       expect(urls).toContain("mailto:jordan.hale@example.com");
-      expect(urls).toContain("https://www.linkedin.com/in/jordan-hale");
-      expect(urls).toContain("https://github.com/jordan-hale-dev");
+      expect(urls).toContain("https://www.linkedin.com.example/in/jordan-hale");
+      expect(urls).toContain("https://github.com.example/jordan-hale-dev");
 
       expect(extracted.pages.length).toBeGreaterThanOrEqual(3);
       const rawKey = extracted.pages.flatMap((page) => page.items).filter((item) => item.text === "Key Contributions");
@@ -196,8 +196,8 @@ describe("anonymised resume golden fixture", () => {
 
       const result = await parseResumeStructure(normalized);
       expectGoldenResume(result.parsed);
-      expect(result.parsed.contact.linkedInUrl).toBe("https://www.linkedin.com/in/jordan-hale");
-      expect(result.parsed.contact.githubUrl).toBe("https://github.com/jordan-hale-dev");
+      expect(result.parsed.contact.linkedInUrl).toBe("https://www.linkedin.com.example/in/jordan-hale");
+      expect(result.parsed.contact.githubUrl).toBe("https://github.com.example/jordan-hale-dev");
       expect(result.parsed.contact.portfolioUrl).toBe(PORTFOLIO_URL);
       expect(result.parsed.contact.otherLinks.map((link) => link.url)).not.toContain(COMPANY_URL);
       expect(result.parsed.experience[0].companyUrl).toBe(COMPANY_URL);

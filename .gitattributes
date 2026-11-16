@@ -1,0 +1,2 @@
+# Keep GitHub Actions available in the repository and out of source archives.
+/.github/workflows export-ignore
