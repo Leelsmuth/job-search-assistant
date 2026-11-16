@@ -9,6 +9,7 @@ import {
   updateTrackedStatus,
 } from "@/server/actions/application-tracker-actions";
 import { useKeyedPending } from "@/components/layout/action-pending-provider";
+import { useTrackerAdapter } from "@/components/applications/tracker-adapter";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -64,8 +65,19 @@ export function ApplicationControls({
   idPrefix?: string;
 }) {
   const router = useRouter();
+  const adapter = useTrackerAdapter();
   const { toast } = useToast();
   const { run, isKeyPending } = useKeyedPending();
+  // Without an adapter (the signed-in app) writes go to the server and the route refreshes.
+  const actions = adapter ?? {
+    updateStatus: updateTrackedStatus,
+    updateNotes: updateTrackedNotes,
+    updateFollowUp: updateTrackedFollowUp,
+    updateAppliedDate: updateTrackedAppliedDate,
+  };
+  const refresh = () => {
+    if (!adapter) router.refresh();
+  };
   const [status, setStatus] = useState(application.status);
   const [notes, setNotes] = useState(application.notes ?? "");
   const [notesOpen, setNotesOpen] = useState(notesMode === "inline");
@@ -79,8 +91,8 @@ export function ApplicationControls({
     setStatus(next);
     run(`status-${application.id}`, async () => {
       try {
-        await updateTrackedStatus(application.id, next);
-        router.refresh();
+        await actions.updateStatus(application.id, next);
+        refresh();
         toast({ title: "Status updated", description: statusLabel(next) });
       } catch (error) {
         setStatus(previous);
@@ -96,8 +108,8 @@ export function ApplicationControls({
   function saveNotes() {
     run(`notes-${application.id}`, async () => {
       try {
-        await updateTrackedNotes(application.id, notes);
-        router.refresh();
+        await actions.updateNotes(application.id, notes);
+        refresh();
         if (notesMode === "compact") setNotesOpen(false);
         toast({ title: "Notes saved" });
       } catch (error) {
@@ -115,8 +127,8 @@ export function ApplicationControls({
     setFollowUp(next);
     run(`follow-${application.id}`, async () => {
       try {
-        await updateTrackedFollowUp(application.id, next);
-        router.refresh();
+        await actions.updateFollowUp(application.id, next);
+        refresh();
         toast({ title: next ? "Follow-up saved" : "Follow-up cleared" });
       } catch (error) {
         setFollowUp(previous);
@@ -134,8 +146,8 @@ export function ApplicationControls({
     setAppliedOn(next);
     run(`applied-${application.id}`, async () => {
       try {
-        await updateTrackedAppliedDate(application.id, next);
-        router.refresh();
+        await actions.updateAppliedDate(application.id, next);
+        refresh();
         toast({ title: next ? "Applied date saved" : "Applied date cleared" });
       } catch (error) {
         setAppliedOn(previous);

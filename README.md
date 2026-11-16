@@ -2,6 +2,23 @@
 
 Evidence-backed job matching, application preparation, and tracking.
 
+## Try it without setup
+
+```bash
+pnpm install
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) and click **Try the demo**. No `.env.local`, Supabase, Postgres, or OpenAI key is needed.
+
+The demo at `/demo` has the job feed and the application tracker, filled with fictional jobs. You can search and filter the feed, save or dismiss jobs, open a job, and move saved roles through the tracker (list or board) with status, follow-up date, and notes. **Reset demo** in the header restores the sample data, and its toast has an Undo button. It is disabled until you change something. An untouched demo more than a day old is reseeded on load so the sample dates look current; a demo you have changed is never replaced.
+
+Visitors who have changed something in the demo see **Continue exploring your demo** on the landing page instead of **Try the demo**. The demo store keeps a small `jsa:demo-active:v1` marker in `localStorage`, and an inline script reads it before the page paints, so the landing page stays static and never flashes the wrong button.
+
+Demo state lives in the browser's `localStorage` under `jsa:demo-state:v1`. Nothing is sent to the server, and each visitor has their own copy. Demo transitions follow the signed-in tracker: saving a job adds a **Saved** application, unsaving keeps it, and moving to **Applied** stamps the applied date. The demo reuses the signed-in tracker components through `TrackerAdapterProvider` (`src/components/applications/tracker-adapter.tsx`).
+
+The landing page (`/`) and `/demo` are public. Every other page still needs sign-in, and signed-in users who open `/` go straight to `/jobs`. The middleware skips the Supabase session check for `/demo`.
+
 ## First-time setup
 
 ### 1. Create a Supabase project
@@ -80,7 +97,7 @@ For local dev you can disable “Confirm email” under **Authentication → Set
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) → sign up at `/login`.
+Open [http://localhost:3000](http://localhost:3000) → **Sign in** → sign up at `/login`.
 
 ### 8. Seed your profile (optional)
 
@@ -287,7 +304,7 @@ Optional env vars:
 | `RLS_TEST_USER_A` | UUID for user A (defaults to random UUID per run) |
 | `RLS_TEST_USER_B` | UUID for user B (defaults to random UUID per run) |
 
-E2E tests require `E2E_TEST_EMAIL` and `E2E_TEST_PASSWORD` in the environment.
+Signed-in E2E tests require `E2E_TEST_EMAIL` and `E2E_TEST_PASSWORD` in the environment. The demo E2E tests (`src/test/e2e/demo.spec.ts`) need no env vars.
 
 ## Stack
 

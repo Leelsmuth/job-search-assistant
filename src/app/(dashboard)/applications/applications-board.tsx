@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { ApplicationControls, AttentionBadges } from "./application-controls";
 import {
+  applicationHrefFor,
+  jobHrefFor,
+  useTrackerAdapter,
+} from "@/components/applications/tracker-adapter";
+import {
   formatDisplayDate,
   statusLabel,
   type TrackedApplication,
@@ -16,6 +21,7 @@ export function ApplicationsBoard({
   applications: TrackedApplication[];
   stages: TrackerStage[];
 }) {
+  const adapter = useTrackerAdapter();
   return (
     <div
       className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0"
@@ -47,7 +53,7 @@ export function ApplicationsBoard({
                   >
                     <div>
                       <Link
-                        href={`/applications/${application.id}`}
+                        href={applicationHrefFor(adapter, application)}
                         className="font-medium leading-snug hover:underline"
                       >
                         {application.title}
@@ -76,7 +82,7 @@ export function ApplicationsBoard({
                           Job posting
                         </a>
                       ) : null}
-                      <Link href={`/jobs/${application.jobId}`} className="text-muted-foreground hover:underline">
+                      <Link href={jobHrefFor(adapter, application)} className="text-muted-foreground hover:underline">
                         View job
                       </Link>
                     </div>

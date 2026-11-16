@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv } from "@/lib/supabase/config";
+import { LANDING_PATH, isDemoPath } from "@/lib/env";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -35,9 +36,12 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/api/cron") ||
     pathname === "/api/discovery/tick" ||
     pathname.startsWith("/api/discovery/tick/");
+  const isLanding = pathname === LANDING_PATH;
   const isPublicRoute =
     isAuthRoute ||
     isBearerRoute ||
+    isLanding ||
+    isDemoPath(pathname) ||
     pathname.startsWith("/api/extension");
 
   if (!user && !isPublicRoute) {
@@ -46,10 +50,13 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && isAuthRoute) {
+  // Signed-in users skip the landing page and the login form.
+  if (user && (isAuthRoute || isLanding)) {
     const url = request.nextUrl.clone();
     url.pathname = "/jobs";
-    return NextResponse.redirect(url);
+    const redirect = NextResponse.redirect(url);
+    for (const cookie of supabaseResponse.cookies.getAll()) redirect.cookies.set(cookie);
+    return redirect;
   }
 
   return supabaseResponse;

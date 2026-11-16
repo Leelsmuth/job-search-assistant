@@ -1,7 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isAppConfigured, isProtectedPath } from "@/lib/env";
+import { isAppConfigured, isDemoPath, isProtectedPath } from "@/lib/env";
 
 export async function middleware(request: NextRequest) {
+  // The demo runs entirely in the browser. Skip the Supabase session check so it
+  // works with no env vars and costs no auth round trip.
+  if (isDemoPath(request.nextUrl.pathname)) {
+    return NextResponse.next();
+  }
+
   if (!isAppConfigured()) {
     if (request.nextUrl.pathname.startsWith("/login")) {
       return NextResponse.next();

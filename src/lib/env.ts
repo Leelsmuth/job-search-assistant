@@ -256,3 +256,13 @@ export function isProtectedPath(pathname: string): boolean {
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
 }
+
+/** The landing page. Public; signed-in users are sent on to /jobs. */
+export const LANDING_PATH = "/";
+
+/** The public demo. It needs no account, Supabase, or Postgres. */
+export const DEMO_PATH = "/demo";
+
+export function isDemoPath(pathname: string): boolean {
+  return pathname === DEMO_PATH || pathname.startsWith(`${DEMO_PATH}/`);
+}
