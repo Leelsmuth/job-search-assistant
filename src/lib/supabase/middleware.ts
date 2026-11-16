@@ -36,6 +36,7 @@ export async function updateSession(request: NextRequest) {
     pathname === "/api/discovery/tick" ||
     pathname.startsWith("/api/discovery/tick/");
   const isPublicRoute =
+    pathname === "/" ||
     isAuthRoute ||
     isBearerRoute ||
     pathname.startsWith("/api/extension");
@@ -46,10 +47,12 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && isAuthRoute) {
+  if (user && (isAuthRoute || pathname === "/")) {
     const url = request.nextUrl.clone();
     url.pathname = "/jobs";
-    return NextResponse.redirect(url);
+    const redirect = NextResponse.redirect(url);
+    for (const cookie of supabaseResponse.cookies.getAll()) redirect.cookies.set(cookie);
+    return redirect;
   }
 
   return supabaseResponse;

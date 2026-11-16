@@ -2,12 +2,17 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isAppConfigured, isProtectedPath } from "@/lib/env";
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  if (pathname === "/demo" || pathname === "/demo/applications") {
+    return NextResponse.next();
+  }
+
   if (!isAppConfigured()) {
-    if (request.nextUrl.pathname.startsWith("/login")) {
+    if (pathname.startsWith("/login")) {
       return NextResponse.next();
     }
 
-    if (isProtectedPath(request.nextUrl.pathname)) {
+    if (isProtectedPath(pathname)) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("error", "missing_env");

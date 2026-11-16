@@ -2,6 +2,15 @@
 
 Evidence-backed job matching, application preparation, and tracking.
 
+## Try the demo without an account
+
+From a fresh checkout, run `pnpm install --frozen-lockfile` and `pnpm dev`.
+Open [the local landing page](http://localhost:3000) and choose **Try the demo**.
+The sample job feed and tracker work without an environment file, a database,
+or API keys. Save a job to add it to the tracker, set its status to **Applied**,
+and refresh to check that it persists. **Reset demo** clears your demo changes.
+Demo changes are stored in your browser under a dedicated key.
+
 ## First-time setup
 
 ### 1. Create a Supabase project
