@@ -9,6 +9,20 @@ export const DEMO_STORAGE_KEY = "jsa:demo-state:v1";
 export const DEMO_LIVE_SESSION_KEY = "jsa:demo-live:v1";
 
 /**
+ * sessionStorage key for the roles in the feed's compare tray (see
+ * src/app/demo/demo-compare-store.ts). Per tab, like live jobs: the tray
+ * survives opening a job and coming back, and is not a change Reset undoes.
+ */
+export const DEMO_COMPARE_SESSION_KEY = "jsa:demo-compare:v1";
+
+/**
+ * localStorage key for the visitor's ranked priorities used to score compared
+ * roles (see src/app/demo/demo-priorities-store.ts). A preference rather than
+ * demo data, so it outlasts the tab and Reset leaves it alone.
+ */
+export const DEMO_PRIORITIES_KEY = "jsa:demo-priorities:v1";
+
+/**
  * Set to "1" while the visitor has changes in the demo, removed otherwise.
  * Derived from the demo state and kept in sync by the demo store. It exists so
  * the landing page can pick the right call to action before React loads.

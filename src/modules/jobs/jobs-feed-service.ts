@@ -278,69 +278,10 @@ export async function fetchJobsFeed(
 
       const preferences =
         filters?.locationView ?? (await loadSearchPreferences(db, userId));
-      const profile = await loadFitProfile(db, userId);
-      const resumeDocument = await loadDefaultResumeText(db, userId);
-      let mapped: JobListItem[] = rows.map((row) => {
-        const item = mapRowToJobListItem(row);
-        const location = classifyLocationEligibility(
-          {
-            title: item.title,
-            location: item.location,
-            workplaceType: item.workplaceType,
-            description: row.description,
-          },
-          { gtaCities: preferences.gtaCities }
-        );
-        const storedScore = item.frontendFit?.score;
-        const fit =
-          storedScore == null
-            ? scoreFrontendFit(
-                {
-                  title: item.title,
-                  description: row.description,
-                  location: item.location,
-                  workplaceType: item.workplaceType,
-                  technologies: item.technologies,
-                  requirements: item.requirements,
-                  salaryMin: item.salaryMin,
-                  salaryMax: item.salaryMax,
-                  salaryCurrency: item.salaryCurrency,
-                },
-                {
-                  skills: profile.skills,
-                  targetTitles: preferences.targetTitles,
-                  yearsExperience: profile.yearsExperience,
-                  minimumSalaryCad: preferences.minimumSalaryCad ?? profile.minimumSalary,
-                },
-                preferences.gtaCities
-              )
-            : null;
-        return {
-          ...item,
-          locationClass: location.class,
-          locationFlags: location.flags,
-          frontendFit: fit
-            ? { score: fit.score, reasons: fit.reasons }
-            : item.frontendFit,
-          fitEligible: fit ? fit.eligible : item.fitEligible,
-          fitIneligibleReason: fit ? fit.ineligibleReason : item.fitIneligibleReason,
-          resumeScore: resumeDocument
-            ? scoreResumeMatch(
-                {
-                  title: item.title,
-                  description: row.description,
-                  technologies: item.technologies,
-                  requirements: item.requirements,
-                },
-                { text: resumeDocument.text, fileType: resumeDocument.fileType },
-                {
-                  skills: profile.skills,
-                  yearsExperience: profile.yearsExperience,
-                }
-              ).overall
-            : null,
-        };
-      });
+      const context = await loadFeedEnrichmentContext(db, userId, preferences);
+      let mapped: JobListItem[] = rows.map((row) =>
+        enrichJobListItem(mapRowToJobListItem(row), row.description, context)
+      );
       const minFitToShow = preferences.minFitToShow;
       const lowFitCount = mapped.filter(
         (job) =>
@@ -384,6 +325,98 @@ export async function fetchJobsFeed(
       payloadBytes: undefined,
     }
   );
+}
+
+export type FitProfile = Awaited<ReturnType<typeof loadFitProfile>>;
+
+/** What enrichJobListItem needs: loaded once per request, shared by every job. */
+export type FeedEnrichmentContext = {
+  preferences: SearchPreferences;
+  profile: FitProfile;
+  resumeDocument: Awaited<ReturnType<typeof loadDefaultResumeText>>;
+};
+
+export async function loadFeedEnrichmentContext(
+  db: Db,
+  userId: string,
+  preferences?: SearchPreferences
+): Promise<FeedEnrichmentContext> {
+  return {
+    preferences: preferences ?? (await loadSearchPreferences(db, userId)),
+    profile: await loadFitProfile(db, userId),
+    resumeDocument: await loadDefaultResumeText(db, userId),
+  };
+}
+
+/**
+ * What the feed shows for a job beyond its row: the location class for the
+ * person's area, the fit score (stored, or scored now when it is missing),
+ * and the resume score. Shared with the compare tray, so a role shows the
+ * same numbers in both.
+ */
+export function enrichJobListItem(
+  item: JobListItem,
+  description: string | null,
+  context: FeedEnrichmentContext
+): JobListItem {
+  const location = classifyLocationEligibility(
+    {
+      title: item.title,
+      location: item.location,
+      workplaceType: item.workplaceType,
+      description,
+    },
+    { gtaCities: context.preferences.gtaCities }
+  );
+  const storedScore = item.frontendFit?.score;
+  const fit =
+    storedScore == null
+      ? scoreFrontendFit(
+          {
+            title: item.title,
+            description,
+            location: item.location,
+            workplaceType: item.workplaceType,
+            technologies: item.technologies,
+            requirements: item.requirements,
+            salaryMin: item.salaryMin,
+            salaryMax: item.salaryMax,
+            salaryCurrency: item.salaryCurrency,
+          },
+          {
+            skills: context.profile.skills,
+            targetTitles: context.preferences.targetTitles,
+            yearsExperience: context.profile.yearsExperience,
+            minimumSalaryCad: context.preferences.minimumSalaryCad ?? context.profile.minimumSalary,
+          },
+          context.preferences.gtaCities
+        )
+      : null;
+  return {
+    ...item,
+    locationClass: location.class,
+    locationFlags: location.flags,
+    frontendFit: fit
+      ? { score: fit.score, reasons: fit.reasons }
+      : item.frontendFit,
+    fitEligible: fit ? fit.eligible : item.fitEligible,
+    fitIneligibleReason: fit ? fit.ineligibleReason : item.fitIneligibleReason,
+    resumeScore: context.resumeDocument
+      ? scoreResumeMatch(
+          {
+            title: item.title,
+            description,
+            technologies: item.technologies,
+            requirements: item.requirements,
+          },
+          { text: context.resumeDocument.text, fileType: context.resumeDocument.fileType },
+          {
+            skills: context.profile.skills,
+            yearsExperience: context.profile.yearsExperience,
+          }
+        ).overall
+      : null,
+  };
 }
 
 function feedScore(job: JobListItem): number {

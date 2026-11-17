@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Columns3, GripVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,6 +26,10 @@ import {
 import { demoActions, useDemoState } from "./demo-store";
 import { DEMO_TRACKER_HREF, demoJobHref } from "./demo-links";
 import { DemoLiveJobs } from "./demo-live-jobs";
+import { CompareTray } from "@/components/compare/compare-tray";
+import { compareDragProps } from "@/components/compare/compare-drag";
+import { toggleCompare, useCompare } from "@/components/compare/compare-context";
+import { DemoCompareProvider } from "./demo-compare-adapter";
 
 const selectClass = "mt-1 block min-h-10 rounded-md border border-input bg-background px-2 text-sm";
 
@@ -40,110 +45,114 @@ export function DemoFeed() {
     filters.search.trim() !== "" || filters.workplace !== "all" || filters.showDismissed;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold sm:text-2xl">Job Feed</h1>
-        <p className="text-sm text-muted-foreground">
-          {items.length} sample roles, scored against a sample frontend profile. Save one to add it
-          to your tracker.
-        </p>
-      </div>
-
-      <div className="space-y-4 rounded-lg border border-border p-4">
+    <DemoCompareProvider>
+      <div className="space-y-6">
         <div>
-          <Label htmlFor="demo-search" className="text-xs">
-            Search
-          </Label>
-          <Input
-            id="demo-search"
-            type="search"
-            className="mt-1 w-full sm:max-w-md"
-            placeholder="Title, company, or skill"
-            value={filters.search}
-            onChange={(event) => patch({ search: event.target.value })}
-          />
-        </div>
-        <div className="flex flex-wrap items-end gap-4">
-          <div>
-            <Label htmlFor="demo-workplace" className="text-xs">
-              Workplace
-            </Label>
-            <select
-              id="demo-workplace"
-              className={selectClass}
-              value={filters.workplace}
-              onChange={(event) => patch({ workplace: event.target.value as DemoWorkplaceFilter })}
-            >
-              <option value="all">All</option>
-              <option value="remote">Remote</option>
-              <option value="hybrid">Hybrid</option>
-              <option value="on_site">On-site</option>
-            </select>
-          </div>
-          <div>
-            <Label htmlFor="demo-sort" className="text-xs">
-              Sort
-            </Label>
-            <select
-              id="demo-sort"
-              className={selectClass}
-              value={filters.sort}
-              onChange={(event) => patch({ sort: event.target.value as DemoFeedSort })}
-            >
-              <option value="match">Best match</option>
-              <option value="newest">Newest posted</option>
-              <option value="salary">Highest salary</option>
-            </select>
-          </div>
-          <Button
-            variant={filters.showDismissed ? "default" : "outline"}
-            size="sm"
-            className="min-h-10"
-            aria-pressed={filters.showDismissed}
-            onClick={() => patch({ showDismissed: !filters.showDismissed })}
-          >
-            {filters.showDismissed ? "Hide dismissed" : `Show dismissed (${dismissedCount})`}
-          </Button>
-        </div>
-      </div>
-
-      <DemoLiveJobs filters={filters} />
-
-      <section aria-labelledby="demo-sample-jobs-heading" className="space-y-2">
-        <div>
-          <h2 id="demo-sample-jobs-heading" className="font-semibold">
-            Sample jobs
-          </h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Fictional roles with sample fit scores. Save, dismiss, and track them as you like.
+          <h1 className="text-xl font-bold sm:text-2xl">Job Feed</h1>
+          <p className="text-sm text-muted-foreground">
+            {items.length} sample roles, scored against a sample frontend profile. Save one to add it
+            to your tracker, or drag two to four into Compare to weigh them side by side.
           </p>
         </div>
-        {items.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">No sample jobs match these filters.</p>
-              {filtered ? (
-                <Button
-                  variant="outline"
-                  className="mt-4"
-                  onClick={() => setFilters(DEFAULT_DEMO_FEED_FILTERS)}
-                >
-                  Clear filters
-                </Button>
-              ) : null}
-            </CardContent>
-          </Card>
-        ) : (
-          <ul className="space-y-2" aria-label="Sample jobs">
-            {items.map((item) => (
-              <li key={item.job.id}>
-                <DemoJobRow item={item} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
+
+        <div className="space-y-4 rounded-lg border border-border p-4">
+          <div>
+            <Label htmlFor="demo-search" className="text-xs">
+              Search
+            </Label>
+            <Input
+              id="demo-search"
+              type="search"
+              className="mt-1 w-full sm:max-w-md"
+              placeholder="Title, company, or skill"
+              value={filters.search}
+              onChange={(event) => patch({ search: event.target.value })}
+            />
+          </div>
+          <div className="flex flex-wrap items-end gap-4">
+            <div>
+              <Label htmlFor="demo-workplace" className="text-xs">
+                Workplace
+              </Label>
+              <select
+                id="demo-workplace"
+                className={selectClass}
+                value={filters.workplace}
+                onChange={(event) => patch({ workplace: event.target.value as DemoWorkplaceFilter })}
+              >
+                <option value="all">All</option>
+                <option value="remote">Remote</option>
+                <option value="hybrid">Hybrid</option>
+                <option value="on_site">On-site</option>
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="demo-sort" className="text-xs">
+                Sort
+              </Label>
+              <select
+                id="demo-sort"
+                className={selectClass}
+                value={filters.sort}
+                onChange={(event) => patch({ sort: event.target.value as DemoFeedSort })}
+              >
+                <option value="match">Best match</option>
+                <option value="newest">Newest posted</option>
+                <option value="salary">Highest salary</option>
+              </select>
+            </div>
+            <Button
+              variant={filters.showDismissed ? "default" : "outline"}
+              size="sm"
+              className="min-h-10"
+              aria-pressed={filters.showDismissed}
+              onClick={() => patch({ showDismissed: !filters.showDismissed })}
+            >
+              {filters.showDismissed ? "Hide dismissed" : `Show dismissed (${dismissedCount})`}
+            </Button>
+          </div>
+        </div>
+
+        <DemoLiveJobs filters={filters} />
+
+        <section aria-labelledby="demo-sample-jobs-heading" className="space-y-2">
+          <div>
+            <h2 id="demo-sample-jobs-heading" className="font-semibold">
+              Sample jobs
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Fictional roles with sample fit scores. Save, dismiss, and track them as you like.
+            </p>
+          </div>
+          {items.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-muted-foreground">No sample jobs match these filters.</p>
+                {filtered ? (
+                  <Button
+                    variant="outline"
+                    className="mt-4"
+                    onClick={() => setFilters(DEFAULT_DEMO_FEED_FILTERS)}
+                  >
+                    Clear filters
+                  </Button>
+                ) : null}
+              </CardContent>
+            </Card>
+          ) : (
+            <ul className="space-y-2" aria-label="Sample jobs">
+              {items.map((item) => (
+                <li key={item.job.id}>
+                  <DemoJobRow item={item} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <CompareTray />
+      </div>
+    </DemoCompareProvider>
   );
 }
 
@@ -151,6 +160,15 @@ function DemoJobRow({ item }: { item: DemoFeedItem }) {
   const { job, isSaved, isDismissed, trackedStatus } = item;
   const router = useRouter();
   const { toast } = useToast();
+  const compare = useCompare();
+  const inCompare = compare?.slots.includes(job.id) ?? false;
+  const dragging = compare?.draggingId === job.id;
+  const dragProps = compare
+    ? compareDragProps(
+        { id: job.id, title: job.title, company: job.company, fitScore: job.fitScore },
+        compare
+      )
+    : {};
   const age = postingAgeLabel({
     postedAt: item.postedAt,
     postedAtSource: "provider",
@@ -194,8 +212,24 @@ function DemoJobRow({ item }: { item: DemoFeedItem }) {
   }
 
   return (
-    <Card className={cn("transition-colors hover:bg-accent/50", isDismissed && "opacity-60")}>
-      <CardContent className="space-y-3 p-4 sm:space-y-0">
+    <Card
+      {...dragProps}
+      className={cn(
+        "group relative transition-colors hover:bg-accent/50",
+        isDismissed && "opacity-60",
+        inCompare && "border-primary/40",
+        dragging && "opacity-50"
+      )}
+    >
+      {/* Touch devices cannot drag; the Compare button below covers them. */}
+      <span
+        aria-hidden="true"
+        title="Drag to compare"
+        className="absolute inset-y-0 left-0 hidden w-5 cursor-grab items-center justify-center text-muted-foreground/50 group-hover:text-muted-foreground active:cursor-grabbing sm:flex"
+      >
+        <GripVertical className="h-4 w-4" />
+      </span>
+      <CardContent className="space-y-3 p-4 sm:space-y-0 sm:pl-6">
         <Link
           href={demoJobHref(job.id)}
           className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4"
@@ -266,6 +300,19 @@ function DemoJobRow({ item }: { item: DemoFeedItem }) {
               <Link href={DEMO_TRACKER_HREF}>View in tracker</Link>
             </Button>
           ) : null}
+          <Button
+            variant={inCompare ? "secondary" : "outline"}
+            size="sm"
+            className="min-h-10"
+            aria-pressed={inCompare}
+            aria-label={inCompare ? `Remove ${subject} from compare` : `Add ${subject} to compare`}
+            onClick={() => compare && toggleCompare(compare, job.id)}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <Columns3 className="h-3.5 w-3.5" aria-hidden="true" />
+              {inCompare ? "Comparing" : "Compare"}
+            </span>
+          </Button>
           <Button
             variant="ghost"
             size="sm"

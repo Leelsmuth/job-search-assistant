@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Columns3, GripVertical } from "lucide-react";
 import {
   toggleSaveJob,
   dismissJob,
@@ -23,6 +24,8 @@ import { JobSourceBadge } from "@/components/jobs/job-source-badge";
 import { ResumeScoreBadge } from "@/components/jobs/resume-score-badge";
 import type { JobListItem } from "@/modules/jobs/job-list-item";
 import { postingAgeClass, postingAgeLabel } from "@/modules/jobs/posting-age";
+import { toggleCompare, useCompare } from "@/components/compare/compare-context";
+import { compareDragProps } from "@/components/compare/compare-drag";
 
 export function JobFeedRow({
   job,
@@ -44,6 +47,17 @@ export function JobFeedRow({
   const [saved, setSaved] = useState(job.isSaved);
   const match = job.match;
   const actionKey = `feed-${job.id}`;
+  const companyName = job.company?.name ?? "Unknown company";
+  const subject = `${job.title} at ${companyName}`;
+  const compare = useCompare();
+  const inCompare = compare?.slots.includes(job.id) ?? false;
+  const dragging = compare?.draggingId === job.id;
+  const dragProps = compare
+    ? compareDragProps(
+        { id: job.id, title: job.title, company: companyName, fitScore: job.frontendFit?.score ?? null },
+        compare
+      )
+    : {};
   const age = postingAgeLabel({
     postedAt: job.postedAt,
     postedAtSource: job.postedAtSource,
@@ -52,13 +66,26 @@ export function JobFeedRow({
 
   return (
     <Card
+      {...dragProps}
       className={cn(
-        "transition-colors hover:bg-accent/50",
-        deleting && "pointer-events-none opacity-60"
+        "group relative transition-colors hover:bg-accent/50",
+        deleting && "pointer-events-none opacity-60",
+        inCompare && "border-primary/40",
+        dragging && "opacity-50"
       )}
       aria-busy={deleting}
     >
-      <CardContent className="space-y-3 p-4 sm:space-y-0">
+      {compare ? (
+        // Touch devices cannot drag; the Compare button below covers them.
+        <span
+          aria-hidden="true"
+          title="Drag to compare"
+          className="absolute inset-y-0 left-0 hidden w-5 cursor-grab items-center justify-center text-muted-foreground/50 group-hover:text-muted-foreground active:cursor-grabbing sm:flex"
+        >
+          <GripVertical className="h-4 w-4" />
+        </span>
+      ) : null}
+      <CardContent className={cn("space-y-3 p-4 sm:space-y-0", compare && "sm:pl-6")}>
         <Link href={`/jobs/${job.id}`} className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4">
           <div className="w-12 shrink-0 text-center sm:w-14">
             <div className="text-lg font-bold sm:text-xl">
@@ -204,6 +231,21 @@ export function JobFeedRow({
           >
             Dismiss
           </Button>
+          {compare ? (
+            <Button
+              variant={inCompare ? "secondary" : "outline"}
+              size="sm"
+              className="min-h-10"
+              aria-pressed={inCompare}
+              aria-label={inCompare ? `Remove ${subject} from compare` : `Add ${subject} to compare`}
+              onClick={() => toggleCompare(compare, job.id)}
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <Columns3 className="h-3.5 w-3.5" aria-hidden="true" />
+                {inCompare ? "Comparing" : "Compare"}
+              </span>
+            </Button>
+          ) : null}
           <JobDeleteButton
             jobId={job.id}
             jobTitle={job.title}
