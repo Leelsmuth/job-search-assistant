@@ -374,6 +374,13 @@ export const searchPreferences = pgTable("search_preferences", {
   hideJobsOlderThanDays: integer("hide_jobs_older_than_days"),
   alertQuietStartMinute: integer("alert_quiet_start_minute").notNull().default(22 * 60),
   alertQuietEndMinute: integer("alert_quiet_end_minute").notNull().default(7 * 60),
+  /**
+   * The job feed's compare tray, slot by slot: a job id or null (at most four).
+   * Slots keep the place each job was dropped in. See src/modules/compare.
+   */
+  compareSlots: jsonb("compare_slots").$type<(string | null)[]>().notNull().default([]),
+  /** Ranked priorities for scoring compared jobs, most important first. Null until changed. */
+  comparePriorities: jsonb("compare_priorities").$type<string[] | null>(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

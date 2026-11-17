@@ -23,6 +23,10 @@ Demo state lives in the browser's `localStorage` under `jsa:demo-state:v1`. Noth
 
 If the dev server cannot reach Greenhouse (a sandbox or an offline laptop), set `DEMO_LIVE_JOBS_SNAPSHOT=1` in `.env.local` to serve the bundled sample response (`src/modules/demo/snapshots/greenhouse-tailscale.json`; illustrative jobs, links to the real board page), or set it to the path of a saved real response, e.g. from `curl -o tmp/greenhouse.json https://boards-api.greenhouse.io/v1/boards/tailscale/jobs` on a machine with internet. The file goes through the same selection as live data, is re-read on every load, and is shown with a **Snapshot** label and a "Development snapshot, not live data" notice. It only works under `pnpm dev`: production builds, including Vercel previews, ignore the variable, log a warning, and call Greenhouse.
 
+**Compare** on the demo feed puts two to four sample jobs side by side. Drag a job card into the **Compare roles** tray docked at the bottom of the feed (the card travels as a small chip shaped like a tray slot, so it never covers the tray), or use the job's **Compare** button (the keyboard and touch alternative; phones cannot drag, so the tray only appears there once a role is added). The tray has four numbered slots, and a dragged job lands in the slot it is dropped on: drop it on slot 3 and it sits in slot 3, with any gaps left as they are. Dropping on a taken slot puts the job there and shifts the jobs in the way one slot towards the nearest empty slot, so nothing is pushed out. While dragging, the slot under the pointer lights up and the tray says what letting go will do ("Drop into slot 3; Senior Frontend Engineer moves over"). Drag a slot, or a job already in the tray, onto another slot to move it. The **Compare** button and drops outside the slots use the first empty slot. Removing a job empties its slot without moving the others, and the comparison's columns follow slot order. A fifth role is shown as refused while it is dragged, and the tray explains why on drop. **Compare** stays disabled until two roles are in. The comparison dialog lines the roles up by fit, salary, eligibility, location, posting age, why each fits, the top gap, requirements, nice-to-haves, tech stack (skills on the sample profile are ticked), and tracker status, and marks the best fit, highest salary, and newest posting. Salaries in different currencies are not ranked against each other. Live jobs cannot be compared, since they have no fit score, salary, or requirements. The tray is kept in `sessionStorage` under `jsa:demo-compare:v1` as four slots, with `null` for an empty one (an older plain list of ids still loads), so it survives opening a job and coming back, and like live jobs it is not a demo change. The rules are pure and shared with the signed-in feed (`src/modules/compare/`; the demo binds them to its sample jobs in `src/modules/demo/demo-compare.ts`). The tray, dialog, and ranker are shared too (`src/components/compare/`); `src/app/demo/demo-compare-adapter.tsx` backs them with the demo's browser stores. See [Comparing roles](#comparing-roles-on-the-job-feed) for the signed-in version.
+
+**Priorities** turn the comparison into a ranking matrix. The visitor ranks five priorities (fit, salary, location, remote, and freshness) by dragging them (mouse anywhere on an item, touch on its grip; the arrow buttons do the same from the keyboard). #1 is worth 5 points and #5 is worth 1, and each compared role earns a share of every priority's points: its fit score as a percentage, its top salary against the best-paying role, all or nothing for location (no points when it needs US work authorization or is out of area), all, half, or none for remote, hybrid, or on-site, and freshness fading to nothing over 30 days. The **Your score** row shows each role's total and per-priority points, and a note at the top names the best role for those priorities and what it leads on. We suggest fit first and say why when fit drops below #2, and when the winner is not the role the visitor fits best, the note says which one is; a winner with a location blocker gets a warning. The visitor's order always decides the winner. Salary is left out of the score when the roles pay in different currencies. Anything a posting does not say (salary, work arrangement, location) and a role without a fit score yet earns half that priority's points, shown as "(half points)" under a lighter bar: unknown is neutral, neither rewarded nor punished. Priorities can be set from the tray's **Priorities** button before comparing, or changed inside the comparison, where the score updates as they move. The order is kept in `localStorage` under `jsa:demo-priorities:v1`, so a returning visitor gets their own order rather than the suggestion; it is a preference, so **Reset demo** leaves it alone. A line under the list says where the order stands: before any change, that changes are saved in this browser; after one, **Saved just now in this browser**, settling to **Saved in this browser, so it's here next time**. If the browser refuses the write (private windows, blocked site data), it says the order lasts only until reload instead of claiming it saved. Scoring is pure and lives in `src/modules/compare/priorities.ts`; the ranker is `src/components/compare/priorities.tsx`.
+
 The landing page (`/`), `/demo`, and `/api/demo` are public. Every other page still needs sign-in, and signed-in users who open `/` go straight to `/jobs`. The middleware skips the Supabase session check for `/demo` and `/api/demo`.
 
 ## First-time setup
@@ -193,9 +197,21 @@ Create a token in **Settings → Browser extension**, then load the unpacked bui
 1. **Profile** — confirm skills, experience, preferences at `/profile`
 2. **Discovery** — browse the catalog and add boards at `/discovery`
 3. **Settings** — poll saved boards, review board health, and save the application profile (`/settings`)
-4. **Review feed** — search, filter, save/dismiss from `/jobs`
+4. **Review feed** — search, filter, save/dismiss, and compare roles against your priorities at `/jobs`
 5. **Prepare** — tailoring, per-job resume and cover letter, and Prepare application on the job page
 6. **Track** — table or Kanban at `/applications`
+
+## Comparing roles on the job feed
+
+Signed-in users get the same **Compare** tray, comparison, and **Priorities** ranking as the demo (see [the demo section](#try-it-without-setup) for how dragging, slots, scoring, and the note on the best role work). Differences:
+
+- **Kept on the account.** The tray (slot by slot, gaps included) and the ranked priorities are saved on the user's `search_preferences` row (`compare_slots`, `compare_priorities`), so they follow the user across tabs and devices. Changes show at once and save in the background, one at a time; the priorities panel says **Saving…**, then **Saved just now to your account**. If a tray save fails, the tray goes back to how it was last saved and says so; if a priorities save fails, the new order stays for the page and the panel says it is not saved. Saving never touches `updated_at` and never rescores jobs.
+- **The user's own numbers.** Fit is the number the feed shows (the stored fit score, or the same live score the feed computes when none is stored; both come from `enrichJobListItem` in `src/modules/jobs/jobs-feed-service.ts`). Location follows the user's Settings: Remote-Canada, and hybrid or on-site in their area when those are turned on, earn the points; needing US work authorization, remote outside Canada, or out of area earn none. Most job boards do not publish salaries, so a role without one earns half the salary points. The comparison also shows the match analysis label and gap when a role has been analysed ("Not analysed yet" otherwise) and a **Resume match** row when the user has a resume.
+- **Only the user's jobs.** Every save and load checks the ids against the user's own jobs (and RLS applies on top), so other ids become empty slots, and a job deleted since it was added drops out. Feed filters do not touch the tray.
+
+**Apply [`drizzle/migrations/0025_compare_tray.sql`](drizzle/migrations/0025_compare_tray.sql) in the Supabase SQL editor before deploying this.** Drizzle names every column of `search_preferences` when it inserts a row, so until the columns exist, saving Settings (and alerts, digest, and discovery settings) fails with "column does not exist". The feed itself keeps working without the migration: the tray and ranking work for the page and say they are not saved. The migration only adds two columns and their checks; the existing "Users own their search preferences" policy covers them. No environment variables are needed.
+
+Code: `src/modules/compare/` (rules, scoring, and `compare-db.ts` for the database), `src/server/actions/compare-actions.ts`, `src/app/(dashboard)/jobs/account-compare.tsx` (the account-backed provider), and the shared UI in `src/components/compare/`. Server logs start with `[compare]`.
 
 ## Spreadsheet import and export
 
@@ -321,6 +337,14 @@ During board polling, jobs are filtered **before** database insert using determi
 RUN_DB_INTEGRATION=true DATABASE_URL=postgresql://… pnpm test src/test/integration/tracker-import-db.test.ts
 ```
 
+### Compare tray database test (optional)
+
+`src/test/integration/compare-db.test.ts` runs the signed-in compare tray and priorities against a real Postgres through `withUserDb`, with RLS: slot positions, the roles' numbers, location settings, other users' jobs and rows, deleted jobs, the four-slot check, and that saving leaves the rest of `search_preferences` alone. Set the database up as above, including `0025_compare_tray.sql`.
+
+```bash
+RUN_DB_INTEGRATION=true DATABASE_URL=postgresql://… pnpm test src/test/integration/compare-db.test.ts
+```
+
 ### RLS integration test (optional)
 
 After applying `0002_rls_policies.sql`, you can run the database isolation test against your Supabase instance:
@@ -336,7 +360,7 @@ Optional env vars:
 | `RLS_TEST_USER_A` | UUID for user A (defaults to random UUID per run) |
 | `RLS_TEST_USER_B` | UUID for user B (defaults to random UUID per run) |
 
-Signed-in E2E tests require `E2E_TEST_EMAIL` and `E2E_TEST_PASSWORD` in the environment. The demo E2E tests (`src/test/e2e/demo.spec.ts`) need no env vars.
+Signed-in E2E tests require `E2E_TEST_EMAIL` and `E2E_TEST_PASSWORD` in the environment. The demo E2E tests (`src/test/e2e/demo.spec.ts` and `demo-compare.spec.ts`) need no env vars.
 
 ## Stack
 

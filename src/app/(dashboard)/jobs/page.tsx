@@ -7,6 +7,10 @@ import { JobsFeedFilters } from "./jobs-feed-filters";
 import { JobFeedRow } from "./job-feed-row";
 import { isAnalysisStale } from "@/modules/matching/stale";
 import { computeExtractionQuality } from "@/modules/ingestion/extract-requirements";
+import { getCompareState } from "@/server/actions/compare-actions";
+import type { AccountCompareState } from "@/modules/compare/compare-db";
+import { CompareTray } from "@/components/compare/compare-tray";
+import { AccountCompareProvider } from "./account-compare";
 
 export default async function JobsPage({
   searchParams,
@@ -66,8 +70,9 @@ export default async function JobsPage({
   const jobs = feed.jobs;
   const profileUpdatedAt = feed.profileUpdatedAt;
   const hasAnyJobs = counts.totalActive > 0;
+  const compare = await loadCompare();
 
-  return (
+  const content = (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
@@ -151,8 +156,35 @@ export default async function JobsPage({
           })}
         </div>
       )}
+      {/* Docked after the sidebar on wide screens. */}
+      {compare ? <CompareTray className="inset-x-0 lg:left-56" /> : null}
     </div>
   );
+
+  if (!compare) return content;
+  return (
+    <AccountCompareProvider
+      initial={compare}
+      feed={jobs.map((job) => ({
+        id: job.id,
+        title: job.title,
+        company: job.company?.name ?? "Unknown company",
+        fitScore: job.frontendFit?.score ?? null,
+      }))}
+    >
+      {content}
+    </AccountCompareProvider>
+  );
+}
+
+/** The saved tray and ranking. The feed still works without them if they cannot be loaded. */
+async function loadCompare(): Promise<AccountCompareState | null> {
+  try {
+    return await getCompareState();
+  } catch (error) {
+    console.error("[compare] could not load the compare tray", error);
+    return null;
+  }
 }
 
 function flagParam(value: string | undefined, fallback: boolean): boolean {
